@@ -1,0 +1,42 @@
+# Bagimliliklar
+node_modules
+.pnpm-store
+
+# Derleme ciktilari
+dist
+dist-ssr
+*.local
+
+# Ortam degiskenleri (ornek dosya haric)
+.env
+.env.*
+!.env.example
+
+# Test ciktilari
+coverage
+playwright-report
+test-results
+/blob-report/
+.playwright
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Loglar
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Supabase yerel / gecici
+supabase/.temp
+supabase/.branches
+.branches
