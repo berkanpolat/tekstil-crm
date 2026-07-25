@@ -394,6 +394,11 @@ deno_version = 2
 [functions.create-user]
 verify_jwt = true
 
+# bootstrap-owner: kimliksiz uç (henüz kullanıcı yok). Güvenlik X-Bootstrap-Secret
+# + "public.users boş olmalı" ile sağlanır; verify_jwt kapalı olmak zorunda.
+[functions.bootstrap-owner]
+verify_jwt = false
+
 [functions.reset-user-password]
 verify_jwt = true
 

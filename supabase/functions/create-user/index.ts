@@ -1,14 +1,13 @@
-// create-user — Yönetici (owner/admin) tarafından çalışan oluşturma.
-// service_role yalnızca burada (Edge runtime) kullanılır; frontend asla görmez.
+// create-user — Yönetici (owner/admin) tarafından çalışan oluşturma (İKİ ADIMLI).
 //
-// Güvenlik:
-//   * Yetki, has_permission ile DEĞİL, çağıranın ROLÜ ile kontrol edilir
-//     (yalnızca owner/admin).
-//   * role_id sunucuda doğrulanır: owner rolünü yalnızca owner atayabilir.
-//   * app_metadata (created_by_admin/role_id/created_by) SUNUCU tarafından
-//     doldurulur; istemci değerine güvenilmez.
-//   * Profil + rol TEK insert''te handle_new_user() ile yazılır (rollback yok).
-//   * Hata mesajları bilgi sızdırmaz (e-posta var/yok gibi); detay loga gider.
+// GoTrue admin.createUser'a gönderilen app_metadata, AFTER INSERT trigger'ına
+// görünmediği için (bkz. docs), yetki/profil alanları trigger'da DEĞİL, burada
+// insert SONRASI service_role UPDATE ile yazılır (fail-closed):
+//   1) admin.createUser (user_metadata: full_name + created_by_admin=true yedek kilit)
+//   2) users satırını UPDATE: role_id, department_id, position_id, phone,
+//      created_by, must_change_password
+//   UPDATE başarısızsa kullanıcı BAN'lanır (deleteUser FK restrict yüzünden
+//   çalışmaz) ve hata döner → rolsüz/yarım kullanıcı kalmaz (güvenli durum).
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import {
   adminClient,
@@ -29,13 +28,14 @@ interface CreateUserBody {
   phone?: string | null
 }
 
+const BAN_DURATION = '876000h'
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     if (req.method !== 'POST') throw new HttpError(405, 'Yalnızca POST kabul edilir.')
 
-    // Çağıran owner/admin mi?
     const caller = await authenticateCaller(req)
     requireRole(caller, USER_MANAGEMENT_ROLES)
 
@@ -60,32 +60,46 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Tek adımda oluştur: handle_new_user() profili+rolü tek insert''te yazar.
-    // Profil alanları user_metadata (yetki dışı), yetki alanları app_metadata.
+    // 1) Auth kullanıcısı. created_by_admin YEDEK kilit için user_metadata'da
+    //    (app_metadata insert'te trigger'a görünmüyor). role_id burada YOK —
+    //    metadata forge edilse bile yetki sızmasın diye adım 2'de yazılır.
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password: body.password,
       email_confirm: true,
-      user_metadata: {
-        full_name: body.full_name.trim(),
-        phone: body.phone ?? null,
-        department_id: body.department_id ?? null,
-        position_id: body.position_id ?? null,
-      },
-      app_metadata: {
-        created_by_admin: true,
-        role_id: requestedRoleId,
-        created_by: caller.user.id,
-      },
+      user_metadata: { full_name: body.full_name.trim(), created_by_admin: true },
     })
-
     if (createError || !created.user) {
-      // Detayı loga yaz, dışarıya GENEL mesaj (e-posta enumerasyonunu önle).
-      console.error('create-user failed:', createError?.message)
+      console.error('create-user step1 failed:', createError?.message)
       throw new HttpError(400, 'Kullanıcı oluşturulamadı. Bilgileri kontrol edin.')
     }
 
-    return jsonResponse({ id: created.user.id }, 201)
+    const userId = created.user.id
+
+    // 2) Yetki + profil alanlarını service_role ile yaz (trigger role_id=null bıraktı).
+    const { error: updateError } = await admin
+      .from('users')
+      .update({
+        role_id: requestedRoleId,
+        department_id: body.department_id ?? null,
+        position_id: body.position_id ?? null,
+        phone: body.phone ?? null,
+        created_by: caller.user.id,
+        must_change_password: true,
+      })
+      .eq('id', userId)
+
+    if (updateError) {
+      // FAIL-CLOSED: yapılandırılamayan kullanıcıyı askıya al (ban), sil DEĞİL.
+      console.error('create-user step2 update failed:', updateError.message)
+      await admin.auth.admin.updateUserById(userId, { ban_duration: BAN_DURATION })
+      throw new HttpError(
+        500,
+        'Kullanıcı oluşturuldu ancak yapılandırılamadı; hesap askıya alındı. Yöneticiye başvurun.',
+      )
+    }
+
+    return jsonResponse({ id: userId }, 201)
   } catch (error) {
     if (error instanceof HttpError) {
       return jsonResponse({ error: error.message }, error.status)
