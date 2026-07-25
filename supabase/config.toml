@@ -385,6 +385,21 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# ---------------------------------------------------------------------------
+# Yönetim işlemleri Edge Function'ları. verify_jwt = true → yalnızca geçerli
+# oturumla çalışır; fonksiyon içinde ayrıca has_permission() ile yetki denetimi
+# yapılır. service_role anahtarı Edge runtime'ına Supabase tarafından otomatik
+# enjekte edilir; frontend'e / .env'e asla konmaz.
+# ---------------------------------------------------------------------------
+[functions.create-user]
+verify_jwt = true
+
+[functions.reset-user-password]
+verify_jwt = true
+
+[functions.set-user-active]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327
