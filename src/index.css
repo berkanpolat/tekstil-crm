@@ -4,73 +4,75 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ==========================================================================
- * Tekstil A.Ş. CRM — tasarım token'ları (P0.9, doküman bölüm 4)
- * Tasarım dili: ikas dashboard yerleşimi; renkler kurumsal palet (mor YOK).
+ * Tekstil A.Ş. CRM — tasarım token'ları · ikas paleti
+ * Tasarım dili + renkler: ikas dashboard. Lacivert/turuncu YOK; ikas moru
+ * (#6E55FF) birincil vurgu. Turuncu yalnızca logonun kendi içinde kalır.
  * Bileşenlerde ham hex YAZILMAZ; bu değişkenler/utility'ler kullanılır.
  * ======================================================================== */
 :root {
-  /* Marka */
-  --brand-navy: #1f2f57;
-  --brand-navy-700: #17233f;
-  --brand-orange: #ef7e1d;
-  --brand-orange-600: #d96f14;
+  /* Vurgu — ikas moru */
+  --accent-primary: #6e55ff;
+  --accent-hover: #5b43f0;
+  --accent-pale: #efedff;
 
   /* Yüzeyler */
-  --bg-page: #f4f5f7;
+  --bg-page: #f3f5f9;
   --bg-card: #ffffff;
   --bg-subtle: #f9fafb;
   --border-soft: #eaecef;
   --border-strong: #d5d9e0;
 
   /* Metin */
-  --text-primary: #101828;
-  --text-secondary: #667085;
-  --text-muted: #98a2b3;
+  --text-primary: #131318;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
   --text-on-dark: #ffffff;
 
-  /* Durum renkleri — pastel zemin + koyu metin */
-  --success-bg: #ecfdf3;
-  --success-fg: #027a48;
-  --warning-bg: #fffaeb;
+  /* Sidebar — neredeyse siyah (lacivert değil) */
+  --sidebar-bg: #131318;
+  --sidebar-text: #a9a9ab;
+  --sidebar-text-active: #ffffff;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-item-active: rgba(255, 255, 255, 0.1);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* Rozetler — ikas pastelleri */
+  --success-bg: #e7faee;
+  --success-fg: #067647;
+  --warning-bg: #fef8ee;
   --warning-fg: #b54708;
-  --danger-bg: #fef3f2;
-  --danger-fg: #b42318;
-  --info-bg: #eff4ff;
-  --info-fg: #3538cd;
+  --danger-bg: #ffeff3;
+  --danger-fg: #c01048;
+  --info-bg: #efedff;
+  --info-fg: #5b43f0;
   --neutral-bg: #f2f4f7;
-  --neutral-fg: #344054;
+  --neutral-fg: #475467;
 
   /* Yarıçap */
-  --radius: 0.75rem; /* 12px kart */
-  --radius-input: 0.5rem; /* 8px */
-  --radius-pill: 0.375rem; /* 6px */
+  --radius: 0.75rem;
+  --radius-input: 0.5rem;
+  --radius-pill: 0.375rem;
 
-  /* shadcn/ui semantik token eşlemesi (marka paletine) */
+  /* shadcn/ui semantik eşleme (ikas paletine) */
   --background: var(--bg-page);
   --foreground: var(--text-primary);
   --card: var(--bg-card);
   --card-foreground: var(--text-primary);
   --popover: var(--bg-card);
   --popover-foreground: var(--text-primary);
-  --primary: var(--brand-orange);
+  --primary: var(--accent-primary);
   --primary-foreground: #ffffff;
   --secondary: var(--neutral-bg);
   --secondary-foreground: var(--neutral-fg);
   --muted: var(--bg-subtle);
   --muted-foreground: var(--text-secondary);
-  --accent: var(--info-bg);
-  --accent-foreground: var(--info-fg);
+  --accent: var(--accent-pale);
+  --accent-foreground: var(--accent-hover);
   --destructive: var(--danger-fg);
   --destructive-foreground: #ffffff;
   --border: var(--border-soft);
   --input: var(--border-strong);
-  --ring: var(--brand-orange);
-
-  /* Sidebar (lacivert zemin) */
-  --sidebar: var(--brand-navy);
-  --sidebar-foreground: #e6e9f0;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --ring: var(--accent-primary);
 }
 
 @theme inline {
@@ -95,11 +97,10 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Marka renkleri (utility: bg-navy, text-orange vb.) */
-  --color-navy: var(--brand-navy);
-  --color-navy-700: var(--brand-navy-700);
-  --color-orange: var(--brand-orange);
-  --color-orange-600: var(--brand-orange-600);
+  /* Vurgu */
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pale: var(--accent-pale);
 
   /* Yüzey/metin yardımcıları */
   --color-page: var(--bg-page);
@@ -122,9 +123,11 @@
   --color-neutral-badge-foreground: var(--neutral-fg);
 
   /* Sidebar */
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-text);
+  --color-sidebar-foreground-active: var(--sidebar-text-active);
+  --color-sidebar-hover: var(--sidebar-item-hover);
+  --color-sidebar-active: var(--sidebar-item-active);
   --color-sidebar-border: var(--sidebar-border);
 
   /* Yarıçap */
@@ -134,8 +137,8 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Gölge — çok hafif (ikas gibi) */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-pop: 0 8px 24px rgba(16, 24, 40, 0.1);
+  --shadow-card: 0 1px 2px rgba(19, 19, 24, 0.05);
+  --shadow-pop: 0 8px 24px rgba(19, 19, 24, 0.1);
 
   /* Tipografi */
   --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -152,7 +155,7 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  /* Odak halkası: turuncu, 2px, 2px offset (klavye erişilebilirliği) */
+  /* Odak halkası: mor, 2px, 2px offset (klavye erişilebilirliği) */
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;

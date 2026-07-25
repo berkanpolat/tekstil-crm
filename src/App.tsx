@@ -5,8 +5,17 @@ import { RequireAuth, RequirePasswordChanged, RedirectIfAuthed } from '@/compone
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
 import { ChangePasswordPage } from '@/pages/auth/ChangePasswordPage'
-import { SettingsLayout, SettingsPlaceholder } from '@/pages/settings/SettingsLayout'
+import { SettingsLayout } from '@/pages/settings/SettingsLayout'
 import { StaffListPage } from '@/pages/staff/StaffListPage'
+import { DepartmentsPage } from '@/pages/settings/DepartmentsPage'
+import { PositionsPage } from '@/pages/settings/PositionsPage'
+import {
+  CompanySettings,
+  SecuritySettings,
+  WorkingHoursSettings,
+  SystemSettings,
+} from '@/pages/settings/SettingsTabs'
+import { ProfilePage } from '@/pages/ProfilePage'
 import { NAV_ITEMS } from '@/lib/navigation'
 
 /**
@@ -34,15 +43,17 @@ export default function App() {
               <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
             ))}
 
+            <Route path="/profil" element={<ProfilePage />} />
+
             <Route path="/ayarlar" element={<SettingsLayout />}>
               <Route index element={<Navigate to="/ayarlar/calisanlar" replace />} />
               <Route path="calisanlar" element={<StaffListPage />} />
-              <Route path="departmanlar" element={<SettingsPlaceholder title="Departmanlar" />} />
-              <Route path="pozisyonlar" element={<SettingsPlaceholder title="Pozisyonlar" />} />
-              <Route path="sirket" element={<SettingsPlaceholder title="Şirket Bilgileri" />} />
-              <Route path="guvenlik" element={<SettingsPlaceholder title="Güvenlik" />} />
-              <Route path="calisma-duzeni" element={<SettingsPlaceholder title="Çalışma Düzeni" />} />
-              <Route path="sistem" element={<SettingsPlaceholder title="Sistem" />} />
+              <Route path="departmanlar" element={<DepartmentsPage />} />
+              <Route path="pozisyonlar" element={<PositionsPage />} />
+              <Route path="sirket" element={<CompanySettings />} />
+              <Route path="guvenlik" element={<SecuritySettings />} />
+              <Route path="calisma-duzeni" element={<WorkingHoursSettings />} />
+              <Route path="sistem" element={<SystemSettings />} />
             </Route>
 
             <Route path="*" element={<PlaceholderPage />} />

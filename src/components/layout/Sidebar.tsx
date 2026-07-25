@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { PanelLeftClose, PanelLeftOpen, LogOut, User as UserIcon, ChevronsUpDown } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { PanelLeftClose, PanelLeftOpen, LogOut, User as UserIcon, MoreVertical } from 'lucide-react'
+import { useAuth } from '@/lib/auth'
 import { NAV_ITEMS } from '@/lib/navigation'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Logo } from '@/components/shared/Logo'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,11 +18,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 interface SidebarProps {
   collapsed: boolean
   onToggleCollapse?: () => void
-  /** Mobil çekmecede gezinince paneli kapatmak için. */
   onNavigate?: () => void
-  /** Mobil çekmecede daraltma butonu gizlenir. */
   showCollapseButton?: boolean
 }
+
+const ICON_STROKE = 1.75
 
 export function Sidebar({
   collapsed,
@@ -32,25 +32,34 @@ export function Sidebar({
 }: SidebarProps) {
   return (
     <aside className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
-      {/* Marka + daraltma */}
-      <div className="flex h-16 items-center gap-2 px-4">
-        <div className="bg-orange flex size-8 shrink-0 items-center justify-center rounded-lg font-semibold text-white">
-          T
-        </div>
-        {!collapsed && (
-          <span className="flex-1 truncate text-sm font-semibold text-white">Tekstil A.Ş.</span>
+      {/* Logo + daraltma */}
+      <div className="flex h-16 items-center gap-2 px-3">
+        {collapsed ? (
+          <Logo variant="light" symbolOnly className="mx-auto h-7" />
+        ) : (
+          <Logo variant="light" className="ml-1 h-7" />
         )}
-        {showCollapseButton && (
+        {showCollapseButton && !collapsed && (
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="hover:bg-sidebar-accent rounded-md p-1.5 text-white/70 transition-colors hover:text-white"
-            aria-label={collapsed ? 'Menüyü genişlet' : 'Menüyü daralt'}
+            className="hover:bg-sidebar-hover ml-auto rounded-md p-1.5 text-white/60 transition-colors hover:text-white"
+            aria-label="Menüyü daralt"
           >
-            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+            <PanelLeftClose className="size-4" strokeWidth={ICON_STROKE} />
           </button>
         )}
       </div>
+      {showCollapseButton && collapsed && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="hover:bg-sidebar-hover mx-2 mb-1 rounded-md p-1.5 text-white/60 transition-colors hover:text-white"
+          aria-label="Menüyü genişlet"
+        >
+          <PanelLeftOpen className="mx-auto size-4" strokeWidth={ICON_STROKE} />
+        </button>
+      )}
 
       {/* Menü */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
@@ -63,15 +72,15 @@ export function Sidebar({
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  'group flex items-center gap-3 rounded-md border-l-[3px] py-2 pr-3 pl-[13px] text-sm transition-colors',
-                  collapsed && 'justify-center pr-2 pl-2',
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                  collapsed && 'justify-center px-2',
                   isActive
-                    ? 'border-orange bg-sidebar-accent font-medium text-white'
-                    : 'border-transparent text-white/70 hover:bg-sidebar-accent hover:text-white',
+                    ? 'bg-sidebar-active text-sidebar-foreground-active font-medium'
+                    : 'hover:bg-sidebar-hover hover:text-sidebar-foreground-active',
                 )
               }
             >
-              <item.icon className="size-[18px] shrink-0" />
+              <item.icon className="size-[18px] shrink-0" strokeWidth={ICON_STROKE} />
               {!collapsed && <span className="truncate">{item.label}</span>}
             </NavLink>
           )
@@ -86,7 +95,6 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Kullanıcı bloğu */}
       <UserBlock collapsed={collapsed} />
     </aside>
   )
@@ -94,8 +102,9 @@ export function Sidebar({
 
 function UserBlock({ collapsed }: { collapsed: boolean }) {
   const { data: user } = useCurrentUser()
+  const { signOut } = useAuth()
   const name = user?.full_name ?? 'Giriş yapılmadı'
-  const sub = user?.department_name ?? (user ? user.email : 'Faz 0 — demo görünüm')
+  const sub = user?.email ?? 'Faz 0 — demo görünüm'
   const initials = (user?.full_name ?? '?')
     .split(' ')
     .map((p) => p[0])
@@ -110,22 +119,20 @@ function UserBlock({ collapsed }: { collapsed: boolean }) {
           <button
             type="button"
             className={cn(
-              'hover:bg-sidebar-accent flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors',
+              'hover:bg-sidebar-hover flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors',
               collapsed && 'justify-center',
             )}
           >
-            <Avatar className="size-8 shrink-0">
-              <AvatarFallback className="bg-orange/90 text-xs font-medium text-white">
-                {initials || '?'}
-              </AvatarFallback>
-            </Avatar>
+            <span className="bg-accent-primary flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white">
+              {initials || '?'}
+            </span>
             {!collapsed && (
               <>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{name}</p>
-                  <p className="truncate text-xs text-white/50">{sub}</p>
+                  <p className="text-sidebar-foreground-active truncate text-sm font-medium">{name}</p>
+                  <p className="truncate text-xs text-white/45">{sub}</p>
                 </div>
-                <ChevronsUpDown className="size-4 shrink-0 text-white/40" />
+                <MoreVertical className="size-4 shrink-0 text-white/40" strokeWidth={ICON_STROKE} />
               </>
             )}
           </button>
@@ -133,10 +140,12 @@ function UserBlock({ collapsed }: { collapsed: boolean }) {
         <DropdownMenuContent align="start" side="top" className="w-56">
           <DropdownMenuLabel className="truncate">{user?.email ?? 'Oturum yok'}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={!user}>
-            <UserIcon className="size-4" /> Profilim
+          <DropdownMenuItem asChild disabled={!user}>
+            <a href="/profil">
+              <UserIcon className="size-4" /> Profilim
+            </a>
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={!user} onSelect={() => void supabase.auth.signOut()}>
+          <DropdownMenuItem disabled={!user} onSelect={() => void signOut()}>
             <LogOut className="size-4" /> Çıkış yap
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -47,7 +47,7 @@ export function SettingsPlaceholder({ title }: { title: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <div className="bg-card flex size-14 items-center justify-center rounded-2xl border shadow-card">
-        <Hammer className="text-orange size-7" />
+        <Hammer className="text-accent-primary size-7" />
       </div>
       <h2 className="text-lg font-semibold text-foreground">{title}</h2>
       <p className="text-sm text-text-secondary">Bu bölüm bir sonraki adımda tamamlanacak.</p>

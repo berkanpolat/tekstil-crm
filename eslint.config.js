@@ -43,9 +43,9 @@ export default tseslint.config(
     },
   },
   {
-    // shadcn/ui primitive'leri bilesenin yaninda variant/tip de disa aktarir;
-    // bu, react-refresh uyarisini tetikler ama kasitlidir.
-    files: ['src/components/ui/**/*.{ts,tsx}'],
+    // shadcn/ui primitive'leri + context dosyalari bilesen yaninda variant/hook
+    // da disa aktarir; react-refresh uyarisini tetikler ama kasitlidir.
+    files: ['src/components/ui/**/*.{ts,tsx}', 'src/lib/auth.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

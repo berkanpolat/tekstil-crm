@@ -14,7 +14,7 @@ export function PlaceholderPage() {
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center justify-center gap-4 py-16 text-center">
       <div className="bg-card flex size-16 items-center justify-center rounded-2xl border shadow-card">
-        <Icon className="text-orange size-8" />
+        <Icon className="text-accent-primary size-8" />
       </div>
       <div className="space-y-1.5">
         <h2 className="text-xl font-semibold text-foreground">{item?.label ?? 'Sayfa'}</h2>
