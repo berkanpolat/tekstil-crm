@@ -108,6 +108,48 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_points: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: number
+          entity_type: string
+          id: number
+          is_primary: boolean
+          label: string | null
+          type: string
+          updated_at: string
+          value: string
+          value_normalized: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: number
+          entity_type: string
+          id?: never
+          is_primary?: boolean
+          label?: string | null
+          type: string
+          updated_at?: string
+          value: string
+          value_normalized?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: number
+          entity_type?: string
+          id?: never
+          is_primary?: boolean
+          label?: string | null
+          type?: string
+          updated_at?: string
+          value?: string
+          value_normalized?: string | null
+        }
+        Relationships: []
+      }
       customer_types: {
         Row: {
           color: string | null
