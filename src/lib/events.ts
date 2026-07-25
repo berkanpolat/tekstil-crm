@@ -26,6 +26,9 @@ export const EVENT_TYPES = {
 
   // Ayarlar (P0.6)
   SETTINGS_UPDATED: 'settings.updated',
+
+  // Operasyon kodu (P0.8) — kod alanı doygunluğu erken uyarısı
+  CODES_COLLISION_PRESSURE: 'codes.collision_pressure',
 } as const
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES]
