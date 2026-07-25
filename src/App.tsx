@@ -21,6 +21,8 @@ import {
   SystemSettings,
 } from '@/pages/settings/SettingsTabs'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { ReferenceListPage } from '@/pages/settings/ReferenceListPage'
+import { REFERENCE_CONFIGS } from '@/pages/settings/referenceConfigs'
 import { NAV_ITEMS } from '@/lib/navigation'
 
 /**
@@ -57,6 +59,9 @@ export default function App() {
               <Route path="calisanlar" element={<StaffListPage />} />
               <Route path="departmanlar" element={<DepartmentsPage />} />
               <Route path="pozisyonlar" element={<PositionsPage />} />
+              {Object.entries(REFERENCE_CONFIGS).map(([slug, config]) => (
+                <Route key={slug} path={slug} element={<ReferenceListPage config={config} />} />
+              ))}
               <Route path="sirket" element={<CompanySettings />} />
               <Route path="guvenlik" element={<SecuritySettings />} />
               <Route path="calisma-duzeni" element={<WorkingHoursSettings />} />

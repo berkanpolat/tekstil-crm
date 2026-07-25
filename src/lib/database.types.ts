@@ -87,6 +87,63 @@ export type Database = {
         }
         Relationships: []
       }
+      code_registry: {
+        Row: {
+          code: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+        }
+        Relationships: []
+      }
+      customer_types: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           code: string
@@ -119,6 +176,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      entity_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: number
+          entity_type: string
+          id: number
+          tag_id: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: number
+          entity_type: string
+          id?: never
+          tag_id: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: number
+          entity_type?: string
+          id?: never
+          tag_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_log: {
         Row: {
@@ -224,6 +316,156 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      interaction_channels: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      interaction_outcomes: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_positive: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_positive?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_positive?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lead_sources: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lead_statuses: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_closed: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_closed?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_closed?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       permissions: {
         Row: {
@@ -421,6 +663,42 @@ export type Database = {
           },
         ]
       }
+      tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_permission_overrides: {
         Row: {
           created_at: string
@@ -597,6 +875,10 @@ export type Database = {
       file_record_exists: {
         Args: { p_bucket: string; p_path: string }
         Returns: boolean
+      }
+      generate_operation_code: {
+        Args: { p_entity_id?: string; p_entity_type: string }
+        Returns: string
       }
       has_permission: { Args: { permission_key: string }; Returns: boolean }
       is_active_user: { Args: never; Returns: boolean }
