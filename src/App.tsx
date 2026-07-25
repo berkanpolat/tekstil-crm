@@ -1,7 +1,12 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
-import { RequireAuth, RequirePasswordChanged, RedirectIfAuthed } from '@/components/auth/guards'
+import {
+  RequireAuth,
+  RequirePasswordChanged,
+  RedirectIfAuthed,
+  RequireManager,
+} from '@/components/auth/guards'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
 import { ChangePasswordPage } from '@/pages/auth/ChangePasswordPage'
@@ -45,7 +50,9 @@ export default function App() {
 
             <Route path="/profil" element={<ProfilePage />} />
 
-            <Route path="/ayarlar" element={<SettingsLayout />}>
+            {/* Ayarlar = kullanıcı yönetimi → yalnızca owner/admin (BUG 4) */}
+            <Route element={<RequireManager />}>
+              <Route path="/ayarlar" element={<SettingsLayout />}>
               <Route index element={<Navigate to="/ayarlar/calisanlar" replace />} />
               <Route path="calisanlar" element={<StaffListPage />} />
               <Route path="departmanlar" element={<DepartmentsPage />} />
@@ -54,6 +61,7 @@ export default function App() {
               <Route path="guvenlik" element={<SecuritySettings />} />
               <Route path="calisma-duzeni" element={<WorkingHoursSettings />} />
               <Route path="sistem" element={<SystemSettings />} />
+              </Route>
             </Route>
 
             <Route path="*" element={<PlaceholderPage />} />

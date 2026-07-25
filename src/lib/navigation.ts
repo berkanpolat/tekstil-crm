@@ -23,6 +23,15 @@ export interface NavItem {
   description: string
   /** Hangi fazda geleceği. */
   arrives: string
+  /** Yalnızca owner/admin görür (ör. Ayarlar = kullanıcı yönetimi). */
+  adminOnly?: boolean
+}
+
+/** Kullanıcı yönetimi rolleri (owner/admin) — UI gate + Edge Function kontrolü. */
+export const MANAGER_ROLES = ['owner', 'admin']
+
+export function canManageUsers(roleKey: string | null | undefined): boolean {
+  return !!roleKey && MANAGER_ROLES.includes(roleKey)
 }
 
 /**
@@ -42,7 +51,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Finans', path: '/finans', icon: Wallet, description: 'Cari hesaplar, ödemeler ve finansal takip.', arrives: 'Faz 6' },
   { label: 'Görevler', path: '/gorevler', icon: ListTodo, description: 'Görevler, hedefler ve bildirimler.', arrives: 'Faz 6' },
   { label: 'Raporlar', path: '/raporlar', icon: BarChart3, description: 'Grafikler, performans ve iş zekâsı raporları.', arrives: 'Faz 7' },
-  { label: 'Ayarlar', path: '/ayarlar', icon: Settings, description: 'Şirket bilgileri, güvenlik, çalışma düzeni ve sistem ayarları.', arrives: 'Faz 0 (arayüz yakında)' },
+  { label: 'Ayarlar', path: '/ayarlar', icon: Settings, description: 'Çalışan, departman, pozisyon ve sistem ayarları.', arrives: 'Faz 0', adminOnly: true },
 ]
 
 /** Verilen yol için aktif menü öğesini bulur (/ tam, diğerleri önek). */

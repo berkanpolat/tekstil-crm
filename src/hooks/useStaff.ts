@@ -8,6 +8,9 @@ export interface StaffRow {
   full_name: string
   phone: string | null
   is_active: boolean
+  role_id: number | null
+  department_id: number | null
+  position_id: number | null
   department_name: string | null
   position_name: string | null
   role_name: string | null
@@ -38,7 +41,7 @@ export function useStaffList(filters: StaffFilters) {
       let query = supabase
         .from('users')
         .select(
-          'id, email, full_name, phone, is_active, created_at, departments(name), positions(name), roles(key, name)',
+          'id, email, full_name, phone, is_active, created_at, role_id, department_id, position_id, departments(name), positions(name), roles(key, name)',
           { count: 'exact' },
         )
         .is('deleted_at', null)
@@ -70,6 +73,9 @@ export function useStaffList(filters: StaffFilters) {
           full_name: u.full_name,
           phone: u.phone,
           is_active: u.is_active,
+          role_id: u.role_id,
+          department_id: u.department_id,
+          position_id: u.position_id,
           department_name: dept?.name ?? null,
           position_name: pos?.name ?? null,
           role_name: role?.name ?? null,

@@ -2,6 +2,8 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { canManageUsers } from '@/lib/navigation'
+import { NoAccessPage } from '@/pages/NoAccessPage'
 
 function FullScreenLoader() {
   return (
@@ -25,6 +27,18 @@ export function RequirePasswordChanged() {
   const { data: user, isLoading } = useCurrentUser()
   if (isLoading) return <FullScreenLoader />
   if (user?.must_change_password) return <Navigate to="/sifre-degistir" replace />
+  return <Outlet />
+}
+
+/**
+ * Yalnızca owner/admin erişebilir (kullanıcı yönetimi = Faz 0'da geniş RLS'in
+ * istisnası). Yetkisizse "erişim yok" ekranı (adres elle yazılsa da). GERÇEK
+ * sınır RLS + Edge Function'da; bu görsel + yönlendirme katmanı.
+ */
+export function RequireManager() {
+  const { data: user, isLoading } = useCurrentUser()
+  if (isLoading) return <FullScreenLoader />
+  if (!canManageUsers(user?.role_key)) return <NoAccessPage />
   return <Outlet />
 }
 

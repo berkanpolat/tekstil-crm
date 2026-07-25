@@ -61,9 +61,9 @@ function StaffForm({ editing, onDone }: { editing: StaffRow | null; onDone: () =
     password: '',
     full_name: editing?.full_name ?? '',
     phone: editing?.phone ?? '',
-    role_id: null,
-    department_id: null,
-    position_id: null,
+    role_id: editing?.role_id != null ? String(editing.role_id) : null,
+    department_id: editing?.department_id != null ? String(editing.department_id) : null,
+    position_id: editing?.position_id != null ? String(editing.position_id) : null,
   }))
 
   const roles = useRoleOptions()

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { PanelLeftClose, PanelLeftOpen, LogOut, User as UserIcon, MoreVertical } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { NAV_ITEMS } from '@/lib/navigation'
+import { NAV_ITEMS, canManageUsers } from '@/lib/navigation'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/shared/Logo'
@@ -30,6 +30,8 @@ export function Sidebar({
   onNavigate,
   showCollapseButton = true,
 }: SidebarProps) {
+  const { data: me } = useCurrentUser()
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || canManageUsers(me?.role_key))
   return (
     <aside className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
       {/* Logo + daraltma */}
@@ -63,7 +65,7 @@ export function Sidebar({
 
       {/* Menü */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const link = (
             <NavLink
               key={item.path}

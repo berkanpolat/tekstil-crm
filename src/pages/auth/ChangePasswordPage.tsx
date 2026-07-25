@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
 import { useAuth } from '@/lib/auth'
+import type { CurrentUser } from '@/hooks/useCurrentUser'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { FormField } from '@/components/shared/FormField'
 import { Input } from '@/components/ui/input'
@@ -40,9 +41,23 @@ export function ChangePasswordPage() {
       data: { user },
     } = await supabase.auth.getUser()
     if (user) {
-      await supabase.from('users').update({ must_change_password: false }).eq('id', user.id)
+      const { error: flagError } = await supabase
+        .from('users')
+        .update({ must_change_password: false })
+        .eq('id', user.id)
+      if (flagError) {
+        setBusy(false)
+        toast.error('Şifre kaydedildi ancak durum güncellenemedi. Yöneticinize başvurun.')
+        return
+      }
     }
-    await queryClient.invalidateQueries({ queryKey: ['current-user'] })
+    // Cache'i DOĞRUDAN yamala: /sifre-degistir'de current-user sorgusu inaktif
+    // olduğundan invalidate refetch etmez; guard bayat must_change=true okuyup
+    // döngüye sokardı. setQueryData ile guard anında yeni değeri görür.
+    queryClient.setQueryData<CurrentUser | null>(['current-user'], (old) =>
+      old ? { ...old, must_change_password: false } : old,
+    )
+    void queryClient.invalidateQueries({ queryKey: ['current-user'] })
     setBusy(false)
     toast.success('Şifreniz güncellendi.')
     navigate('/', { replace: true })
