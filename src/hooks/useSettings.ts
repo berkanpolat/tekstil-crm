@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { ensureRows } from '@/lib/errors'
 import type { Json } from '@/lib/database.types'
 
 export interface SettingRow {
@@ -27,8 +28,7 @@ export function useSaveSettings() {
   return useMutation({
     mutationFn: async (updates: { key: string; value: Json }[]) => {
       for (const u of updates) {
-        const { error } = await supabase.from('settings').update({ value: u.value }).eq('key', u.key)
-        if (error) throw error
+        ensureRows(await supabase.from('settings').update({ value: u.value }).eq('key', u.key).select('key'))
       }
     },
     onSuccess: () => {

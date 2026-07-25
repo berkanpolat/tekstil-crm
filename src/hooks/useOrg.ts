@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { AppError, ensureRows } from '@/lib/errors'
 
 export interface Department {
   id: number
@@ -48,9 +49,10 @@ export function useSaveDepartment() {
   return useMutation({
     mutationFn: async ({ id, ...fields }: DepartmentInput & { id?: number }) => {
       const res = id
-        ? await supabase.from('departments').update(fields).eq('id', id)
-        : await supabase.from('departments').insert(fields)
-      if (res.error) throw res.error
+        ? await supabase.from('departments').update(fields).eq('id', id).select('id')
+        : await supabase.from('departments').insert(fields).select('id')
+      if (res.error?.code === '23505') throw new AppError('Bu departman kodu zaten kullanılıyor.')
+      ensureRows(res)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['departments'] })
@@ -63,8 +65,7 @@ export function useSetDepartmentActive() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, is_active }: { id: number; is_active: boolean }) => {
-      const { error } = await supabase.from('departments').update({ is_active }).eq('id', id)
-      if (error) throw error
+      ensureRows(await supabase.from('departments').update({ is_active }).eq('id', id).select('id'))
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['departments'] })
@@ -107,15 +108,13 @@ export function useSavePosition() {
   return useMutation({
     mutationFn: async ({ id, ...fields }: PositionInput & { id?: number }) => {
       const res = id
-        ? await supabase.from('positions').update(fields).eq('id', id)
-        : await supabase.from('positions').insert(fields)
-      if (res.error) {
-        // Departman-bazlı benzersizlik ihlali anlaşılır mesaja çevrilir.
-        if (res.error.code === '23505') {
-          throw new Error('Bu kod, seçilen departmanda (veya global düzlemde) zaten kullanılıyor.')
-        }
-        throw res.error
+        ? await supabase.from('positions').update(fields).eq('id', id).select('id')
+        : await supabase.from('positions').insert(fields).select('id')
+      // Departman-bazlı benzersizlik ihlali anlaşılır mesaja çevrilir.
+      if (res.error?.code === '23505') {
+        throw new AppError('Bu kod, seçilen departmanda (veya global düzlemde) zaten kullanılıyor.')
       }
+      ensureRows(res)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['positions'] })
@@ -128,8 +127,7 @@ export function useSetPositionActive() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, is_active }: { id: number; is_active: boolean }) => {
-      const { error } = await supabase.from('positions').update({ is_active }).eq('id', id)
-      if (error) throw error
+      ensureRows(await supabase.from('positions').update({ is_active }).eq('id', id).select('id'))
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['positions'] })

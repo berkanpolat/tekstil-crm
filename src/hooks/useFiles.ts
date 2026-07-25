@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { ensureRows } from '@/lib/errors'
 import type { Database } from '@/lib/database.types'
 
 export type FileRow = Database['public']['Tables']['files']['Row']
@@ -147,11 +148,13 @@ export function useDeleteFile() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      const { error } = await supabase
-        .from('files')
-        .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null })
-        .eq('id', file.id)
-      if (error) throw error
+      ensureRows(
+        await supabase
+          .from('files')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null })
+          .eq('id', file.id)
+          .select('id'),
+      )
     },
     onSuccess: (_data, file) => {
       qc.invalidateQueries({ queryKey: ['files', file.entity_type, file.entity_id] })

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toUserMessage } from '@/lib/errors'
 import { UserPlus, MoreHorizontal, Pencil, KeyRound, UserX, UserCheck, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -240,7 +241,7 @@ export function StaffListPage() {
             toast.success('İşlem tamamlandı.')
             setActiveTarget(null)
           } catch (err) {
-            toast.error((err as Error).message)
+            toast.error(await toUserMessage(err))
           }
         }}
       />
@@ -265,7 +266,7 @@ function ResetPasswordDialog({ target, onClose }: { target: StaffRow | null; onC
       setPw('')
       onClose()
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(await toUserMessage(err))
     }
   }
 

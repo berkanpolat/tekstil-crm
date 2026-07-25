@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toUserMessage } from '@/lib/errors'
 import { Plus, MoreHorizontal, Pencil, Power, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -123,7 +124,7 @@ export function DepartmentsPage() {
             toast.success('İşlem tamamlandı.')
             setToggleTarget(null)
           } catch (err) {
-            toast.error((err as Error).message)
+            toast.error(await toUserMessage(err))
           }
         }}
       />
@@ -174,8 +175,7 @@ function DepartmentForm({ editing, onDone }: { editing: Department | null; onDon
       toast.success(editing ? 'Departman güncellendi.' : 'Departman eklendi.')
       onDone()
     } catch (err) {
-      const msg = (err as { code?: string }).code === '23505' ? 'Bu kod zaten kullanılıyor.' : (err as Error).message
-      toast.error(msg)
+      toast.error(await toUserMessage(err))
     }
   }
 

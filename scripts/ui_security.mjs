@@ -10,7 +10,7 @@ const SALES = { email: 'uisec.sales@tekstilas.com', password: 'SalesPass1!' }
 const HIRE = { email: 'uisec.hire@tekstilas.com', password: 'HirePass1!' }
 const PG = ['-h', process.env.PGHOST, '-p', '5432', '-U', process.env.PGUSER, '-d', 'postgres', '-tA']
 const q = (s) => execFileSync('psql', [...PG, '-c', s], { encoding: 'utf8', env: process.env }).trim()
-const clean = () => { const l = [A, SALES, HIRE].map((u) => `'${u.email}'`).join(','); q(`delete from public.users where email in (${l});`); q(`delete from auth.users where email in (${l});`) }
+const clean = () => { const l = [A, SALES, HIRE].map((u) => `'${u.email}'`).join(','); q(`delete from public.users where email in (${l});`); q(`delete from auth.users where email in (${l});`); q(`delete from public.departments where code='SEC_SATIS';`) }
 let pass = 0, fail = 0
 const check = (n, ok, x = '') => { if (ok) { pass++; console.log(`PASS: ${n}`) } else { fail++; console.log(`FAIL: ${n} ${x}`) } }
 
@@ -24,6 +24,8 @@ async function main() {
   const salesRole = (await admin.from('roles').select('id').eq('key', 'sales').single()).data.id
   await admin.functions.invoke('create-user', { body: { email: SALES.email, password: SALES.password, full_name: 'UISec Sales', role_id: salesRole } })
   await admin.functions.invoke('create-user', { body: { email: HIRE.email, password: HIRE.password, full_name: 'UISec Hire', role_id: salesRole } })
+  // Görünür-hata testi için mevcut bir departman kodu (çakışma tetiklenecek)
+  await admin.from('departments').insert({ name: 'Sec Satış', code: 'SEC_SATIS', sort_order: 1, is_active: true })
   await admin.auth.signOut()
   // BUG4 testi için Satış kullanıcısı uygulamaya girebilmeli (must_change=false).
   // HIRE ise BUG1 için must_change=true kalır.
@@ -64,6 +66,21 @@ async function main() {
   try { await p2.waitForURL('http://localhost:5173/', { timeout: 8000 }); landed = true } catch { /* */ }
   check('BUG1: şifre değişince PANELE girdi (döngü YOK)', landed, `(url ${p2.url()})`)
   await p2.screenshot({ path: '/tmp/uisec-dashboard.png' })
+
+  // HATA GÖRÜNÜRLÜĞÜ: backend reddi (yinelenen kod) arayüzde GÖRÜNÜR toast olmalı
+  const p3 = await b.newPage({ viewport: { width: 1280, height: 800 } })
+  await login(p3, A)
+  await p3.waitForURL('http://localhost:5173/', { timeout: 10000 }).catch(() => {})
+  await p3.goto('http://localhost:5173/ayarlar/departmanlar', { waitUntil: 'networkidle' })
+  await p3.waitForTimeout(500)
+  await p3.getByRole('button', { name: 'Departman ekle' }).first().click()
+  await p3.getByLabel('Ad', { exact: false }).first().fill('Deneme Departman')
+  await p3.getByLabel('Kod', { exact: false }).first().fill('SEC_SATIS')
+  await p3.getByRole('button', { name: 'Ekle' }).click()
+  await p3.waitForTimeout(1500)
+  const toastSeen = await p3.getByText('zaten kullanılıyor').count()
+  check('HATA GÖRÜNÜRLÜĞÜ: backend reddi GÖRÜNÜR toast oldu (sessiz değil)', toastSeen > 0, `(görülen ${toastSeen})`)
+  await p3.screenshot({ path: '/tmp/uisec-error.png' })
 
   await b.close()
   clean()

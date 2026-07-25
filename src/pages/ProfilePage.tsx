@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useUploadFile, getSignedUrl, type FileBucket } from '@/hooks/useFiles'
+import { ensureRows, toUserMessage } from '@/lib/errors'
 
 function useAvatarUrl(avatarFileId: number | null) {
   return useQuery({
@@ -45,12 +46,12 @@ export function ProfilePage() {
     if (!file || !me) return
     try {
       const row = await upload.mutateAsync({ file, bucket: 'avatars', category: 'avatar' })
-      await supabase.from('users').update({ avatar_file_id: row.id }).eq('id', me.id)
+      ensureRows(await supabase.from('users').update({ avatar_file_id: row.id }).eq('id', me.id).select('id'))
       await queryClient.invalidateQueries({ queryKey: ['current-user'] })
       await queryClient.invalidateQueries({ queryKey: ['avatar-url'] })
       toast.success('Avatar güncellendi.')
     } catch (err) {
-      toast.error(`Avatar yüklenemedi: ${(err as Error).message}`)
+      toast.error(`Avatar yüklenemedi: ${await toUserMessage(err)}`)
     }
   }
 
@@ -102,14 +103,21 @@ function ProfileInfoForm({ me }: { me: { id: string; full_name: string; phone: s
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
-    const { error } = await supabase
-      .from('users')
-      .update({ full_name: fullName.trim(), phone: phone.trim() || null })
-      .eq('id', me.id)
-    setBusy(false)
-    if (error) return toast.error('Kaydedilemedi.')
-    await queryClient.invalidateQueries({ queryKey: ['current-user'] })
-    toast.success('Bilgiler güncellendi.')
+    try {
+      ensureRows(
+        await supabase
+          .from('users')
+          .update({ full_name: fullName.trim(), phone: phone.trim() || null })
+          .eq('id', me.id)
+          .select('id'),
+      )
+      await queryClient.invalidateQueries({ queryKey: ['current-user'] })
+      toast.success('Bilgiler güncellendi.')
+    } catch (err) {
+      toast.error(await toUserMessage(err))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -146,7 +154,7 @@ function PasswordForm() {
     setBusy(true)
     const { error } = await supabase.auth.updateUser({ password: pw1 })
     setBusy(false)
-    if (error) return toast.error('Şifre güncellenemedi.')
+    if (error) return void toast.error(await toUserMessage(error))
     setPw1('')
     setPw2('')
     toast.success('Şifreniz güncellendi.')

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toUserMessage } from '@/lib/errors'
 import { Plus, MoreHorizontal, Pencil, Power, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -129,7 +130,7 @@ export function PositionsPage() {
             toast.success('İşlem tamamlandı.')
             setToggleTarget(null)
           } catch (err) {
-            toast.error((err as Error).message)
+            toast.error(await toUserMessage(err))
           }
         }}
       />
@@ -181,7 +182,7 @@ function PositionForm({ editing, onDone }: { editing: Position | null; onDone: (
       toast.success(editing ? 'Pozisyon güncellendi.' : 'Pozisyon eklendi.')
       onDone()
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(await toUserMessage(err))
     }
   }
 

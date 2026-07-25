@@ -13,6 +13,7 @@ import {
   type FileRow,
 } from '@/hooks/useFiles'
 import { cn } from '@/lib/utils'
+import { toUserMessage } from '@/lib/errors'
 
 /*
  * Faz 0 / P0.7 — yeniden kullanılabilir dosya yükleme + liste bileşeni.
@@ -48,7 +49,7 @@ export function FileUpload({ bucket, category, entityType, entityId, className }
         await upload.mutateAsync({ file, bucket, category, entityType, entityId })
         toast.success(`${file.name} yüklendi`)
       } catch (err) {
-        toast.error(`${file.name} yüklenemedi: ${(err as Error).message}`)
+        toast.error(`${file.name} yüklenemedi: ${await toUserMessage(err)}`)
       }
     }
   }
@@ -110,7 +111,7 @@ export function FileList({ files, loading }: { files: FileRow[]; loading?: boole
       const url = await getSignedUrl(file.bucket as FileBucket, file.storage_path)
       window.open(url, '_blank', 'noopener')
     } catch (err) {
-      toast.error(`Bağlantı oluşturulamadı: ${(err as Error).message}`)
+      toast.error(`Bağlantı oluşturulamadı: ${await toUserMessage(err)}`)
     }
   }
 

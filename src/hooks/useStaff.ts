@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { ensureRows } from '@/lib/errors'
 import type { SortState } from '@/components/shared/DataTable'
 
 export interface StaffRow {
@@ -149,7 +150,7 @@ export function useCreateStaff() {
   return useMutation({
     mutationFn: async (input: CreateStaffInput) => {
       const { data, error } = await supabase.functions.invoke('create-user', { body: input })
-      if (error) throw new Error((await extractError(error)) || 'Çalışan oluşturulamadı.')
+      if (error) throw error
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['staff'] }),
@@ -169,8 +170,8 @@ export function useUpdateStaff() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...fields }: UpdateStaffInput) => {
-      const { error } = await supabase.from('users').update(fields).eq('id', id)
-      if (error) throw error
+      // .select() + ensureRows: RLS sessiz reddi (0 satır) görünür hataya döner.
+      ensureRows(await supabase.from('users').update(fields).eq('id', id).select('id'))
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['staff'] }),
   })
@@ -180,7 +181,7 @@ export function useResetStaffPassword() {
   return useMutation({
     mutationFn: async (input: { user_id: string; new_password: string }) => {
       const { error } = await supabase.functions.invoke('reset-user-password', { body: input })
-      if (error) throw new Error((await extractError(error)) || 'Şifre sıfırlanamadı.')
+      if (error) throw error
     },
   })
 }
@@ -190,22 +191,8 @@ export function useSetStaffActive() {
   return useMutation({
     mutationFn: async (input: { user_id: string; is_active: boolean }) => {
       const { error } = await supabase.functions.invoke('set-user-active', { body: input })
-      if (error) throw new Error((await extractError(error)) || 'İşlem gerçekleştirilemedi.')
+      if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['staff'] }),
   })
-}
-
-/** Edge Function hata gövdesinden kullanıcı mesajını çıkarır. */
-async function extractError(error: unknown): Promise<string | null> {
-  const ctx = (error as { context?: Response }).context
-  if (ctx && typeof ctx.text === 'function') {
-    try {
-      const body = JSON.parse(await ctx.text()) as { error?: string }
-      return body.error ?? null
-    } catch {
-      return null
-    }
-  }
-  return (error as Error).message ?? null
 }

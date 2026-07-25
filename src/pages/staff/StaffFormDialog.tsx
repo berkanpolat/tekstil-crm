@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toUserMessage } from '@/lib/errors'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -106,7 +107,7 @@ function StaffForm({ editing, onDone }: { editing: StaffRow | null; onDone: () =
       }
       onDone()
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(await toUserMessage(err))
     }
   }
 

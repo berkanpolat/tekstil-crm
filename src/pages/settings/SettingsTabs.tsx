@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { toUserMessage } from '@/lib/errors'
 import { History, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -100,7 +101,7 @@ function CompanyForm({ settings }: { settings: SettingsMap }) {
       await save.mutateAsync(updates)
       toast.success('Şirket bilgileri kaydedildi.')
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(await toUserMessage(err))
     }
   }
 
@@ -158,7 +159,7 @@ function SecurityForm({ settings }: { settings: SettingsMap }) {
       ])
       toast.success('Güvenlik ayarları kaydedildi.')
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(await toUserMessage(err))
     }
   }
 
@@ -222,7 +223,7 @@ function WorkingHoursForm({ settings }: { settings: SettingsMap }) {
       ])
       toast.success('Çalışma düzeni kaydedildi.')
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(await toUserMessage(err))
     }
   }
 
@@ -291,7 +292,7 @@ function SystemForm({ settings }: { settings: SettingsMap }) {
       ])
       toast.success('Sistem ayarları kaydedildi.')
     } catch (err) {
-      toast.error((err as Error).message)
+      toast.error(await toUserMessage(err))
     }
   }
 
