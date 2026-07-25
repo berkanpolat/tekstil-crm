@@ -6,6 +6,7 @@ import { Toaster } from 'sonner'
 import '@fontsource-variable/inter'
 import { queryClient } from '@/lib/queryClient'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { AuthProvider } from '@/lib/auth'
 import App from './App'
 import './index.css'
 
@@ -17,12 +18,14 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider delayDuration={200}>
-        <BrowserRouter>
-          <App />
-          <Toaster position="top-right" richColors closeButton />
-        </BrowserRouter>
-      </TooltipProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <TooltipProvider delayDuration={200}>
+            <App />
+            <Toaster position="top-right" richColors closeButton />
+          </TooltipProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
 )
