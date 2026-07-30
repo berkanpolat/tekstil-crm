@@ -1,0 +1,237 @@
+import { useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { formatMoney } from '@/lib/money'
+import { Kpi, ReportSection, DataTable, ReportLoading, type ReportProps } from '@/components/reports/ReportKit'
+import { BarList, TrendLine } from '@/components/dashboard/MiniCharts'
+import {
+  useRequestsMetric, useRequestTrend, useQuotesMetric, useEmployeesMetric,
+  useInteractionsMetric, useFilterOptions, type Labeled,
+} from '@/hooks/useMetrics'
+import { supabase } from '@/lib/supabase'
+import { useQuery } from '@tanstack/react-query'
+
+const labeledRows = (arr: Labeled[] | undefined) => (arr ?? []).map((x) => ({ label: x.label, count: x.count }))
+const pct = (n: number | null | undefined) => (n == null ? '—' : `%${n.toFixed(0)}`)
+
+// Basit metrik RPC hook'u (samples/orders/leads/finance — filtre almayan)
+function useSimpleMetric<T>(fn: string, period: ReportProps['period'], on = true) {
+  return useQuery({
+    queryKey: ['metric', fn, period.from, period.to],
+    enabled: on,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<T> => {
+      const { data, error } = await supabase.rpc(fn as never, { p_from: period.from, p_to: period.to } as never)
+      if (error) throw error
+      return data as unknown as T
+    },
+  })
+}
+
+// ── 1) TALEP RAPORU ────────────────────────────────────────────────────
+export function TalepRaporu({ period, setCsv }: ReportProps) {
+  const [sp, setSp] = useSearchParams()
+  const opts = useFilterOptions()
+  const f = { channel: numOrNull(sp.get('ch')), category: numOrNull(sp.get('cat')), province: numOrNull(sp.get('prov')) }
+  const { data, isLoading } = useRequestsMetric(period, f)
+  const trend = useRequestTrend(period)
+  useEffect(() => {
+    if (!data) { setCsv(null); return }
+    setCsv({ filename: `talep-raporu-${period.key}`, headers: ['Kanal', 'Talep'], rows: (data.by_channel ?? []).map((x) => [x.label, x.count]) })
+    return () => setCsv(null)
+  }, [data, period.key, setCsv])
+  function setF(key: string, v: string) { const p = new URLSearchParams(sp); if (v) p.set(key, v); else p.delete(key); setSp(p, { replace: true }) }
+  if (isLoading) return <ReportLoading />
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 print:hidden">
+        <Sel label="Kanal" value={sp.get('ch') ?? ''} onChange={(v) => setF('ch', v)} options={opts.data?.channels ?? []} />
+        <Sel label="Kategori" value={sp.get('cat') ?? ''} onChange={(v) => setF('cat', v)} options={opts.data?.categories ?? []} />
+        <Sel label="İl" value={sp.get('prov') ?? ''} onChange={(v) => setF('prov', v)} options={opts.data?.provinces ?? []} />
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Toplam talep" value={String(data?.total ?? 0)} sub={`önceki dönem: ${data?.prev_total ?? 0}`} />
+        <Kpi label="24 saat sözü" value={pct(data?.sla_rate)} tone={(data?.sla_rate ?? 0) >= 80 ? 'text-success-foreground' : (data?.sla_rate ?? 0) >= 50 ? 'text-warning-foreground' : 'text-danger-foreground'}
+          sub={`${data?.sla_met_count ?? 0} tuttu · ${data?.sla_missed_count ?? 0} kaçtı · ${data?.sla_pending_count ?? 0} sürüyor`} />
+        <Kpi label="Ort. ilk yanıt" value={data?.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—'} />
+        <Kpi label="Süresi sürenler" value={String(data?.sla_pending_count ?? 0)} sub="henüz SLA dolmadı" />
+      </div>
+      <ReportSection title="Talep eğilimi (günlük)"><TrendLine points={trend.data ?? []} /></ReportSection>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ReportSection title="Kanala göre"><BarList rows={labeledRows(data?.by_channel)} /></ReportSection>
+        <ReportSection title="Kategoriye göre"><BarList rows={labeledRows(data?.by_category)} /></ReportSection>
+        <ReportSection title="İle göre"><BarList rows={labeledRows(data?.by_province)} empty="İl verisi yok." /></ReportSection>
+        <ReportSection title="Açılış sayfasına göre"><BarList rows={labeledRows(data?.by_landing)} empty="Henüz veri yok — site entegrasyonu bağlanınca dolacak." /></ReportSection>
+      </div>
+    </div>
+  )
+}
+
+// ── 2) TEKLİF RAPORU ───────────────────────────────────────────────────
+export function TeklifRaporu({ period, setCsv }: ReportProps) {
+  const { data, isLoading } = useQuotesMetric(period)
+  const decided = (data?.accepted ?? 0) + (data?.rejected ?? 0)
+  const conv = decided > 0 ? (100 * (data?.accepted ?? 0)) / decided : null
+  useEffect(() => {
+    if (!data) { setCsv(null); return }
+    setCsv({ filename: `teklif-raporu-${period.key}`, headers: ['Red sebebi', 'Adet'], rows: (data.by_rejection_reason ?? []).map((x) => [x.label, x.count]) })
+    return () => setCsv(null)
+  }, [data, period.key, setCsv])
+  if (isLoading) return <ReportLoading />
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Gönderilen teklif" value={String(data?.sent ?? 0)} sub={`önceki dönem: ${data?.prev_sent ?? 0}`} />
+        <Kpi label="Dönüşüm (sonuçlanan)" value={pct(conv)} tone={(conv ?? 0) >= 50 ? 'text-success-foreground' : (conv ?? 0) >= 25 ? 'text-warning-foreground' : 'text-danger-foreground'}
+          sub={`${data?.accepted ?? 0} kabul / ${decided} sonuçlanan`} />
+        <Kpi label="Cevap bekleyen" value={String(data?.pending ?? 0)} sub="payda dışında" />
+        <Kpi label="Ort. yanıt süresi" value={data?.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—'} />
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ReportSection title="Sonuç dağılımı">
+          <DataTable cols={[{ key: 'k', label: 'Sonuç' }, { key: 'v', label: 'Adet', align: 'right' }]} rows={[
+            { k: 'Kabul (numuneye geçildi)', v: data?.accepted ?? 0 },
+            { k: 'Reddedildi', v: data?.rejected ?? 0 },
+            { k: 'Cevap bekleyen', v: data?.pending ?? 0 },
+          ]} />
+        </ReportSection>
+        <ReportSection title="Red sebepleri"><BarList rows={labeledRows(data?.by_rejection_reason)} barClass="bg-danger-foreground" empty="Bu dönemde red yok." /></ReportSection>
+      </div>
+    </div>
+  )
+}
+
+// ── 3) NUMUNE RAPORU ───────────────────────────────────────────────────
+interface SamplesMetric { total: number; by_status: Labeled[]; avg_rounds: number; three_plus_count: number; by_revision_round: { round: number; count: number }[]; avg_days_to_approval: number }
+export function NumuneRaporu({ period, setCsv }: ReportProps) {
+  const { data, isLoading } = useSimpleMetric<SamplesMetric>('metric_samples', period)
+  useEffect(() => {
+    if (!data) { setCsv(null); return }
+    setCsv({ filename: `numune-raporu-${period.key}`, headers: ['Durum', 'Adet'], rows: (data.by_status ?? []).map((x) => [x.label, x.count]) })
+    return () => setCsv(null)
+  }, [data, period.key, setCsv])
+  if (isLoading) return <ReportLoading />
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Toplam numune" value={String(data?.total ?? 0)} />
+        <Kpi label="Ort. revizyon turu" value={data?.avg_rounds != null ? data.avg_rounds.toFixed(1) : '—'} />
+        <Kpi label="3+ tura ulaşan" value={String(data?.three_plus_count ?? 0)} tone={(data?.three_plus_count ?? 0) > 0 ? 'text-warning-foreground' : undefined} sub="fazla revizyon" />
+        <Kpi label="Ort. onay süresi" value={data?.avg_days_to_approval != null ? `${data.avg_days_to_approval.toFixed(1)} gün` : '—'} />
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ReportSection title="Duruma göre"><BarList rows={labeledRows(data?.by_status)} /></ReportSection>
+        <ReportSection title="Revizyon turuna göre">
+          <DataTable cols={[{ key: 'r', label: 'Tur' }, { key: 'c', label: 'Numune', align: 'right' }]}
+            rows={(data?.by_revision_round ?? []).map((x) => ({ r: `${x.round}. tur`, c: x.count }))} />
+        </ReportSection>
+      </div>
+    </div>
+  )
+}
+
+// ── 4) SİPARİŞ RAPORU ──────────────────────────────────────────────────
+interface OrdersMetric { total: number; by_status: Labeled[]; late_count: number; on_time_rate: number | null; on_time_count: number; cancelled_count: number; avg_production_days: number | null }
+export function SiparisRaporu({ period, setCsv }: ReportProps) {
+  const { data, isLoading } = useSimpleMetric<OrdersMetric>('metric_orders', period)
+  useEffect(() => {
+    if (!data) { setCsv(null); return }
+    setCsv({ filename: `siparis-raporu-${period.key}`, headers: ['Durum', 'Adet'], rows: (data.by_status ?? []).map((x) => [x.label, x.count]) })
+    return () => setCsv(null)
+  }, [data, period.key, setCsv])
+  if (isLoading) return <ReportLoading />
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Toplam sipariş" value={String(data?.total ?? 0)} />
+        <Kpi label="Zamanında teslim" value={pct(data?.on_time_rate)} tone={(data?.on_time_rate ?? 100) >= 80 ? 'text-success-foreground' : 'text-warning-foreground'} sub={`${data?.on_time_count ?? 0} zamanında`} />
+        <Kpi label="Geciken" value={String(data?.late_count ?? 0)} tone={(data?.late_count ?? 0) > 0 ? 'text-danger-foreground' : undefined} />
+        <Kpi label="Ort. üretim süresi" value={data?.avg_production_days != null ? `${data.avg_production_days.toFixed(0)} gün` : '—'} />
+      </div>
+      <ReportSection title="Duruma göre"><BarList rows={labeledRows(data?.by_status)} /></ReportSection>
+    </div>
+  )
+}
+
+// ── 5) FİNANS RAPORU (reports.finance) ─────────────────────────────────
+interface FinanceMetricR { revenue_usd: number; revenue_try: number; collected_usd: number; outstanding_usd: number; overdue_usd: number; by_month: { month: string; revenue_usd: number; revenue_try: number }[] }
+export function FinansRaporu({ period, setCsv }: ReportProps) {
+  const { data, isLoading } = useSimpleMetric<FinanceMetricR>('metric_finance', period)
+  useEffect(() => {
+    if (!data) { setCsv(null); return }
+    setCsv({ filename: `finans-raporu-${period.key}`, headers: ['Ay', 'Ciro (USD)', 'Ciro (TRY)'], rows: (data.by_month ?? []).map((x) => [x.month, x.revenue_usd, x.revenue_try]) })
+    return () => setCsv(null)
+  }, [data, period.key, setCsv])
+  if (isLoading) return <ReportLoading />
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Ciro (USD)" value={formatMoney(data?.revenue_usd ?? 0, 'USD')} sub={formatMoney(data?.revenue_try ?? 0, 'TRY')} />
+        <Kpi label="Tahsil edilen" value={formatMoney(data?.collected_usd ?? 0, 'USD')} tone="text-success-foreground" />
+        <Kpi label="Açık alacak" value={formatMoney(data?.outstanding_usd ?? 0, 'USD')} tone="text-warning-foreground" />
+        <Kpi label="Gecikmiş" value={formatMoney(data?.overdue_usd ?? 0, 'USD')} tone={(data?.overdue_usd ?? 0) > 0 ? 'text-danger-foreground' : undefined} />
+      </div>
+      <ReportSection title="Aya göre ciro">
+        <DataTable cols={[{ key: 'm', label: 'Ay' }, { key: 'u', label: 'USD', align: 'right' }, { key: 't', label: 'TRY', align: 'right' }]}
+          rows={(data?.by_month ?? []).map((x) => ({ m: x.month, u: formatMoney(x.revenue_usd, 'USD'), t: formatMoney(x.revenue_try, 'TRY') }))} />
+      </ReportSection>
+    </div>
+  )
+}
+
+// ── 6) EKİP & ETKİLEŞİM RAPORU ─────────────────────────────────────────
+export function EkipRaporu({ period, setCsv }: ReportProps) {
+  const emp = useEmployeesMetric(period)
+  const inter = useInteractionsMetric(period)
+  const empData = emp.data
+  const rows = useMemo(() => (empData ?? []).slice().sort((a, b) => (b.requests_handled ?? 0) - (a.requests_handled ?? 0)), [empData])
+  useEffect(() => {
+    if (!empData) { setCsv(null); return }
+    const sorted = (empData ?? []).slice().sort((a, b) => (b.requests_handled ?? 0) - (a.requests_handled ?? 0))
+    setCsv({
+      filename: `ekip-raporu-${period.key}`,
+      headers: ['Çalışan', 'E-posta', 'Talep', 'Teklif', 'Kabul', 'Red', 'Bekleyen', 'Dönüşüm %', 'Etkileşim'],
+      rows: sorted.map((e) => [e.name, e.email, e.requests_handled, e.quotes_sent, e.quotes_accepted, e.quotes_rejected, e.quotes_pending, e.conversion_rate ?? '', e.interactions]),
+    })
+    return () => setCsv(null)
+  }, [empData, period.key, setCsv])
+  if (emp.isLoading) return <ReportLoading />
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Toplam etkileşim" value={String(inter.data?.total ?? 0)} sub={`önceki dönem: ${inter.data?.prev_total ?? 0}`} />
+        <Kpi label="Olumlu oran" value={pct(inter.data?.positive_rate)} />
+        <Kpi label="Aktif çalışan" value={String(rows.length)} />
+        <Kpi label="Toplam teklif" value={String(rows.reduce((s, e) => s + (e.quotes_sent ?? 0), 0))} />
+      </div>
+      <ReportSection title="Çalışan performansı">
+        <DataTable
+          cols={[
+            { key: 'name', label: 'Çalışan' }, { key: 'req', label: 'Talep', align: 'right' },
+            { key: 'sent', label: 'Teklif', align: 'right' }, { key: 'pend', label: 'Bekleyen', align: 'right' },
+            { key: 'conv', label: 'Dönüşüm', align: 'right' }, { key: 'inter', label: 'Etkileşim', align: 'right' },
+          ]}
+          rows={rows.map((e) => ({
+            name: e.name, req: e.requests_handled, sent: e.quotes_sent, pend: e.quotes_pending,
+            conv: e.conversion_rate == null ? '—' : `%${e.conversion_rate.toFixed(0)}`, inter: e.interactions,
+          }))} />
+        <p className="text-text-muted text-xs">Dönüşüm = kabul ÷ sonuçlanan (kabul + red). Cevap bekleyen teklifler hariç.</p>
+      </ReportSection>
+    </div>
+  )
+}
+
+// ── Yardımcılar ────────────────────────────────────────────────────────
+function numOrNull(v: string | null): number | null { const n = Number(v); return v && Number.isFinite(n) ? n : null }
+function Sel({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: number; label: string }[] }) {
+  return (
+    <label className="flex items-center gap-1.5 text-sm">
+      <span className="text-text-secondary">{label}:</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}
+        className="rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground">
+        <option value="">Tümü</option>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </label>
+  )
+}
+

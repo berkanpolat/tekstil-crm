@@ -9,6 +9,16 @@ export type ReferenceTable =
   | 'lead_statuses'
   | 'customer_types'
   | 'tags'
+  // Operasyon Tanımları (Faz 3)
+  | 'operation_stages'
+  | 'request_statuses'
+  | 'quote_statuses'
+  | 'sample_statuses'
+  | 'order_statuses'
+  | 'request_channels'
+  | 'cancellation_reasons'
+  | 'quote_rejection_reasons'
+  | 'payment_terms'
 
 export interface ReferenceRow {
   id: number

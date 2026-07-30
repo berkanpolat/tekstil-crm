@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
-import { normalizeContactValue } from '@/lib/phone'
+// Not: value_normalized artık VERİTABANINDA (contact_points_normalize trigger)
+// hesaplanır; istemci göndermez. phone.ts istemci-tarafı dedup önizlemesi için kalır.
 
 export type ContactType = 'phone' | 'email' | 'whatsapp' | 'instagram' | 'telegram' | 'website'
 export type EntityType = 'lead' | 'customer'
@@ -59,7 +60,6 @@ export function useAddContactPoint() {
             entity_id: input.entity_id,
             type: input.type,
             value: input.value.trim(),
-            value_normalized: normalizeContactValue(input.type, input.value),
             label: input.label ?? null,
             is_primary: input.is_primary ?? false,
             created_by: user?.id ?? null,
@@ -82,7 +82,6 @@ export function useUpdateContactPoint() {
           .update({
             type: cp.type,
             value: cp.value.trim(),
-            value_normalized: normalizeContactValue(cp.type, cp.value),
             label: cp.label,
             is_primary: cp.is_primary,
           })

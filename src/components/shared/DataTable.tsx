@@ -27,6 +27,8 @@ export interface DataTableColumn<T> {
   cell: (row: T) => ReactNode
   sortable?: boolean
   hideable?: boolean
+  /** Başlangıçta gizli (kolon seçicisinden açılabilir). hideable ile birlikte kullanılır. */
+  defaultHidden?: boolean
   align?: 'left' | 'right' | 'center'
   className?: string
 }
@@ -60,6 +62,10 @@ interface DataTableProps<T> {
   emptyState?: ReactNode
   /** Kolon görünürlüğü menüsünü göster. */
   columnToggle?: boolean
+  /** Verildiğinde: md altında tablo yerine kart listesi (yatay kaydırma olmaz). */
+  renderMobileCard?: (row: T) => ReactNode
+  /** Satır bazlı ek sınıf (ör. süresi geçenler kırmızımsı zemin). */
+  rowClassName?: (row: T) => string | undefined
 }
 
 const ALIGN: Record<string, string> = { left: 'text-left', right: 'text-right', center: 'text-center' }
@@ -88,8 +94,10 @@ export function DataTable<T>({
   onRowClick,
   emptyState,
   columnToggle = true,
+  renderMobileCard,
+  rowClassName,
 }: DataTableProps<T>) {
-  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set(columns.filter((c) => c.defaultHidden).map((c) => c.key)))
   const visibleColumns = columns.filter((c) => !hidden.has(c.key))
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -156,7 +164,34 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      {/* Mobil: kart listesi (renderMobileCard verildiyse) */}
+      {renderMobileCard && (
+        <div className="md:hidden">
+          {loading ? (
+            <div className="divide-y">
+              {Array.from({ length: Math.min(pageSize, 6) }).map((_, i) => (
+                <div key={`msk-${i}`} className="p-3"><Skeleton className="h-14 w-full" /></div>
+              ))}
+            </div>
+          ) : data.length === 0 ? (
+            emptyState ?? <EmptyState title="Kayıt bulunamadı" description="Filtreleri değiştirmeyi deneyin." />
+          ) : (
+            <ul className="divide-y">
+              {data.map((row) => {
+                const key = rowKey(row)
+                return (
+                  <li key={key} onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    className={cn('p-3', onRowClick && 'cursor-pointer active:bg-muted/50', rowClassName?.(row))}>
+                    {renderMobileCard(row)}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <div className={cn('overflow-x-auto', renderMobileCard && 'hidden md:block')}>
         <Table>
           <TableHeader>
             <TableRow className="bg-subtle hover:bg-subtle">
@@ -226,7 +261,7 @@ export function DataTable<T>({
                   <TableRow
                     key={key}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    className={cn('h-16', onRowClick && 'cursor-pointer')}
+                    className={cn('h-16', onRowClick && 'cursor-pointer', rowClassName?.(row))}
                     data-state={selected.has(key) ? 'selected' : undefined}
                   >
                     {selectable && (
@@ -254,7 +289,9 @@ export function DataTable<T>({
       {/* Sayfalama */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t px-3 py-2">
         <div className="text-text-secondary text-sm">
-          {total > 0 ? `Toplam ${total.toLocaleString('tr')} kayıt` : 'Kayıt yok'}
+          {total > 0
+            ? `${((page - 1) * pageSize + 1).toLocaleString('tr')}–${Math.min(page * pageSize, total).toLocaleString('tr')} / ${total.toLocaleString('tr')} kayıt`
+            : 'Kayıt yok'}
         </div>
         <div className="flex items-center gap-3">
           {onPageSizeChange && (

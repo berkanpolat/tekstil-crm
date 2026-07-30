@@ -119,24 +119,35 @@ export function useEntityFiles(entityType: string | null, entityId: string | nul
   })
 }
 
+/** Görsel dönüşümü (thumbnail) — Supabase image transform. Plan desteklemezse çağıran onError ile düşer. */
+export interface ImgTransform { width?: number; height?: number; resize?: 'cover' | 'contain' | 'fill' }
+
 /** İmzalı indirme/önizleme URL'i üretir (özel bucket'lar için tek erişim yolu). */
 export async function getSignedUrl(
   bucket: FileBucket,
   path: string,
   expiresInSeconds = 60,
+  /** Verilirse indirilebilir URL (Content-Disposition: attachment; filename). */
+  downloadName?: string,
+  transform?: ImgTransform,
 ): Promise<string> {
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
+  const opts: { download?: string; transform?: ImgTransform } = {}
+  if (downloadName) opts.download = downloadName
+  if (transform) opts.transform = transform
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, expiresInSeconds, Object.keys(opts).length ? opts : undefined)
   if (error) throw error
   return data.signedUrl
 }
 
-/** İmzalı URL'i React Query ile (önizleme bileşenleri için). */
-export function useSignedUrl(file: Pick<FileRow, 'bucket' | 'storage_path'> | null) {
+/** İmzalı URL'i React Query ile (önizleme bileşenleri için). transform verilirse thumbnail. */
+export function useSignedUrl(file: Pick<FileRow, 'bucket' | 'storage_path'> | null, transform?: ImgTransform) {
   return useQuery({
-    queryKey: ['signed-url', file?.bucket, file?.storage_path],
+    queryKey: ['signed-url', file?.bucket, file?.storage_path, transform?.width, transform?.height, transform?.resize],
     enabled: !!file,
     staleTime: 45_000, // 60sn imzadan biraz kısa
-    queryFn: () => getSignedUrl(file!.bucket as FileBucket, file!.storage_path),
+    queryFn: () => getSignedUrl(file!.bucket as FileBucket, file!.storage_path, 60, undefined, transform),
   })
 }
 

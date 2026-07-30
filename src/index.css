@@ -22,10 +22,10 @@
   --border-soft: #eaecef;
   --border-strong: #d5d9e0;
 
-  /* Metin */
+  /* Metin — WCAG AA (≥4.5:1) beyaz/açık zeminde (QA#3) */
   --text-primary: #131318;
-  --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
+  --text-secondary: #4b5563; /* gray-600 ~7:1 — koyu ikincil metin */
+  --text-muted: #6b7280;     /* gray-500 ~4.8:1 — eskiden #9ca3af (2.8:1, AA fail) */
   --text-on-dark: #ffffff;
 
   /* Sidebar — neredeyse siyah (lacivert değil) */

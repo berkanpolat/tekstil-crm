@@ -405,6 +405,11 @@ verify_jwt = true
 [functions.set-user-active]
 verify_jwt = true
 
+# intake-request: tekstilas.com talep ucu. Kimliksiz (web sunucusu çağırır);
+# güvenlik X-Intake-Secret paylaşılan gizli anahtarıyla sağlanır.
+[functions.intake-request]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

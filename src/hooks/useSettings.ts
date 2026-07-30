@@ -8,17 +8,37 @@ export interface SettingRow {
   value: Json
   category: string
   is_sensitive: boolean
+  is_deprecated: boolean
+  description: string | null
 }
 
 export function useSettings() {
   return useQuery({
     queryKey: ['settings'],
     queryFn: async (): Promise<Record<string, SettingRow>> => {
-      const { data, error } = await supabase.from('settings').select('key, value, category, is_sensitive')
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value, category, is_sensitive, is_deprecated, description')
       if (error) throw error
       const map: Record<string, SettingRow> = {}
       for (const row of data ?? []) map[row.key] = row as SettingRow
       return map
+    },
+  })
+}
+
+/** Kullanım dışı (emekliye ayrılmış) ayarlar — UI'da varsayılan gizli, toggle ile gösterilir. */
+export function useDeprecatedSettings() {
+  return useQuery({
+    queryKey: ['settings-deprecated'],
+    queryFn: async (): Promise<SettingRow[]> => {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value, category, is_sensitive, is_deprecated, description')
+        .eq('is_deprecated', true)
+        .order('key')
+      if (error) throw error
+      return (data ?? []) as SettingRow[]
     },
   })
 }

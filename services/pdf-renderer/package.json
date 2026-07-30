@@ -1,0 +1,15 @@
+{
+  "name": "tekstil-pdf-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tekstil A.Ş. belge motoru — sunucu tarafı PDF (Playwright). Orijinal studyo şablonlarını sarmalar.",
+  "scripts": {
+    "start": "node server.mjs",
+    "render:test": "node render-test.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "playwright": "^1.62.0"
+  }
+}

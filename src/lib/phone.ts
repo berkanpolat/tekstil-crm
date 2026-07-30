@@ -92,3 +92,30 @@ export function normalizeContactValue(
   }
   return (value ?? '').trim().toLowerCase() || null
 }
+
+/** İletişim değerini tıklanabilir bağlantıya çevirir (yeni sekmede açılır). */
+export function contactHref(
+  type: 'phone' | 'whatsapp' | 'email' | 'instagram' | 'telegram' | 'website',
+  value: string | null | undefined,
+): string | null {
+  const raw = (value ?? '').trim()
+  if (!raw) return null
+  if (type === 'phone') return `tel:${normalizePhone(raw) ?? raw.replace(/[^\d+]/g, '')}`
+  if (type === 'whatsapp') { const p = normalizePhone(raw) ?? raw; return `https://wa.me/${p.replace(/[^\d]/g, '')}` }
+  if (type === 'email') return `mailto:${raw}`
+  if (type === 'instagram') return `https://instagram.com/${raw.replace(/^@+/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/+$/, '')}`
+  if (type === 'telegram') return `https://t.me/${raw.replace(/^@+/, '')}`
+  if (type === 'website') return /^https?:\/\//i.test(raw) ? raw : `https://${raw.replace(/^\/+/, '')}`
+  return null
+}
+
+/** İletişim değerinin ekranda gösterilecek kısa biçimi (instagram için @kullanıcı). */
+export function contactDisplay(
+  type: 'phone' | 'whatsapp' | 'email' | 'instagram' | 'telegram' | 'website',
+  value: string | null | undefined,
+): string {
+  const raw = (value ?? '').trim()
+  if (type === 'instagram') return '@' + raw.replace(/^@+/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/+$/, '')
+  if (type === 'website') return raw.replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+  return raw
+}

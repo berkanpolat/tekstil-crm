@@ -29,6 +29,25 @@ export const EVENT_TYPES = {
 
   // Operasyon kodu (P0.8) — kod alanı doygunluğu erken uyarısı
   CODES_COLLISION_PRESSURE: 'codes.collision_pressure',
+
+  // Potansiyel / Müşteri / Etkileşim (Faz 1) — timeline event_log'dan okur
+  LEAD_CREATED: 'lead.created',
+  LEAD_STATUS_CHANGED: 'lead.status_changed',
+  LEAD_ASSIGNED: 'lead.assigned',
+  LEAD_CONVERTED: 'lead.converted',
+  CUSTOMER_CREATED: 'customer.created',
+  CUSTOMER_STATUS_CHANGED: 'customer.status_changed',
+  CUSTOMER_ASSIGNED: 'customer.assigned',
+  INTERACTION_LOGGED: 'interaction.logged',
+  INTERACTION_REMOVED: 'interaction.removed',
+  TAG_ADDED: 'tag.added',
+  TAG_REMOVED: 'tag.removed',
+  NOTE_ADDED: 'note.added',
+  NOTE_REMOVED: 'note.removed',
+  FILE_ADDED: 'file.added',
+  FILE_REMOVED: 'file.removed',
+  // Mükerrer eşiği izleme: uyarıya rağmen kayıt oluşturuldu (Faz 7'de eşik ayarı)
+  DEDUP_OVERRIDDEN: 'dedup.overridden',
 } as const
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES]

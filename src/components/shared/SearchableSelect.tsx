@@ -85,7 +85,9 @@ export function SearchableSelect({
           }}
         >
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          {/* Dialog içindeyken Radix scroll-lock (react-remove-scroll) portala giden liste üzerinde
+              tekerlek/dokunuşu engelliyordu → kaydırılamıyordu. Olayı listede durdurunca native scroll çalışır. */}
+          <CommandList onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {clearable && value != null && (
@@ -104,8 +106,10 @@ export function SearchableSelect({
                 <CommandItem
                   key={opt.value}
                   value={opt.value}
-                  onSelect={(v) => {
-                    onChange(v === value ? (clearable ? null : v) : v)
+                  onSelect={() => {
+                    // cmdk onSelect değeri küçük harfe çevirir; closure opt.value kullan (metin
+                    // değerli seçimler bozulmasın — ör. "Kadın Giyim" grubu). QA#4b.
+                    onChange(opt.value === value ? (clearable ? null : opt.value) : opt.value)
                     setOpen(false)
                   }}
                 >

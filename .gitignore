@@ -40,3 +40,10 @@ pnpm-debug.log*
 supabase/.temp
 supabase/.branches
 .branches
+.secrets/
+
+# Sertifika / anahtar dosyaları
+*.pem
+*.key
+*.p12
+*.pfx

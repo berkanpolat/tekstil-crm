@@ -54,4 +54,15 @@ export const REFERENCE_CONFIGS: Record<string, ReferenceConfig> = {
     description: 'Yurtiçi / İhracat gibi müşteri türleri.',
     addLabel: 'Tür ekle',
   },
+
+  // --- Operasyon Tanımları (Faz 3) ---
+  asamalar: { table: 'operation_stages', title: 'Operasyon Aşamaları', description: 'Boru hattı aşamaları (talep→teslimat). Sıra ve renk aşama göstergesini besler.', addLabel: 'Aşama ekle', hasColor: true },
+  'talep-durumlari': { table: 'request_statuses', title: 'Talep Durumları', description: 'Talep yaşam döngüsü durumları.', addLabel: 'Durum ekle', hasColor: true, hasClosed: true },
+  'teklif-durumlari': { table: 'quote_statuses', title: 'Teklif Durumları', description: 'Teklif yaşam döngüsü durumları.', addLabel: 'Durum ekle', hasColor: true, hasClosed: true },
+  'numune-durumlari': { table: 'sample_statuses', title: 'Numune Durumları', description: 'Numune yaşam döngüsü durumları.', addLabel: 'Durum ekle', hasColor: true, hasClosed: true },
+  'siparis-durumlari': { table: 'order_statuses', title: 'Sipariş Durumları', description: 'Sipariş yaşam döngüsü durumları.', addLabel: 'Durum ekle', hasColor: true, hasClosed: true },
+  'talep-kanallari': { table: 'request_channels', title: 'Talep Kanalları', description: 'Taleplerin geldiği kanallar (rapor: kanal ağırlıkları).', addLabel: 'Kanal ekle', hasColor: true },
+  'iptal-nedenleri': { table: 'cancellation_reasons', title: 'İptal Nedenleri', description: 'Operasyon iptal gerekçeleri.', addLabel: 'Neden ekle' },
+  'red-nedenleri': { table: 'quote_rejection_reasons', title: 'Teklif Red Nedenleri', description: 'Teklif reddi gerekçeleri.', addLabel: 'Neden ekle' },
+  'odeme-kosullari': { table: 'payment_terms', title: 'Ödeme Koşulları', description: 'Teklif ve siparişlerde ödeme koşulları.', addLabel: 'Koşul ekle' },
 }

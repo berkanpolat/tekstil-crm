@@ -6,8 +6,10 @@ import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FormField } from '@/components/shared/FormField'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { getSoundPref, setSoundPref, playNotificationSound } from '@/lib/notificationSound'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useUploadFile, getSignedUrl, type FileBucket } from '@/hooks/useFiles'
 import { ensureRows, toUserMessage } from '@/lib/errors'
@@ -90,7 +92,33 @@ export function ProfilePage() {
       </div>
 
       <ProfileInfoForm key={me.id} me={me} />
+      <SoundPrefCard />
       <PasswordForm />
+    </div>
+  )
+}
+
+/** B.5 — Bildirim sesi tercihi (aç/kapa + hangi şiddetten itibaren). Kullanıcıya özel. */
+function SoundPrefCard() {
+  const [pref, setPref] = useState(getSoundPref())
+  const update = (p: Partial<typeof pref>) => { const next = { ...pref, ...p }; setPref(next); setSoundPref(next) }
+  return (
+    <div className="bg-card space-y-3 rounded-lg border p-5 shadow-card">
+      <h3 className="font-semibold text-foreground">Bildirim sesi</h3>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={pref.enabled} onChange={(e) => update({ enabled: e.target.checked })} />
+        Yeni bildirimde ses çal
+      </label>
+      {pref.enabled && (
+        <div className="max-w-xs">
+          <label className="text-xs text-text-muted">Hangi önemden itibaren?</label>
+          <SearchableSelect className="mt-1"
+            options={[{ value: 'info', label: 'Tümü (bilgi dahil)' }, { value: 'warning', label: 'Uyarı ve üstü' }, { value: 'critical', label: 'Yalnızca kritik' }]}
+            value={pref.minSeverity} onChange={(v) => update({ minSeverity: (v as 'info' | 'warning' | 'critical') ?? 'info' })} />
+        </div>
+      )}
+      <button type="button" onClick={() => playNotificationSound(pref.minSeverity === 'critical' ? 'critical' : 'info')}
+        className="text-xs text-primary hover:underline">Sesi dene</button>
     </div>
   )
 }

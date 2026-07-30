@@ -1,0 +1,32 @@
+# Fly.io yapılandırması — PDF servisi. Frankfurt (fra), Supabase ile aynı bölge → düşük gecikme.
+# Platforma özel TEK dosya budur; Dockerfile düz kalır. Taşımada yalnızca bu değişir.
+app = "tekstil-pdf-renderer"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "4046"
+  PDF_CORS_ORIGIN = "https://app.tekstilas.com"   # üretim uygulama alan adı (Hostingdünyam)
+
+[http_service]
+  internal_port = 4046
+  force_https = true
+  # Always-on: belge üretimi anlık olmalı, soğuk başlatma gecikmesi istemiyoruz.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "3s"
+    grace_period = "25s"
+    method = "GET"
+    path = "/health"
+
+# Chromium için bellek. Ölçüm (yerel, sıcak tek sayfa): RSS ~350-450 MB.
+# 512 MB tek üretimde yeter ama eşzamanlı isteklerde/uzun ömürde dar; 1 GB güvenli marj.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

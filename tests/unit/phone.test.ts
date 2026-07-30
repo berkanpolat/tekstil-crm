@@ -6,35 +6,26 @@ import {
   normalizeEmail,
   normalizeContactValue,
 } from '@/lib/phone'
+import phoneCases from '../fixtures/phone-cases.json'
 
-describe('normalizePhone — Türkiye + uluslararası (15+ biçim)', () => {
-  const TR = '+905321234567'
-  const cases: [string, string | null][] = [
-    ['0532 123 45 67', TR],
-    ['+90 532 123 4567', TR],
-    ['905321234567', TR],
-    ['90 532 123 45 67', TR],
-    ['532 123 45 67', TR],
-    ['5321234567', TR],
-    ['0090 532 123 45 67', TR],
-    ['(0532) 123-45-67', TR],
-    ['+90-532-123-45-67', TR],
-    ['  0532.123.45.67  ', TR],
-    ['0212 345 67 89', '+902123456789'], // İstanbul sabit hat
-    ['+49 170 1234567', '+491701234567'], // Almanya
-    ['+1 (415) 555-2671', '+14155552671'], // ABD
-    ['00491701234567', '+491701234567'], // 00 → +
-    ['', null],
-    ['   ', null],
-    ['abc', null],
-    ['+90 532 12', '+9053212'], // kısa ama + ile → korunur
-  ]
+// OTORİTER senaryolar tests/fixtures/phone-cases.json'da; aynı dosyayı SQL
+// tutarlılık kontrolü (scripts/check-normalize-consistency.mjs) de okur ve
+// normalize_contact_value('phone', ...) ile birebir aynı sonucu üretmelidir.
+// Biri değişirse (TS phone.ts veya SQL) test kırılır → ayrışma engellenir.
+type PhoneCase = { input: string; expected: string | null }
 
-  for (const [input, expected] of cases) {
+describe('normalizePhone — fixture (Türkiye + uluslararası, SQL↔TS)', () => {
+  for (const { input, expected } of phoneCases as PhoneCase[]) {
     it(`"${input}" → ${expected ?? 'null'}`, () => {
       expect(normalizePhone(input)).toBe(expected)
+      // phone tipi için normalizeContactValue de aynı sonucu vermeli
+      expect(normalizeContactValue('phone', input)).toBe(expected)
     })
   }
+
+  it('+ ile gelen kısa numara korunur (fixture dışı kenar)', () => {
+    expect(normalizePhone('+90 532 12')).toBe('+9053212')
+  })
 
   it('farklı yazımdaki aynı numara eşit sayılır (samePhone)', () => {
     expect(samePhone('0532 123 45 67', '+905321234567')).toBe(true)

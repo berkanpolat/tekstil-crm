@@ -3,8 +3,8 @@ import { Hammer } from 'lucide-react'
 import { activeNavItem } from '@/lib/navigation'
 
 /**
- * Faz 0 yer tutucu sayfası. Boş beyaz ekran yerine, bu modülün ne işe yarayacağını
- * ve hangi fazda geleceğini söyleyen bir bilgi kartı gösterir.
+ * Henüz arayüzü olmayan modül / bilinmeyen yol için bilgi kartı. Boş beyaz ekran
+ * yerine modülün ne işe yaradığını gösterir.
  */
 export function PlaceholderPage() {
   const { pathname } = useLocation()
@@ -17,15 +17,10 @@ export function PlaceholderPage() {
         <Icon className="text-accent-primary size-8" />
       </div>
       <div className="space-y-1.5">
-        <h2 className="text-xl font-semibold text-foreground">{item?.label ?? 'Sayfa'}</h2>
-        <p className="text-sm text-text-secondary">{item?.description}</p>
+        <h2 className="text-xl font-semibold text-foreground">{item?.label ?? 'Sayfa bulunamadı'}</h2>
+        <p className="text-sm text-text-secondary">{item?.description ?? 'Aradığınız sayfa taşınmış veya kaldırılmış olabilir.'}</p>
       </div>
-      <span className="bg-info text-info-foreground rounded-md px-2.5 py-1 text-xs font-medium">
-        {item?.arrives ?? 'İleride'} tamamlanacak
-      </span>
-      <p className="text-xs text-text-muted">
-        Faz 0 temel altyapıyı kurar; bu modülün arayüzü sonraki fazlarda gelir.
-      </p>
+      <span className="bg-info text-info-foreground rounded-md px-2.5 py-1 text-xs font-medium">Hazırlanıyor</span>
     </div>
   )
 }

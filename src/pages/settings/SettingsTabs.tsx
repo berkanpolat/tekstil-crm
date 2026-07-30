@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SettingHistoryDialog } from '@/components/settings/SettingHistoryDialog'
-import { useSettings, useSaveSettings, type SettingRow } from '@/hooks/useSettings'
+import { useSettings, useSaveSettings, useDeprecatedSettings, type SettingRow } from '@/hooks/useSettings'
 import type { Json } from '@/lib/database.types'
 
 type SettingsMap = Record<string, SettingRow>
@@ -269,12 +269,44 @@ export function SystemSettings() {
   return (
     <SettingsShell title="Sistem" description="Kod üreteci, saat dilimi ve test modu." loading={isLoading || !data}>
       {data && <SystemForm key="sys" settings={data} />}
+      <DeprecatedSettingsSection />
     </SettingsShell>
   )
 }
 
+/** Kullanım dışı ayarlar — varsayılan gizli; "göster" ile salt-okunur listelenir. */
+function DeprecatedSettingsSection() {
+  const [show, setShow] = useState(false)
+  const { data: rows } = useDeprecatedSettings()
+  const count = rows?.length ?? 0
+  if (count === 0) return null
+  return (
+    <div className="mt-6 border-t pt-4">
+      <label className="text-text-secondary flex items-center gap-2 text-sm">
+        <Checkbox checked={show} onCheckedChange={(c) => setShow(!!c)} />
+        Kullanım dışı ayarları göster ({count})
+      </label>
+      {show && (
+        <ul className="mt-3 space-y-2">
+          {rows!.map((r) => (
+            <li key={r.key} className="border-border rounded-md border px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-xs text-foreground">{r.key}</span>
+                <span className="text-text-muted rounded bg-neutral-badge px-1.5 py-0.5 text-[10px] uppercase">
+                  Kullanım dışı
+                </span>
+              </div>
+              {r.description && <p className="text-text-muted mt-1 text-xs">{r.description}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function SystemForm({ settings }: { settings: SettingsMap }) {
-  const [prefix, setPrefix] = useState(() => asStr(settings, 'codes.operation_prefix'))
+  const [prefix, setPrefix] = useState(() => asStr(settings, 'codes.default_prefix'))
   const [length, setLength] = useState(() => String(asNum(settings, 'codes.length')))
   const [timezone, setTimezone] = useState(() => asStr(settings, 'system.timezone'))
   const [testMode, setTestMode] = useState(() => asBool(settings, 'system.test_mode'))
@@ -285,7 +317,7 @@ function SystemForm({ settings }: { settings: SettingsMap }) {
     e.preventDefault()
     try {
       await save.mutateAsync([
-        { key: 'codes.operation_prefix', value: prefix.trim().toUpperCase() },
+        { key: 'codes.default_prefix', value: prefix.trim().toUpperCase() },
         { key: 'codes.length', value: Number(length) || 6 },
         { key: 'system.timezone', value: timezone },
         { key: 'system.test_mode', value: testMode },
@@ -299,7 +331,11 @@ function SystemForm({ settings }: { settings: SettingsMap }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Operasyon kodu öneki" labelAction={<HistoryBtn onClick={() => setHistKey('codes.operation_prefix')} />}>
+        <FormField
+          label="Varsayılan kod öneki"
+          hint="Operasyon kodları için (entity'ye özel önek yoksa). Müşteri: MUS."
+          labelAction={<HistoryBtn onClick={() => setHistKey('codes.default_prefix')} />}
+        >
           {(p) => <Input {...p} value={prefix} onChange={(e) => setPrefix(e.target.value)} />}
         </FormField>
         <FormField
@@ -315,7 +351,7 @@ function SystemForm({ settings }: { settings: SettingsMap }) {
       </FormField>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox checked={testMode} onCheckedChange={(c) => setTestMode(!!c)} />
-        Test modu (Faz 2'de gerçek müşterilere mesaj gönderimini engeller)
+        Test modu (açıkken gerçek müşterilere mesaj gönderilmez)
         <HistoryBtn onClick={() => setHistKey('system.test_mode')} />
       </label>
       <SaveRow saving={save.isPending} />

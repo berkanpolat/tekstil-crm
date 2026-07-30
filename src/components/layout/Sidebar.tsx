@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { PanelLeftClose, PanelLeftOpen, LogOut, User as UserIcon, MoreVertical } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { NAV_ITEMS, canManageUsers } from '@/lib/navigation'
+import { NAV_ITEMS, canManageUsers, canViewFinance } from '@/lib/navigation'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/shared/Logo'
@@ -31,7 +31,7 @@ export function Sidebar({
   showCollapseButton = true,
 }: SidebarProps) {
   const { data: me } = useCurrentUser()
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || canManageUsers(me?.role_key))
+  const items = NAV_ITEMS.filter((item) => (!item.adminOnly || canManageUsers(me?.role_key)) && (!item.financeOnly || canViewFinance(me?.role_key)))
   return (
     <aside className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
       {/* Logo + daraltma */}
@@ -106,7 +106,7 @@ function UserBlock({ collapsed }: { collapsed: boolean }) {
   const { data: user } = useCurrentUser()
   const { signOut } = useAuth()
   const name = user?.full_name ?? 'Giriş yapılmadı'
-  const sub = user?.email ?? 'Faz 0 — demo görünüm'
+  const sub = user?.email ?? '—'
   const initials = (user?.full_name ?? '?')
     .split(' ')
     .map((p) => p[0])

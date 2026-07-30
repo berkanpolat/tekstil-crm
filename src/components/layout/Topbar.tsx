@@ -1,6 +1,9 @@
 import { useLocation } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 import { activeNavItem } from '@/lib/navigation'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
+import { SlaBadge } from './SlaBadge'
+import { NotificationBell } from './NotificationBell'
 
 interface TopbarProps {
   onOpenMobileMenu: () => void
@@ -25,9 +28,17 @@ export function Topbar({ onOpenMobileMenu }: TopbarProps) {
         <Menu className="size-5" />
       </button>
 
-      <h1 className="flex-1 truncate text-[18px] font-semibold text-foreground">
+      <h1 className="hidden truncate text-[18px] font-semibold text-foreground sm:block">
         {active?.label ?? 'Tekstil A.Ş. CRM'}
       </h1>
+
+      <div className="flex flex-1 justify-end sm:flex-none">
+        <GlobalSearch />
+      </div>
+
+      <div className="hidden sm:block"><SlaBadge /></div>
+
+      <NotificationBell />
 
       {/* Birincil aksiyon alanı — gerçek sayfalarda doldurulacak (P0.10 PageHeader). */}
       <div id="topbar-actions" className="flex items-center gap-2" />
