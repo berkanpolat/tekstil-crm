@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.backups/
+data/
+.secrets/
+docs/
+supabase/migrations/
+*.sql
+*.png
+*.jpg
+*.jpeg
+*.pdf
+package-lock.json
+coverage/
+playwright-report/
+test-results/

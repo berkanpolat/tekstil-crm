@@ -1,5 +1,43 @@
 # Tekstil A.Ş. CRM — Proje Rehberi
 
+> ## 🟡 TOKEN DİSİPLİNİ (ihlal edilemez)
+>
+> 30 Temmuz 2026: tek oturumda 5 gün çalışıldı, 1244 $ API karşılığı,
+> haftalık limit doldu, 156 $ ekstra kredi harcandı. Sebep: uzun oturum +
+> Opus + 1M bağlam + proje içinde 134 MB yedek.
+>
+> - **Varsayılan model Sonnet.** Opus yalnızca geri alınamaz işlerde
+>   (migration, silme, şema değişikliği) ve iş bitince geri Sonnet.
+> - **Her paket sonunda `/clear`.** Bağlam 150k'yı aşarsa `/compact`.
+> - **Bir oturum = bir paket.** İki işi aynı oturuma sokma.
+> - **Dosya okumadan önce hangi dosyaları okuyacağını listele, onay al.**
+> - **Prompt'ta dosya yolu ver; arama yaptırma.**
+> - `.claudeignore`: `node_modules/`, `dist/`, `data/`, `.backups/`,
+>   `.secrets/`, `*.sql`, `supabase/migrations/`, `docs/`, `*.png`, `*.jpg`
+> - **Yedekler proje dışında:** `~/tekstil-crm-yedekler`
+> - **Kullanılmayan MCP sunucuları kapalı.**
+> - **Paket başında ve sonunda `/cost`** — maliyeti ölç, tahmin etme.
+
+
+
+> ## 🔴 ÜRETİM MODU — canlı DB'de GERÇEK MÜŞTERİ VERİSİ var
+>
+> Bu kurallar diğer her şeyin ÜSTÜNDEDİR. İstisnasız uygulanır.
+>
+> 1. **Canlı DB'ye yazan veya şema değiştiren HİÇBİR işlem ONAY ALMADAN yapılmaz.**
+>    Migration, `DELETE`, `UPDATE`, `INSERT`/seed, `ALTER`, RPC/trigger değişikliği —
+>    hepsi önce kullanıcıya sorulur, açık onay beklenir.
+> 2. **Silme veya toplu güncelleme öncesi MUTLAKA yedek alınır** (DB dump + gerekiyorsa
+>    Storage). Yedek doğrulanmadan yıkıcı işleme geçilmez.
+>    **Yedek konumu: `~/tekstil-crm-yedekler` (proje DIŞINDA).** Yeni yedekler de
+>    oraya yazılır — proje içine ASLA. Bu klasör aranmaz/listelenmez/okunmaz
+>    (bağlam maliyeti); içeriği gerekiyorsa kullanıcıya sorulur.
+> 3. **Test scriptleri canlı DB'ye veri YAZMAZ.** (`scripts/*-ui.mjs`, `e2e-*.mjs`,
+>    seed'ler) Yalnız okuma; yazma gerekiyorsa ayrı/izole ortam + onay.
+> 4. **Her paket sonunda commit + push** (mevcut kural sürüyor).
+>
+> ---
+
 > Bu dosya projenin canlı özetidir. **Her paket bitiminde güncellenir** (tamamlanan
 > paket + sıradaki adım). Ajan ve geliştiriciler önce burayı okur.
 
