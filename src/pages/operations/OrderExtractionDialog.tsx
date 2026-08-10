@@ -73,9 +73,11 @@ export function OrderExtractionDialog({ order, operationId, mode = 'belge', onCl
     for (const f of FIELDS) extracted[f.to] = values[f.key]?.trim() || null
     const corrected = FIELDS.filter((f) => (values[f.key] ?? '') !== (initial[f.key] ?? '')).map((f) => f.key)
     try {
-      await save.mutateAsync({ id: order.id, operationId, extracted, source: mode === 'belge' ? 'belge' : 'ai' })
+      const outcome = await save.mutateAsync({ id: order.id, operationId, extracted, source: mode === 'belge' ? 'belge' : 'ai' })
       if (requestId) await feedback.mutateAsync({ requestId, accepted: true, correctedFields: corrected })
       toast.success(`Sipariş bilgileri kaydedildi${corrected.length ? ` (${corrected.length} alan düzeltildi)` : ''}.`)
+      if (outcome === 'no_price') toast.warning('Birim fiyat okunamadı; sipariş kalemi oluşturulmadı, elle girin.')
+      else if (outcome === 'no_qty') toast.warning('Adet okunamadı; sipariş kalemi oluşturulmadı, elle girin.')
       onDone()
     } catch (e) { toast.error(await toUserMessage(e)) }
   }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
+import { parseDecimal } from '@/lib/money'
 import { useUploadFile } from './useFiles'
 
 export interface Order {
@@ -287,13 +288,45 @@ export function useUploadOrderFile() {
   })
 }
 
+/** extracted_data kaydedildikten sonra kalem yazma sonucu. */
+export type ExtractedItemOutcome = 'created' | 'exists' | 'no_price' | 'no_qty'
+
+/**
+ * extracted_data'dan TEK kalemlik order_items yazar (belge→sipariş / dış PDF yolları).
+ * A yolundaki (quote→order) insert desenini kaynak değiştirerek kullanır: kaynak = extracted.
+ * - Fiyat parse edilemezse (Türkçe biçim) 0 YAZMAZ → kalem oluşturmaz, çağırana bildirir.
+ * - Aynı sipariş için kalem zaten varsa tekrar yazmaz (mükerrer koruma).
+ * - Kalem yazılınca total + cari trigger zinciriyle kendiliğinden güncellenir (dokunulmaz).
+ */
+async function writeExtractedItem(orderId: number, extracted: Record<string, unknown>): Promise<ExtractedItemOutcome> {
+  const { data: existing } = await supabase.from('order_items').select('id').eq('order_id', orderId).is('deleted_at', null).limit(1)
+  if (existing && existing.length) return 'exists'
+  const price = parseDecimal(extracted.fiyat as string | number | null | undefined)
+  if (price == null || price <= 0) return 'no_price'
+  const qty = parseDecimal(extracted.adet as string | number | null | undefined)
+  if (qty == null || qty <= 0) return 'no_qty'
+  const parts: string[] = []
+  if (extracted.renk) parts.push(`Renk: ${String(extracted.renk)}`)
+  if (extracted.beden) parts.push(`Beden: ${String(extracted.beden)}`)
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('order_items').insert({
+    order_id: orderId, name: 'Sipariş kalemi', description: parts.length ? parts.join(' · ') : null,
+    quantity: qty, unit: 'adet', unit_price: price, discount_rate: 0, sort_order: 0, created_by: user?.id ?? null,
+  } as never)
+  return 'created'
+}
+
 /** Sipariş formundan ELLE çekilen alanlar (adet/fiyat/renk/teslimat/ödeme). Faz 6 AI: extraction_source='ai'. */
 export function useUpdateOrderExtracted() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, extracted, source }: { id: number; operationId: number; extracted: Record<string, unknown>; source?: 'manuel' | 'ai' | 'belge' }) => {
+    mutationFn: async ({ id, extracted, source }: { id: number; operationId: number; extracted: Record<string, unknown>; source?: 'manuel' | 'ai' | 'belge' }): Promise<ExtractedItemOutcome> => {
       ensureRows(await supabase.from('orders').update({ extracted_data: extracted, extraction_source: source ?? 'manuel' } as never).eq('id', id).select('id'))
+      return writeExtractedItem(id, extracted)
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['orders', v.operationId] }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['orders', v.operationId] })
+      qc.invalidateQueries({ queryKey: ['order-items'] })
+    },
   })
 }

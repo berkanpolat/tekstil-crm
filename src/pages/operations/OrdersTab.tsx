@@ -316,11 +316,14 @@ function ValidateDialog({ orderId, operationId, order, onClose }: { orderId: num
 
   async function submit() {
     try {
-      await save.mutateAsync({ id: orderId, operationId, extracted: {
+      const outcome = await save.mutateAsync({ id: orderId, operationId, extracted: {
         adet: adet.trim() || null, fiyat: fiyat.trim() || null, renk: renk.trim() || null,
         teslimat: teslimat || null, odeme: odeme.trim() || null,
       } })
-      toast.success('Sipariş bilgileri kaydedildi.'); onClose()
+      toast.success('Sipariş bilgileri kaydedildi.')
+      if (outcome === 'no_price') toast.warning('Birim fiyat okunamadı; sipariş kalemi oluşturulmadı, elle girin.')
+      else if (outcome === 'no_qty') toast.warning('Adet okunamadı; sipariş kalemi oluşturulmadı, elle girin.')
+      onClose()
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
 
