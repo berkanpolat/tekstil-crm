@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, Package, Plus, Upload } from 'lucide-react'
+import { LayoutGrid, List, Package, Plus, Trash2, Upload } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { DataTable, type DataTableColumn, type SortState } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { toUserMessage } from '@/lib/errors'
 import { useDocCategoryOptions } from '@/hooks/useDocuments'
-import { useCatalogProducts, useCatalogs, useCollections, type CatalogRow } from '@/hooks/useCatalog'
+import { useCatalogProducts, useCatalogs, useCollections, useDeleteCatalog, type CatalogRow } from '@/hooks/useCatalog'
 import { CatalogImage } from './CatalogImage'
 import { RateBadge } from './RateBadge'
 import { CatalogProductForm } from './CatalogProductForm'
@@ -30,6 +33,8 @@ export function CatalogListPage() {
   const [sort, setSort] = useState<SortState | null>({ key: 'code', dir: 'asc' })
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [catDelOpen, setCatDelOpen] = useState(false)
+  const delCatalog = useDeleteCatalog()
 
   const catalogs = useCatalogs()
   const collections = useCollections(catalogId ? Number(catalogId) : null)
@@ -41,6 +46,7 @@ export function CatalogListPage() {
     active: active == null ? null : active === 'true', page, pageSize, sort,
   }
   const { data, isLoading, isFetching } = useCatalogProducts(filters)
+  const selectedCatalog = (catalogs.data ?? []).find((c) => String(c.id) === catalogId)
   const hasFilters = !!search || !!catalogId || !!collectionId || !!categoryId || !!hasCost || active != null
   const clearAll = () => { setSearch(''); setCatalogId(null); setCollectionId(null); setCategoryId(null); setHasCost(null); setActive(null); resetPage() }
 
@@ -69,6 +75,7 @@ export function CatalogListPage() {
 
       <FilterBar search={search} onSearchChange={(v) => { setSearch(v); resetPage() }} searchPlaceholder="Kod, ad veya kompozisyon ara…" showClear={hasFilters} onClear={clearAll}>
         <SearchableSelect options={(catalogs.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))} value={catalogId} onChange={(v) => { setCatalogId(v); setCollectionId(null); resetPage() }} placeholder="Katalog" clearable className="w-48" />
+        {selectedCatalog && <Button variant="ghost" size="icon" className="text-destructive" title="Seçili kataloğu sil" onClick={() => setCatDelOpen(true)}><Trash2 className="size-4" /></Button>}
         <SearchableSelect options={(collections.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))} value={collectionId} onChange={(v) => { setCollectionId(v); resetPage() }} placeholder="Koleksiyon" clearable className="w-40" />
         <SearchableSelect options={(cats.data?.groups ?? []).map((g) => ({ value: String(g.id), label: g.label }))} value={categoryId} onChange={(v) => { setCategoryId(v); resetPage() }} placeholder="Kategori" clearable className="w-48" />
         <SearchableSelect options={[{ value: 'yes', label: 'Maliyet girilmiş' }, { value: 'no', label: 'Maliyet yok' }]} value={hasCost} onChange={(v) => { setHasCost(v); resetPage() }} placeholder="Maliyet" clearable className="w-40" />
@@ -101,6 +108,26 @@ export function CatalogListPage() {
 
       {formOpen && <CatalogProductForm onClose={() => setFormOpen(false)} onSaved={(id) => { setFormOpen(false); navigate(`/katalog/${id}`) }} />}
       {importOpen && <CatalogImportDialog onClose={() => setImportOpen(false)} onDone={() => setImportOpen(false)} />}
+      <ConfirmDialog
+        open={catDelOpen}
+        onOpenChange={setCatDelOpen}
+        title="Kataloğu sil"
+        description={`"${selectedCatalog?.name}" kataloğu listeden kaldırılacak. İçindeki ürünler silinmez (ayrıca silinebilir); geçmiş belgeler etkilenmez.`}
+        confirmLabel="Sil"
+        destructive
+        onConfirm={async () => {
+          if (!selectedCatalog) return
+          try {
+            await delCatalog.mutateAsync(selectedCatalog.id)
+            toast.success('Katalog silindi.')
+            setCatalogId(null)
+            setCollectionId(null)
+            setCatDelOpen(false)
+          } catch (err) {
+            toast.error(await toUserMessage(err))
+          }
+        }}
+      />
     </div>
   )
 }

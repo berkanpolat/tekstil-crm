@@ -519,7 +519,8 @@ function SiparisFormuForm({ data, set }: { data: Data; set: (d: Data) => void })
           <D label="Değişiklik Tarihi" value={s.tarih} onChange={(v) => up({ tarih: v })} />
           <Sel label="Beden Sistemi" value={s.bsistem} onChange={(v) => setBsistem(v ?? 'Alfa')} options={Object.keys(BEDEN_SETLERI).map((k) => ({ value: k, label: k }))} />
           <CategorySelect grup={s.grup} tur={s.tur} onGrup={(v) => up({ grup: v })} onTur={(v) => up({ tur: v })} />
-          <T label="Bedenler (virgülle)" value={bedenler.join(', ')} onChange={(v) => up({ bedenler: v.split(',').map((x) => x.trim()).filter(Boolean) })} wide />
+          {/* Ayırıcı noktalı virgül: tek bir beden ondalık olabilsin (ör. "40,5"). */}
+          <T label="Bedenler (noktalı virgülle: 40; 40,5; 41)" value={bedenler.join('; ')} onChange={(v) => up({ bedenler: v.split(';').map((x) => x.trim()).filter(Boolean) })} wide />
         </Grid>
       </FieldGroup>
 

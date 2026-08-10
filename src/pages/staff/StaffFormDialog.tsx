@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { FormField } from '@/components/shared/FormField'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { PhoneInput } from '@/components/shared/PhoneInput'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -152,7 +153,7 @@ function StaffForm({ editing, onDone }: { editing: StaffRow | null; onDone: () =
           )}
         </FormField>
         <FormField label="Telefon">
-          {(p) => <Input {...p} value={form.phone} onChange={(e) => set('phone', e.target.value)} />}
+          {(p) => <PhoneInput id={p.id} value={form.phone} onChange={(v) => set('phone', v)} />}
         </FormField>
       </div>
 

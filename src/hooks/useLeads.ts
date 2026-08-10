@@ -223,6 +223,8 @@ export interface LeadDetail {
   status_id: number
   assigned_to: string | null
   next_action_at: string | null
+  first_contact_channel_id: number | null
+  first_contact_date: string | null
   last_interaction_at: string | null
   external_source: string | null
   external_id: string | null
@@ -245,6 +247,7 @@ export function useLead(id: number | null) {
         .from('leads')
         .select(
           'id, full_name, company_name, country, city, district, address, source_id,' +
+            ' first_contact_channel_id, first_contact_date,' +
             ' status_id, assigned_to, next_action_at, last_interaction_at, external_source,' +
             ' external_id, converted_customer_id, converted_at, created_at, updated_at,' +
             ' lead_statuses(key, label), lead_sources(label),' +
@@ -259,6 +262,8 @@ export function useLead(id: number | null) {
       const l = data as unknown as RawLead & {
         district: string | null
         address: string | null
+        first_contact_channel_id: number | null
+        first_contact_date: string | null
         converted_customer_id: number | null
         converted_at: string | null
         updated_at: string
@@ -272,6 +277,8 @@ export function useLead(id: number | null) {
         district: l.district,
         address: l.address,
         source_id: l.source_id,
+        first_contact_channel_id: l.first_contact_channel_id,
+        first_contact_date: l.first_contact_date,
         status_id: l.status_id,
         assigned_to: l.assigned_to,
         next_action_at: l.next_action_at,
@@ -303,6 +310,8 @@ export interface LeadInput {
   status_id: number | null
   assigned_to: string | null
   next_action_at: string | null
+  first_contact_channel_id: number | null
+  first_contact_date: string | null // YYYY-MM-DD ya da null
 }
 
 const invalidateLeads = (qc: ReturnType<typeof useQueryClient>) => {

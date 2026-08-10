@@ -13,9 +13,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MoneyInput } from '@/components/shared/MoneyInput'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import {
   useCatalogProduct, useProductCost, useSaveProductCost, useHasPermission, useMarginTiers,
-  useExchangeRates, ratesToMap, type CatalogProductDetail, type CostItemRow,
+  useExchangeRates, ratesToMap, useDeleteCatalogProduct, type CatalogProductDetail, type CostItemRow,
 } from '@/hooks/useCatalog'
 import { sumCost, tierRows, type CostItem } from '@/lib/pricing'
 import { CatalogImage } from './CatalogImage'
@@ -39,7 +40,9 @@ export function CatalogProductPage() {
   const [tab, setTab] = useState<'genel' | 'maliyet' | 'fiyat'>('genel')
   const [editOpen, setEditOpen] = useState(false)
   const [quoteOpen, setQuoteOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const canCost = useHasPermission('costs.view')
+  const del = useDeleteCatalogProduct()
 
   if (isLoading || !p) return <div className="flex items-center gap-2 p-8 text-text-muted"><Loader2 className="size-4 animate-spin" /> Yükleniyor…</div>
 
@@ -56,6 +59,7 @@ export function CatalogProductPage() {
         <div className="flex flex-wrap items-center gap-2">
           <RateBadge />
           <Button variant="outline" onClick={() => setEditOpen(true)}><Pencil className="size-4" /> Düzenle</Button>
+          <Button variant="outline" className="text-destructive" onClick={() => setDeleteOpen(true)}><Trash2 className="size-4" /> Sil</Button>
           <Button onClick={() => setQuoteOpen(true)}><FileText className="size-4" /> Teklif oluştur</Button>
         </div>
       </div>
@@ -76,6 +80,23 @@ export function CatalogProductPage() {
 
       {editOpen && <CatalogProductForm editing={p} onClose={() => setEditOpen(false)} onSaved={() => setEditOpen(false)} />}
       {quoteOpen && <QuoteFromProductDialog product={p} onClose={() => setQuoteOpen(false)} />}
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Ürünü sil"
+        description={`${p.name} (${p.code}) katalogdan kaldırılacak. Kayıt gizlenir; geçmiş teklif/sipariş belgeleri etkilenmez.`}
+        confirmLabel="Sil"
+        destructive
+        onConfirm={async () => {
+          try {
+            await del.mutateAsync(p.id)
+            toast.success('Ürün silindi.')
+            navigate('/katalog')
+          } catch (err) {
+            toast.error(await toUserMessage(err))
+          }
+        }}
+      />
     </div>
   )
 }

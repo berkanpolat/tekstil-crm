@@ -201,6 +201,8 @@ export interface CustomerDetail {
   account_holder: string | null
   assigned_to: string | null
   next_action_at: string | null
+  first_contact_channel_id: number | null
+  first_contact_date: string | null
   last_interaction_at: string | null
   converted_from_lead_id: number | null
   converted_at: string | null
@@ -222,7 +224,8 @@ export function useCustomer(id: number | null) {
         .select(
           'id, customer_code, full_name, company_name, customer_type_id, status_id,' +
             ' country, city, district, address, tax_office, tax_number, iban, bank_name,' +
-            ' account_holder, assigned_to, next_action_at, last_interaction_at,' +
+            ' account_holder, assigned_to, next_action_at, first_contact_channel_id,' +
+            ' first_contact_date, last_interaction_at,' +
             ' converted_from_lead_id, converted_at, created_at, updated_at,' +
             ' customer_statuses(key, label), customer_types(label),' +
             ' assignee:users!customers_assigned_to_fkey(full_name)',
@@ -265,6 +268,8 @@ export interface CustomerInput {
   account_holder: string | null
   assigned_to: string | null
   next_action_at: string | null
+  first_contact_channel_id: number | null
+  first_contact_date: string | null // YYYY-MM-DD ya da null
 }
 
 const invalidate = (qc: ReturnType<typeof useQueryClient>) => {

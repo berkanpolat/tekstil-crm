@@ -64,9 +64,9 @@ export type Database = {
         Relationships: []
       }
       catalogs: {
-        Row: { id: number; name: string; season: string | null; year: number | null; currency: string; is_active: boolean; published_at: string | null; cover_file_id: number | null; description: string | null; created_by: string | null; created_at: string; updated_at: string }
+        Row: { id: number; name: string; season: string | null; year: number | null; currency: string; is_active: boolean; published_at: string | null; cover_file_id: number | null; description: string | null; created_by: string | null; created_at: string; updated_at: string; deleted_at: string | null; deleted_by: string | null }
         Insert: { id?: never; name: string; season?: string | null; year?: number | null; currency?: string; is_active?: boolean; published_at?: string | null; cover_file_id?: number | null; description?: string | null; created_by?: string | null }
-        Update: { name?: string; season?: string | null; year?: number | null; currency?: string; is_active?: boolean; description?: string | null }
+        Update: { name?: string; season?: string | null; year?: number | null; currency?: string; is_active?: boolean; description?: string | null; deleted_at?: string | null; deleted_by?: string | null }
         Relationships: []
       }
       catalog_collections: {
@@ -428,6 +428,8 @@ export type Database = {
           district: string | null
           external_id: string | null
           external_source: string | null
+          first_contact_channel_id: number | null
+          first_contact_date: string | null
           full_name: string | null
           full_name_normalized: string | null
           iban: string | null
@@ -465,6 +467,8 @@ export type Database = {
           district?: string | null
           external_id?: string | null
           external_source?: string | null
+          first_contact_channel_id?: number | null
+          first_contact_date?: string | null
           full_name?: string | null
           full_name_normalized?: string | null
           iban?: string | null
@@ -502,6 +506,8 @@ export type Database = {
           district?: string | null
           external_id?: string | null
           external_source?: string | null
+          first_contact_channel_id?: number | null
+          first_contact_date?: string | null
           full_name?: string | null
           full_name_normalized?: string | null
           iban?: string | null
@@ -1189,6 +1195,8 @@ export type Database = {
           district: string | null
           external_id: string | null
           external_source: string | null
+          first_contact_channel_id: number | null
+          first_contact_date: string | null
           full_name: string | null
           full_name_normalized: string | null
           id: number
@@ -1217,6 +1225,8 @@ export type Database = {
           district?: string | null
           external_id?: string | null
           external_source?: string | null
+          first_contact_channel_id?: number | null
+          first_contact_date?: string | null
           full_name?: string | null
           full_name_normalized?: string | null
           id?: never
@@ -1245,6 +1255,8 @@ export type Database = {
           district?: string | null
           external_id?: string | null
           external_source?: string | null
+          first_contact_channel_id?: number | null
+          first_contact_date?: string | null
           full_name?: string | null
           full_name_normalized?: string | null
           id?: never

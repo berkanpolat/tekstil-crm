@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toUserMessage } from '@/lib/errors'
+import { COUNTRIES } from '@/reference/countries'
+import { TR_PROVINCE_NAMES, districtsOf } from '@/reference/tr-geo'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -11,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { FormField } from '@/components/shared/FormField'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { PhoneInput } from '@/components/shared/PhoneInput'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -27,6 +30,11 @@ import {
 import { DuplicateWarning } from '@/components/search/DuplicateWarning'
 import { logDedupOverride } from '@/hooks/useSearch'
 import { useAddContactPoint } from '@/hooks/useContactPoints'
+import { useChannelOptions } from '@/hooks/useInteractions'
+
+// Statik konum seçenekleri (aranabilir dropdown; serbest metne de izin verilir).
+const COUNTRY_OPTS = COUNTRIES.map((c) => ({ value: c, label: c }))
+const PROVINCE_OPTS = TR_PROVINCE_NAMES.map((c) => ({ value: c, label: c }))
 
 interface Props {
   open: boolean
@@ -70,6 +78,8 @@ interface FormState {
   bank_name: string
   account_holder: string
   assigned_to: string | null
+  first_contact_channel_id: string | null
+  first_contact_date: string // date (YYYY-MM-DD) ya da ''
   next_action_at: string
   phone: string
   email: string
@@ -107,6 +117,9 @@ function CustomerForm({
     bank_name: editing?.bank_name ?? '',
     account_holder: editing?.account_holder ?? '',
     assigned_to: editing?.assigned_to ?? null,
+    first_contact_channel_id:
+      editing?.first_contact_channel_id != null ? String(editing.first_contact_channel_id) : null,
+    first_contact_date: editing?.first_contact_date ?? '',
     next_action_at: toLocalInput(editing?.next_action_at ?? null),
     phone: '',
     email: '',
@@ -115,7 +128,9 @@ function CustomerForm({
 
   const statuses = useCustomerStatusOptions()
   const types = useCustomerTypeOptions()
+  const channels = useChannelOptions()
   const assignees = useAssigneeOptions()
+  const [maxDate] = useState(() => new Date().toISOString().slice(0, 10)) // ilk temas gelecekte olamaz
   const create = useCreateCustomer()
   const update = useUpdateCustomer()
   const addContact = useAddContactPoint()
@@ -145,6 +160,8 @@ function CustomerForm({
       bank_name: clean(form.bank_name),
       account_holder: clean(form.account_holder),
       assigned_to: form.assigned_to,
+      first_contact_channel_id: form.first_contact_channel_id ? Number(form.first_contact_channel_id) : null,
+      first_contact_date: form.first_contact_date || null,
       next_action_at: form.next_action_at ? new Date(form.next_action_at).toISOString() : null,
     }
     try {
@@ -169,6 +186,10 @@ function CustomerForm({
 
   const opts = (arr: { id: number; label: string }[] | undefined) =>
     (arr ?? []).map((s) => ({ value: String(s.id), label: s.label }))
+  const districtOpts = useMemo(
+    () => districtsOf(form.city).map((d) => ({ value: d, label: d })),
+    [form.city],
+  )
 
   return (
     <div className="space-y-4">
@@ -217,14 +238,70 @@ function CustomerForm({
             />
           )}
         </FormField>
+        <FormField label="İlk temas kanalı">
+          {(p) => (
+            <SearchableSelect
+              id={p.id}
+              options={opts(channels.data)}
+              value={form.first_contact_channel_id}
+              onChange={(v) => set('first_contact_channel_id', v)}
+              placeholder="Kanal seç"
+              clearable
+            />
+          )}
+        </FormField>
+        <FormField label="İlk temas tarihi">
+          {(p) => (
+            <Input
+              {...p}
+              type="date"
+              max={maxDate}
+              value={form.first_contact_date}
+              onChange={(e) => set('first_contact_date', e.target.value)}
+            />
+          )}
+        </FormField>
         <FormField label="Ülke">
-          {(p) => <Input {...p} value={form.country} onChange={(e) => set('country', e.target.value)} />}
+          {(p) => (
+            <SearchableSelect
+              id={p.id}
+              options={COUNTRY_OPTS}
+              value={form.country || null}
+              onChange={(v) => set('country', v ?? '')}
+              placeholder="Ülke seç"
+              allowCustom
+              clearable
+            />
+          )}
         </FormField>
         <FormField label="Şehir">
-          {(p) => <Input {...p} value={form.city} onChange={(e) => set('city', e.target.value)} />}
+          {(p) => (
+            <SearchableSelect
+              id={p.id}
+              options={PROVINCE_OPTS}
+              value={form.city || null}
+              onChange={(v) => {
+                set('city', v ?? '')
+                set('district', '') // il değişince ilçe sıfırlanır
+              }}
+              placeholder="İl seç"
+              allowCustom
+              clearable
+            />
+          )}
         </FormField>
         <FormField label="İlçe">
-          {(p) => <Input {...p} value={form.district} onChange={(e) => set('district', e.target.value)} />}
+          {(p) => (
+            <SearchableSelect
+              id={p.id}
+              options={districtOpts}
+              value={form.district || null}
+              onChange={(v) => set('district', v ?? '')}
+              placeholder="İlçe seç"
+              allowCustom
+              clearable
+            />
+          )}
         </FormField>
         <FormField label="Sonraki aksiyon">
           {(p) => (
@@ -239,7 +316,7 @@ function CustomerForm({
         {!isEdit && (
           <>
             <FormField label="Telefon" hint="İletişim noktası olur; mükerrer kontrol edilir.">
-              {(p) => <Input {...p} value={form.phone} onChange={(e) => set('phone', e.target.value)} />}
+              {(p) => <PhoneInput id={p.id} value={form.phone} onChange={(v) => set('phone', v)} />}
             </FormField>
             <FormField label="E-posta">
               {(p) => <Input {...p} value={form.email} onChange={(e) => set('email', e.target.value)} />}

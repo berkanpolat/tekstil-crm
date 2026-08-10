@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Loader2, ImagePlus, X, UserPlus, Film, Plus } from 'lucide-react'
+import { districtsOf } from '@/reference/tr-geo'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -84,6 +85,10 @@ function OperationForm({ presetCustomer, onDone, onCreated }: {
   const custOptions = useAllCustomerOptions()
   const channels = useChannelOptions()
   const provinces = useProvinceOptions()
+  const districtOpts = useMemo(() => {
+    const name = (provinces.data ?? []).find((pr) => String(pr.id) === provinceId)?.name
+    return districtsOf(name).map((d) => ({ value: d, label: d }))
+  }, [provinces.data, provinceId])
   const categories = useCategoryOptions()
   const types = useTypeOptions(categoryId ? Number(categoryId) : null)
   const owners = useAssigneeOptions()
@@ -189,7 +194,7 @@ function OperationForm({ presetCustomer, onDone, onCreated }: {
         )}
       </FormField>
 
-      {/* İl / İlçe */}
+      {/* İl / İlçe — ilçe seçilen ilin adına göre (serbest metne de izin verir) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="İl">
           {(p) => (
@@ -198,7 +203,10 @@ function OperationForm({ presetCustomer, onDone, onCreated }: {
           )}
         </FormField>
         <FormField label="İlçe">
-          {(p) => <Input {...p} value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="İlçe (serbest)" />}
+          {(p) => (
+            <SearchableSelect id={p.id} clearable allowCustom options={districtOpts}
+              value={district || null} onChange={(v) => setDistrict(v ?? '')} placeholder="İlçe seç…" />
+          )}
         </FormField>
       </div>
 

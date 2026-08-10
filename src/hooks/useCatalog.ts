@@ -62,7 +62,7 @@ export function useMarginTiers() {
 
 // ── Kataloglar / koleksiyonlar ──────────────────────────────────────────────
 export function useCatalogs() {
-  return useQuery({ queryKey: ['catalogs'], queryFn: async () => (await supabase.from('catalogs').select('id, name, season, year, is_active').order('created_at', { ascending: false })).data ?? [] })
+  return useQuery({ queryKey: ['catalogs'], queryFn: async () => (await supabase.from('catalogs').select('id, name, season, year, is_active').is('deleted_at', null).order('created_at', { ascending: false })).data ?? [] })
 }
 export function useCollections(catalogId: number | null) {
   return useQuery({
@@ -182,5 +182,44 @@ export function useSaveCatalogProduct() {
       else ensureRows(await supabase.from('catalog_products').insert(fields as never).select('id'))
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['catalog-products'] }),
+  })
+}
+
+// ── Silme (yumuşak: deleted_at/by; fiziksel silme yok) ───────────────────────
+/** Ürünü yumuşak siler; ilişkili maliyet/görsel korunur (listeden düşer). */
+export function useDeleteCatalogProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      ensureRows(
+        await supabase.from('catalog_products')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null })
+          .eq('id', id).is('deleted_at', null).select('id'),
+      )
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['catalog-products'] })
+      qc.invalidateQueries({ queryKey: ['catalog-pick-list'] })
+    },
+  })
+}
+
+/** Kataloğu yumuşak siler; ürünler DB'de kalır ama katalog listesinden düşer. */
+export function useDeleteCatalog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      ensureRows(
+        await supabase.from('catalogs')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null } as never)
+          .eq('id', id).is('deleted_at', null).select('id'),
+      )
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['catalogs'] })
+      qc.invalidateQueries({ queryKey: ['catalog-products'] })
+    },
   })
 }
