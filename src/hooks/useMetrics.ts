@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
 // ── Dönem (URL'de kalıcı) ──────────────────────────────────────────────
-export type PeriodKey = 'today' | 'week' | 'month' | 'last_month' | 'custom'
+export type PeriodKey = 'today' | 'last2' | 'week' | 'month' | 'last_month' | 'custom'
 export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: 'today', label: 'Bugün' },
   { key: 'week', label: 'Bu hafta' },
@@ -16,12 +16,13 @@ export const PERIODS: { key: PeriodKey; label: string }[] = [
 export interface Period { key: PeriodKey; from: string; to: string; label: string }
 
 function startOfDay(d: Date): Date { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
-function computeRange(key: PeriodKey, nowMs: number, from?: string | null, to?: string | null): Period {
+export function computeRange(key: PeriodKey, nowMs: number, from?: string | null, to?: string | null): Period {
   const now = new Date(nowMs)
   const end = new Date(nowMs)
   let start: Date
   switch (key) {
     case 'today': start = startOfDay(now); break
+    case 'last2': { start = startOfDay(now); start.setDate(start.getDate() - 1); return { key, from: start.toISOString(), to: end.toISOString(), label: 'Son 2 gün' } }
     case 'week': { start = startOfDay(now); const dow = (start.getDay() + 6) % 7; start.setDate(start.getDate() - dow); break }
     case 'last_month': {
       const s = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -99,7 +100,7 @@ export const useRequestTrend = (period: Period, on = true) => useMetric<TrendPoi
 
 // ── Yönetici canlı listeleri (dönemden bağımsız, "şimdi") ──────────────
 export interface Intervention { key: string; label: string; href: string; count: number }
-export interface PendingRequest { operation_id: number; code: string; customer: string | null; category: string | null; owner_name: string | null; unowned: boolean; sla_deadline: string | null; requested_at: string | null }
+export interface PendingRequest { operation_id: number; code: string; customer: string | null; category: string | null; owner_name: string | null; unowned: boolean; sla_deadline: string | null; requested_at: string | null; image_path?: string | null }
 export interface PendingQuote { operation_id: number; quote_id: number; code: string; customer: string | null; owner_name: string | null; created_at: string; hours: number }
 
 function useLive<T>(fn: string, params: Record<string, unknown>, enabled = true) {

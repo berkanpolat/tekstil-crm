@@ -121,6 +121,7 @@ export interface QuoteListRow {
   status_key: string | null
   status_label: string | null
   status_color: string | null
+  sent_at: string | null
   responded_at: string | null
   follow_up_at: string | null
   created_at: string
@@ -130,7 +131,7 @@ export interface QuoteListRow {
 }
 interface RawQuoteListRow {
   id: number; operation_id: number; version: number; valid_until: string | null; total: number; currency: string
-  responded_at: string | null; follow_up_at: string | null; created_at: string
+  sent_at: string | null; responded_at: string | null; follow_up_at: string | null; created_at: string
   quote_statuses: { key: string; label: string; color: string | null } | null
   preparer: { full_name: string } | null
   operations: { code: string; customers: { company_name: string | null; full_name: string | null } | null } | null
@@ -143,7 +144,7 @@ export function useAllQuotes() {
       const { data, error } = await supabase
         .from('quotes')
         .select(
-          'id, operation_id, version, valid_until, total, currency, responded_at, follow_up_at, created_at,' +
+          'id, operation_id, version, valid_until, total, currency, sent_at, responded_at, follow_up_at, created_at,' +
           ' quote_statuses(key, label, color),' +
           ' preparer:users!quotes_created_by_fkey(full_name),' +
           ' operations!quotes_operation_id_fkey(code, customers(company_name, full_name))',
@@ -155,7 +156,7 @@ export function useAllQuotes() {
       return ((data ?? []) as unknown as RawQuoteListRow[]).map((r) => ({
         id: r.id, operation_id: r.operation_id, version: r.version, valid_until: r.valid_until, total: r.total, currency: r.currency,
         status_key: r.quote_statuses?.key ?? null, status_label: r.quote_statuses?.label ?? null, status_color: r.quote_statuses?.color ?? null,
-        responded_at: r.responded_at, follow_up_at: r.follow_up_at, created_at: r.created_at,
+        sent_at: r.sent_at, responded_at: r.responded_at, follow_up_at: r.follow_up_at, created_at: r.created_at,
         operation_code: r.operations?.code ?? '—',
         customer_name: r.operations?.customers?.company_name ?? r.operations?.customers?.full_name ?? null,
         prepared_by: r.preparer?.full_name ?? null,

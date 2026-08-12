@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useHasPermission } from '@/hooks/useCatalog'
-import { ManagerBoard } from '@/components/dashboard/ManagerBoard'
+import { TodayBoard } from '@/components/dashboard/TodayBoard'
 import { useMyOpenFiles, useMySnoozed, usePoolRequests, type DashRow } from '@/hooks/useDashboard'
 import { useClaimOperation } from '@/hooks/useOperations'
 import { useTaskList, useUpdateTask, useTaskStatuses, type TaskRow } from '@/hooks/useTasks'
@@ -160,7 +160,7 @@ export function DashboardPage() {
     <div className="space-y-6">
       <PageHeader title="Gösterge Paneli" description="Bugün neye müdahale etmelisiniz? Her satır ilgili işe götürür." />
 
-      {canReports.data && <ManagerBoard />}
+      {canReports.data && <TodayBoard />}
 
       <div className="space-y-4">
         {canReports.data && <h2 className="text-base font-semibold text-foreground">Kişisel çalışma alanım</h2>}

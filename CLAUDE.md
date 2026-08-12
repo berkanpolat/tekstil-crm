@@ -96,6 +96,9 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
 3. **Düzeltme turu 2 — kalan:** #1 LocationSelect (il+ilçe), #2 PhoneInput (ülke kodu),
    #3 ikon sistemi, #7 bildirim test ortamı (7-d cron kararı sorulacak), #8 kullanım kolaylığı.
 4. **ai-assist redeploy:** `rapor_yorumu` prompt'u için (P7.11).
+5. **Gösterge paneli migration (sende):** `20260813000000_p7_pending_requests_image.sql`
+   ELLE uygulanmalı — `manager_pending_requests` RPC'sine ürün görseli (`image_path`) ekler.
+   Uygulanana kadar "Teklif bekliyor" satırlarında görsel yer tutucu (gömlek ikonu) çıkar.
 
 ## Bilinen teknik notlar (kritik)
 
