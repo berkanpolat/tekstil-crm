@@ -64,10 +64,12 @@ export function DocumentEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     ;(async () => {
       setLoading(true)
       try {
-        // Katalogdan gelen dolu veri (P4B.8) → boş şablon yerine kullan.
+        // Katalogdan gelen dolu veri (P4B.8) / taslak köprüsü (P8A) → boş şablon veya server
+        // verisi yerine kullan. Prefill, operasyona bağlı olsa bile ÖNCELİKLİDİR (köprü fiyat
+        // satırlarını + görseli hazır getirir; server build_document_data bunları ezmemeli).
         const prefill = (location.state as { prefill?: Data } | null)?.prefill
-        const initial = operationId != null ? await buildDocumentData(operationId, typeKey, 'tr')
-          : (prefill && typeKey === 'fiyat_teklifi') ? { ...blankData(typeKey), ...prefill }
+        const initial = (prefill && typeKey === 'fiyat_teklifi') ? { ...blankData(typeKey), ...prefill }
+          : operationId != null ? await buildDocumentData(operationId, typeKey, 'tr')
           : blankData(typeKey)
         if (!initial.uretici) initial.uretici = await fetchUretici()
         // Ayar varsayılanları: KDV listesi (dropdown) + bağımsız fiyat teklifinde KDV/ödeme/geçerlilik.

@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
 import { ensureRows } from '@/lib/errors'
 import { useUploadFile, getSignedUrl } from './useFiles'
+import { buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath, type DraftLineInput } from '@/lib/draftQuoteBridge'
+import type { MarginTier } from '@/lib/pricing'
 
 /** 1.9 — Operasyonun (talebin) birincil görselini data URL + en/boy oranıyla getir.
  *  Fiyat teklifi belgesinde görselin otomatik gelmesi için (elle yüklemeye gerek kalmadan). */
@@ -162,6 +164,103 @@ export async function buildDocumentData(operationId: number, typeKey: DocumentTy
   const { data, error } = await supabase.rpc('build_document_data', { p_operation_id: operationId, p_type: typeKey, p_language: language })
   if (error) throw error
   return data as Record<string, unknown>
+}
+
+/** Storage yolundaki görseli data URL + en/boy oranına çevir (belge görseli için). Hata → null. */
+async function storagePathToDataUrl(path: string): Promise<{ foto: string; ar: number } | null> {
+  try {
+    const url = await getSignedUrl('documents', path, 120)
+    const blob = await (await fetch(url)).blob()
+    const foto = await new Promise<string>((res, rej) => {
+      const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob)
+    })
+    const ar = await new Promise<number>((res) => {
+      const img = new Image(); img.onload = () => res(img.naturalWidth / (img.naturalHeight || 1)); img.onerror = () => res(1); img.src = foto
+    })
+    return { foto, ar: ar || 1 }
+  } catch { return null }
+}
+
+interface DraftSatir { urun?: string; kod?: string; adet?: number; birim_fiyat?: number | null; tutar?: number | null; maliyet_eksik?: boolean }
+interface OciCatalogRow {
+  catalog_product_code: string | null; label: string | null; catalog_product_id: number | null
+  catalog_products: { custom_margin_percent: number | null; images: { sort_order: number; files: { storage_path: string } | null }[] } | null
+}
+
+/**
+ * P8A — Taslak teklif → fiyat_teklifi belgesi köprüsü (async orkestrasyon).
+ * Operasyondan temel alanları (build_document_data), taslaktan ürün/fiyatı, katalogdan görseli
+ * toplar; saf buildDraftOpts ile seçili adetlere göre fiyat satırları üretir. Sonuç DocumentEditorPage'e
+ * router state.prefill olarak verilir → belge dolu ve DÜZENLENEBİLİR açılır.
+ */
+export async function buildDraftQuotePrefill(
+  operationId: number,
+  draftData: Record<string, unknown>,
+  quantities: number[],
+): Promise<{ tkS: Record<string, unknown> }> {
+  // 1) Operasyondan temel alanlar (talep no ← code, müşteri, grup/tür). Başarısız olursa boş devam.
+  let baseTkS: Record<string, unknown> = {}
+  try {
+    const base = await buildDocumentData(operationId, 'fiyat_teklifi', 'tr')
+    baseTkS = (base?.tkS ?? {}) as Record<string, unknown>
+  } catch { /* boş temelle devam */ }
+
+  const satirlar = (draftData.satirlar as DraftSatir[] | undefined) ?? []
+  const recommendedQty = Number(draftData.adet_kademesi ?? 50) || 50
+
+  // 2) Katalog kalemleri: özel marj + görsel (koda göre eşle). Görsel/marj için costs.view gerekmez.
+  const { data: ociData } = await supabase.from('operation_catalog_items')
+    .select('catalog_product_code, label, catalog_product_id, catalog_products(custom_margin_percent, images:catalog_product_images(sort_order, files(storage_path)))')
+    .eq('operation_id', operationId)
+  const byCode = new Map<string, { custom_margin_percent: number | null; images: { sort_order: number; storage_path: string | null }[] }>()
+  for (const r of (ociData ?? []) as unknown as OciCatalogRow[]) {
+    const cp = r.catalog_products
+    byCode.set(String(r.catalog_product_code ?? ''), {
+      custom_margin_percent: cp?.custom_margin_percent ?? null,
+      images: (cp?.images ?? []).map((im) => ({ sort_order: im.sort_order, storage_path: im.files?.storage_path ?? null })),
+    })
+  }
+
+  // 3) Varsayılan taslak marjı (birim fiyattan ham maliyet türetmek için) + marj kademeleri.
+  const { data: setRow } = await supabase.from('settings').select('value').eq('key', 'intake.draft_margin_percent').maybeSingle()
+  const draftMargin = Number((setRow?.value as unknown) ?? 40) || 40
+  const { data: tierData } = await supabase.from('margin_tiers').select('min_quantity, margin_percent').eq('is_active', true).order('min_quantity')
+  const tiers = (tierData ?? []) as MarginTier[]
+
+  // 4) Satırlar → saf köprü.
+  const lines: DraftLineInput[] = satirlar.map((s) => {
+    const info = byCode.get(String(s.kod ?? ''))
+    return {
+      urun: String(s.urun ?? s.kod ?? 'Ürün'),
+      kod: (s.kod as string | undefined) ?? null,
+      unitCostUsd: deriveUnitCost(s.birim_fiyat, draftMargin),
+      customMargin: info?.custom_margin_percent ?? null,
+    }
+  })
+  const { opts, missingProducts } = buildDraftOpts({ lines, quantities, tiers, recommendedQty })
+
+  // 5) Görsel: ilk katalog ürününün ilk görseli (Kural 1 — yoksa görselsiz açılır, hata yok).
+  let foto: string | undefined; let fotoAR: number | undefined
+  for (const s of satirlar) {
+    const path = firstImagePath(byCode.get(String(s.kod ?? ''))?.images)
+    if (!path) continue
+    const p = await storagePathToDataUrl(path)
+    if (p) { foto = p.foto; fotoAR = p.ar; break }
+  }
+
+  // 6) Tam tkS (blankData ile aynı alanlar; DocumentEditorPage prefill'i tkS'yi toptan değiştirir).
+  const tkS: Record<string, unknown> = {
+    talep: baseTkS.talep ?? '', musteri: baseTkS.musteri ?? '', grup: baseTkS.grup ?? '', tur: baseTkS.tur ?? '',
+    gecerli: (baseTkS.gecerli as string) || '7 Gün',
+    teslimat: new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10), // öngörülen teslimat = bugün + 7 gün
+    odeme: '%50 Ön Ödeme, %50 Sevkiyat Öncesi',
+    para: 'USD', // taslak maliyet/fiyatı USD; editörde değiştirilebilir
+    kdv: (baseTkS.kdv as string) ?? '20', indirim: '0',
+    not: draftMissingNote(missingProducts), dil: 'tr',
+    opts,
+  }
+  if (foto) { tkS.foto = foto; tkS.fotoAR = fotoAR }
+  return { tkS }
 }
 
 export type DocumentTypeKey = 'fiyat_teklifi' | 'siparis_onay' | 'numune_etiketi' | 'siparis_formu' | 'koli_ustu'

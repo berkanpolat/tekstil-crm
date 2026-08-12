@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FileText, Upload, Download, Trash2, Loader2, Check, X, Clock, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
@@ -16,6 +17,7 @@ import {
 import { DatePicker } from '@/components/shared/DatePicker'
 import { getSignedUrl } from '@/hooks/useFiles'
 import { GenerateDocButton } from './GenerateDocButton'
+import { buildDraftQuotePrefill } from '@/hooks/useDocuments'
 import {
   useOperationQuotes, useUploadQuoteFile, useSetQuoteResult, useDeleteQuote, useAdvanceStage,
   useQuoteRejectionReasonOptions, useDraftQuote, useApproveDraftQuote, type Quote, type DraftQuote,
@@ -30,9 +32,11 @@ const fmtDT = (iso: string) => new Date(iso).toLocaleString('tr-TR', { day: '2-d
 /** Teklif = dosya yükleme + sonuç takibi (Merhaba.docx 4). Belge motoru Faz 4'te. */
 export function QuotesTab({ operationId }: { operationId: number }) {
   const { data: quotes, isLoading } = useOperationQuotes(operationId)
+  const navigate = useNavigate()
   const draft = useDraftQuote(operationId)
   const approveDraft = useApproveDraftQuote()
   const [reviewDraft, setReviewDraft] = useState(false)
+  const [creatingDoc, setCreatingDoc] = useState(false)
   const upload = useUploadQuoteFile()
   const setResult = useSetQuoteResult()
   const del = useDeleteQuote()
@@ -93,10 +97,18 @@ export function QuotesTab({ operationId }: { operationId: number }) {
         </div>
       )}
       {reviewDraft && draft.data && (
-        <DraftReviewDialog draft={draft.data} pending={approveDraft.isPending} onClose={() => setReviewDraft(false)}
+        <DraftReviewDialog draft={draft.data} pending={approveDraft.isPending} creatingDoc={creatingDoc} onClose={() => setReviewDraft(false)}
           onApprove={async () => {
             try { await approveDraft.mutateAsync({ documentId: draft.data!.id, operationId }); toast.success('Taslak onaylandı — gerçek teklif oluştu, durum ilerledi.'); setReviewDraft(false) }
             catch (err) { toast.error(await toUserMessage(err)) }
+          }}
+          onCreateDoc={async (quantities) => {
+            // P8A — taslağı fiyat_teklifi belgesi olarak aç (dolu + düzenlenebilir). Durum değişmez.
+            setCreatingDoc(true)
+            try {
+              const { tkS } = await buildDraftQuotePrefill(operationId, draft.data!.data, quantities)
+              navigate(`/belgeler/yeni/fiyat_teklifi?op=${operationId}`, { state: { prefill: { tkS } } })
+            } catch (err) { toast.error(await toUserMessage(err)) } finally { setCreatingDoc(false) }
           }} />
       )}
 
@@ -254,10 +266,14 @@ function RejectDialog({ operationId: _op, onClose, onReject }: { operationId: nu
 
 // E.2 — Taslak teklif inceleme + onay diyaloğu (katalogdan otomatik hazırlanan)
 interface DraftLine { urun?: string; kod?: string; adet?: number; birim_fiyat?: number | null; tutar?: number | null; maliyet_eksik?: boolean }
-function DraftReviewDialog({ draft, pending, onApprove, onClose }: { draft: DraftQuote; pending: boolean; onApprove: () => void; onClose: () => void }) {
+const QTY_OPTIONS = [50, 200, 500]
+function DraftReviewDialog({ draft, pending, creatingDoc, onApprove, onCreateDoc, onClose }: { draft: DraftQuote; pending: boolean; creatingDoc: boolean; onApprove: () => void; onCreateDoc: (quantities: number[]) => void; onClose: () => void }) {
   const d = (draft.data.data ?? draft.data) as { satirlar?: DraftLine[]; adet_kademesi?: number; toplam_usd?: number; maliyeti_eksik_urun?: number }
   const lines = d.satirlar ?? []
   const missing = Number(d.maliyeti_eksik_urun ?? 0)
+  const [qtys, setQtys] = useState<number[]>([...QTY_OPTIONS])
+  const toggleQty = (q: number) => setQtys((prev) => prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q].sort((a, b) => a - b))
+  const busy = pending || creatingDoc
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
@@ -286,9 +302,27 @@ function DraftReviewDialog({ draft, pending, onApprove, onClose }: { draft: Draf
           {missing > 0 ? <span className="text-warning-foreground text-xs">{missing} ürünün maliyeti eksik — birim fiyatı elle tamamlanmalı.</span> : <span />}
           <span className="font-medium tabular-nums">Toplam: {formatMoney(Number(d.toplam_usd ?? 0), 'USD')}</span>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={pending}>Kapat</Button>
-          <Button onClick={onApprove} disabled={pending}>{pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Onayla ve teklif oluştur</Button>
+
+        {/* P8A — Belge için adet kademeleri: her seçili adet belgede ayrı bir üretim seçeneği olur. */}
+        <div className="border-border mt-1 rounded-md border p-3">
+          <div className="text-xs font-medium text-foreground">Belge için adet kademeleri</div>
+          <p className="text-text-muted mb-2 text-xs">Seçtiğiniz her adet, fiyat teklifi belgesinde ayrı bir seçenek satırı olur.</p>
+          <div className="flex flex-wrap gap-2">
+            {QTY_OPTIONS.map((q) => (
+              <button key={q} type="button" onClick={() => toggleQty(q)}
+                className={cn('rounded-md border px-3 py-1.5 text-sm', qtys.includes(q) ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-medium' : 'border-border text-text-secondary')}>
+                {q} adet
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onClose} disabled={busy}>Kapat</Button>
+          <Button variant="outline" onClick={() => onCreateDoc(qtys)} disabled={busy || qtys.length === 0}>
+            {creatingDoc ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Belgeyi oluştur ve incele
+          </Button>
+          <Button onClick={onApprove} disabled={busy}>{pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Onayla ve teklif oluştur</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
