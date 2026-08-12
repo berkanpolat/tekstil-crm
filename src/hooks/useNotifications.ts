@@ -113,6 +113,8 @@ export function useAlertEngine() {
       void supabase.rpc('process_open_file_alerts'); void supabase.rpc('process_delivery_warnings')
       void supabase.rpc('process_payment_due_warnings'); void supabase.rpc('process_task_due_warnings')
       void supabase.rpc('process_goal_notifications')
+      // P9 (madde 16): teklif 1-saat sesli + numune termini doldu sesli (types'te yok → cast)
+      void supabase.rpc('process_quote_final_hour' as never); void supabase.rpc('process_sample_due_warnings' as never)
     }
     ;(async () => {
       const { data } = await supabase.from('settings').select('value').eq('key', 'alerts.check_interval_minutes').maybeSingle()

@@ -109,6 +109,7 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
   const [quoteId, setQuoteId] = useState<string | null>(sample.quote_id ? String(sample.quote_id) : null)
   const [carrier, setCarrier] = useState(sample.carrier ?? '')
   const [tracking, setTracking] = useState(sample.tracking_number ?? '')
+  const [targetDate, setTargetDate] = useState(sample.target_date ?? '')
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
 
@@ -119,7 +120,8 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
     try {
       await update.mutateAsync({ id: sample.id, operationId,
         description: description.trim() || null, fee: parseDecimal(fee), deduct_from_order: deduct,
-        quote_id: quoteId ? Number(quoteId) : null, carrier: carrier.trim() || null, tracking_number: tracking.trim() || null })
+        quote_id: quoteId ? Number(quoteId) : null, carrier: carrier.trim() || null, tracking_number: tracking.trim() || null,
+        target_date: targetDate || null })
       toast.success('Numune kaydedildi.')
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
@@ -189,6 +191,12 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
           <input type="checkbox" checked={deduct} onChange={(e) => setDeduct(e.target.checked)} className="size-4" />
           <span className="text-text-secondary">Siparişten düşülecek</span>
         </label>
+      </div>
+
+      <div className="max-w-xs space-y-1">
+        <Label className="text-text-muted text-xs">Numune termini</Label>
+        <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+        <p className="text-text-muted text-[11px]">Dolunca sesli uyarı verilir. Boş bırakılabilir.</p>
       </div>
 
       <div className="space-y-1">

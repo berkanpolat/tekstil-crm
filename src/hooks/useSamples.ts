@@ -27,6 +27,7 @@ export interface Sample {
   revision_of_sample_id: number | null
   revision_round: number
   revision_reason: string | null
+  target_date: string | null
   deleted_at: string | null
   created_at: string
 }
@@ -38,7 +39,7 @@ interface RawSample extends Omit<Sample, 'status_key' | 'status_label' | 'status
 const SELECT =
   'id, operation_id, quote_id, version, status_id, description, fee, fee_currency, deduct_from_order,' +
   ' shipped_at, tracking_number, carrier, received_at, approved_at, approved_by, approval_method, approval_note,' +
-  ' rejection_reason, revision_of_sample_id, revision_round, revision_reason, deleted_at, created_at, sample_statuses(key, label, color)'
+  ' rejection_reason, revision_of_sample_id, revision_round, revision_reason, target_date, deleted_at, created_at, sample_statuses(key, label, color)'
 
 function mapSample(r: RawSample): Sample {
   const { sample_statuses, ...rest } = r
@@ -148,6 +149,7 @@ export interface SamplePatch {
   approval_method?: string | null
   approval_note?: string | null
   rejection_reason?: string | null
+  target_date?: string | null
 }
 
 export function useUpdateSample() {
