@@ -40,6 +40,54 @@ export function useCatalogProductSearch(query: string) {
   })
 }
 
+/** P8B — Yakın eşleşme önerisi (madde 4): koda benzer katalog ürünleri. ASLA otomatik
+ *  bağlamaz; kullanıcı onaylayınca resolve edilir. Yanlış ürün bağlı teklif, eşleşmemiş
+ *  talepten kötüdür. */
+export function useSuggestedCatalogProducts(code: string | null) {
+  return useQuery({
+    queryKey: ['catalog-suggestions', code],
+    enabled: !!code && code.trim().length >= 2,
+    staleTime: 300_000,
+    queryFn: async (): Promise<{ id: number; code: string; name: string }[]> => {
+      const { data, error } = await supabase.rpc('suggest_catalog_products' as never, { p_code: code, p_limit: 5 } as never)
+      if (error) throw error
+      return (data ?? []) as { id: number; code: string; name: string }[]
+    },
+  })
+}
+
+/** P8B — Görünürlük (madde 1): kullanıcının görebildiği, ürünü eşleşmemiş AÇIK talepler.
+ *  RLS operations üzerinden görünürlüğü sınırlar; sahibi kullanıcı ya da havuz (sahipsiz)
+ *  olanlar öne çıkarılır. Panelde "Ürün eşleşmemiş talepler" bloğunu besler. */
+export interface UnmatchedRequestRow { operation_id: number; code: string; customer_name: string | null; unmatched_count: number }
+export function useUnmatchedRequests(userId: string | null) {
+  return useQuery({
+    queryKey: ['unmatched-requests', userId],
+    enabled: !!userId,
+    queryFn: async (): Promise<UnmatchedRequestRow[]> => {
+      const { data, error } = await supabase.from('operation_catalog_items')
+        .select('operation_id, operations!inner(id, code, owner_id, deleted_at, cancelled_at, request_status_id, customers(company_name, full_name))')
+        .is('catalog_product_id', null)
+      if (error) throw error
+      const rows = (data ?? []) as unknown as {
+        operation_id: number
+        operations: { id: number; code: string; owner_id: string | null; deleted_at: string | null; cancelled_at: string | null; request_status_id: number | null; customers: { company_name: string | null; full_name: string | null } | null } | null
+      }[]
+      const byOp = new Map<number, UnmatchedRequestRow>()
+      for (const r of rows) {
+        const o = r.operations
+        if (!o || o.deleted_at || o.cancelled_at) continue
+        if (o.request_status_id != null && [7, 8].includes(o.request_status_id)) continue // tamamlandı/iptal
+        if (!(o.owner_id === userId || o.owner_id == null)) continue // benim ya da havuz
+        const prev = byOp.get(o.id)
+        if (prev) prev.unmatched_count += 1
+        else byOp.set(o.id, { operation_id: o.id, code: o.code, customer_name: o.customers?.company_name ?? o.customers?.full_name ?? null, unmatched_count: 1 })
+      }
+      return [...byOp.values()]
+    },
+  })
+}
+
 /** Koleksiyonlar — yeni ürün eklerken kategori seçimi. */
 export function useCatalogCollections() {
   return useQuery({

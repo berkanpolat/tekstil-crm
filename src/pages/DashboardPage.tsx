@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { FolderOpen, HandHelping, ListChecks, AlarmClock, CheckCircle2, Loader2 } from 'lucide-react'
+import { FolderOpen, HandHelping, ListChecks, AlarmClock, CheckCircle2, Loader2, PackageX } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { toUserMessage } from '@/lib/errors'
@@ -13,6 +13,7 @@ import { useMyOpenFiles, useMySnoozed, usePoolRequests, type DashRow } from '@/h
 import { useClaimOperation } from '@/hooks/useOperations'
 import { useTaskList, useUpdateTask, useTaskStatuses, type TaskRow } from '@/hooks/useTasks'
 import { openFileLabel } from '@/hooks/useOpenFiles'
+import { useUnmatchedRequests } from '@/hooks/useOperationCatalog'
 
 // ── Zaman + renk yardımcıları ──────────────────────────────────────────
 const HOUR = 3600e3
@@ -150,6 +151,31 @@ function BlockSnoozed({ userId }: { userId: string }) {
   )
 }
 
+// P8B madde 1 — Ürünü katalogla eşleşmemiş talepler (sahibi ben ya da havuz). Görünürlük:
+// çalışan sessizce eşleşmemiş talebi kaçırmasın. Tıklayınca operasyona → Genel'de eşleştirilir.
+function BlockUnmatched({ userId }: { userId: string }) {
+  const navigate = useNavigate()
+  const { data, isLoading } = useUnmatchedRequests(userId)
+  const rows = data ?? []
+  return (
+    <DashCard icon={PackageX} title="Ürün eşleşmemiş talepler" count={rows.length} loading={isLoading} empty="Eşleşmemiş ürünlü talep yok.">
+      {rows.map((r) => (
+        <div key={r.operation_id} role="button" tabIndex={0} onClick={() => navigate(`/talepler/${r.operation_id}`)}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate(`/talepler/${r.operation_id}`)}
+          className="border-l-warning-foreground flex cursor-pointer items-center gap-3 border-y border-r border-l-4 border-border bg-card px-3 py-2 transition-colors hover:bg-muted/50">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-medium text-foreground">{r.customer_name ?? '—'}</span>
+              <span className="font-mono text-[11px] text-text-muted">{r.code}</span>
+            </div>
+          </div>
+          <span className="text-warning-foreground shrink-0 text-xs font-medium">{r.unmatched_count} ürün eşleşmedi</span>
+        </div>
+      ))}
+    </DashCard>
+  )
+}
+
 /** Gösterge Paneli — çalışan katmanı (P7.2): açık dosyalarım · havuz · bugünkü görevler · ertelenenler.
  *  Yönetici katmanı (P7.3) reports.view ile üste eklenecek. Her satır tıklanır → operasyona gider. */
 export function DashboardPage() {
@@ -169,6 +195,7 @@ export function DashboardPage() {
           <BlockPool />
           <BlockTasks userId={me.id} />
           <BlockSnoozed userId={me.id} />
+          <BlockUnmatched userId={me.id} />
         </div>
       </div>
     </div>

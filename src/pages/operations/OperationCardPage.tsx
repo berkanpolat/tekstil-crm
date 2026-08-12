@@ -29,7 +29,7 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { useTaskList } from '@/hooks/useTasks'
 import { pickNextAction } from '@/lib/nextAction'
 import { useOperationInteractions } from '@/hooks/useOperationActivity'
-import { useOperationCatalogItems, useAddCatalogItem, useDeleteCatalogItem, useCatalogProductSearch, useCatalogCollections, useResolveCatalogItem, useCreateCatalogProductAndLink, type CatalogItem } from '@/hooks/useOperationCatalog'
+import { useOperationCatalogItems, useAddCatalogItem, useDeleteCatalogItem, useCatalogProductSearch, useCatalogCollections, useResolveCatalogItem, useCreateCatalogProductAndLink, useSuggestedCatalogProducts, type CatalogItem } from '@/hooks/useOperationCatalog'
 
 function fmtDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
@@ -115,6 +115,7 @@ export function OperationCardPage() {
       </Link>
 
       {opId != null && <MergeBanner operationId={opId} />}
+      {opId != null && <UnmatchedItemsBanner operationId={opId} onGoto={() => setTab('genel')} />}
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -298,7 +299,13 @@ function UnresolvedCatalogItem({ item, operationId }: { item: CatalogItem; opera
   const collections = useCatalogCollections()
   const resolve = useResolveCatalogItem()
   const create = useCreateCatalogProductAndLink()
+  const suggestions = useSuggestedCatalogProducts(item.catalog_product_code)
   const busy = resolve.isPending || create.isPending
+
+  async function linkTo(productId: number) {
+    try { await resolve.mutateAsync({ itemId: item.id, productId, operationId }); toast.success('Ürün eşleştirildi — maliyet ve görsel bağlandı.') }
+    catch (err) { toast.error(await toUserMessage(err)) }
+  }
 
   return (
     <div className="border-warning bg-warning space-y-2 rounded-lg border p-3">
@@ -315,6 +322,24 @@ function UnresolvedCatalogItem({ item, operationId }: { item: CatalogItem; opera
         )}
       </div>
 
+      {/* #4 — Yakın eşleşme ÖNERİSİ. Otomatik bağlamaz; kullanıcı "Bağla" ile onaylar. */}
+      {mode === 'none' && (suggestions.data ?? []).length > 0 && (
+        <div className="bg-card rounded-md border border-border p-2">
+          <div className="text-text-secondary mb-1 text-xs">Bunlardan biri mi? (öneri — otomatik bağlanmaz)</div>
+          <div className="space-y-1">
+            {(suggestions.data ?? []).map((p) => (
+              <div key={p.id} className="flex items-center gap-2 text-sm">
+                <span className="font-mono text-xs">{p.code}</span>
+                <span className="text-text-secondary truncate">{p.name}</span>
+                <Button size="sm" variant="outline" className="ml-auto h-7" disabled={busy} onClick={() => void linkTo(p.id)}>
+                  <Search className="size-3.5" /> Bağla
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {mode === 'search' && (
         <div className="space-y-1">
           <Input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ürün kodu ya da adı ara (en az 2 harf)" className="h-8" />
@@ -325,7 +350,7 @@ function UnresolvedCatalogItem({ item, operationId }: { item: CatalogItem; opera
                 : (search.data ?? []).map((p) => (
                   <button key={p.id} type="button" disabled={busy}
                     className="hover:bg-muted flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm"
-                    onClick={async () => { try { await resolve.mutateAsync({ itemId: item.id, productId: p.id, operationId }); toast.success('Ürün eşleştirildi.') } catch (err) { toast.error(await toUserMessage(err)) } }}>
+                    onClick={() => void linkTo(p.id)}>
                     <span className="font-mono text-xs">{p.code}</span><span className="text-text-secondary truncate">{p.name}</span>
                   </button>
                 ))}
@@ -403,6 +428,23 @@ function SummaryRow({ label, children }: { label: string; children: React.ReactN
     <div className="border-border border-b px-3 py-2.5 last:border-0">
       <dt className="text-text-muted text-xs">{label}</dt>
       <dd className="mt-0.5 text-sm text-foreground">{children}</dd>
+    </div>
+  )
+}
+
+// P8B madde 1 — Ürün eşleşmedi görünürlük bandı (başlıkta, Genel sekmesine götürür).
+function UnmatchedItemsBanner({ operationId, onGoto }: { operationId: number; onGoto: () => void }) {
+  const { data: items } = useOperationCatalogItems(operationId)
+  const unmatched = (items ?? []).filter((it) => it.catalog_product_id == null)
+  if (unmatched.length === 0) return null
+  return (
+    <div className="border-warning bg-warning flex flex-wrap items-center gap-3 rounded-lg border p-3">
+      <AlertTriangle className="text-warning-foreground size-5 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-foreground">{unmatched.length} ürün katalogla eşleşmedi</div>
+        <div className="text-text-secondary text-xs">Eşleşmeyen ürünün maliyeti, görseli ve fiyatı bağlanamaz — katalog ürünüyle eşleştirin.</div>
+      </div>
+      <Button size="sm" onClick={onGoto}><Package className="size-3.5" /> Eşleştir</Button>
     </div>
   )
 }
