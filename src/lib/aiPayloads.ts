@@ -75,27 +75,3 @@ export function buildOrderExtractionPayload(d: { orderId: number; pdfText: strin
   }
 }
 
-// ── Rapor yorumu (P7.11) — YALNIZ operasyonel özet sayılar ───────────────────
-// Para/isim/kişisel veri GİRMEZ (finans dışıdır). Model sadece sayıları yorumlar.
-export interface ReportSummaryInput {
-  period: string
-  requests?: { total: number; prev_total: number; sla_rate: number; sla_met: number; sla_missed: number; sla_pending: number; avg_response_hours: number | null }
-  quotes?: { sent: number; accepted: number; rejected: number; pending: number; conversion: number | null }
-  funnel?: { requests: number; quotes: number; samples: number; orders: number }
-}
-export function buildReportInterpretationPayload(s: ReportSummaryInput): AiPayload {
-  const L: string[] = [`Dönem: ${s.period}`]
-  if (s.requests) L.push(
-    `Talep: ${s.requests.total} (önceki dönem ${s.requests.prev_total})`,
-    `24 saat sözü: %${s.requests.sla_rate.toFixed(0)} (${s.requests.sla_met} tuttu, ${s.requests.sla_missed} kaçtı, ${s.requests.sla_pending} sürüyor)`,
-    s.requests.avg_response_hours != null ? `Ortalama ilk yanıt: ${s.requests.avg_response_hours.toFixed(1)} saat` : '')
-  if (s.quotes) L.push(
-    `Teklif: ${s.quotes.sent} gönderildi, ${s.quotes.accepted} kabul, ${s.quotes.rejected} red, ${s.quotes.pending} cevap bekliyor`,
-    s.quotes.conversion != null ? `Teklif dönüşümü (sonuçlananlarda): %${s.quotes.conversion.toFixed(0)}` : '')
-  if (s.funnel) L.push(`Huni: ${s.funnel.requests} talep → ${s.funnel.quotes} teklif → ${s.funnel.samples} numune → ${s.funnel.orders} sipariş`)
-  const text = L.filter(Boolean).join('\n')
-  return {
-    feature: 'rapor_yorumu', entity_type: null, entity_id: null,
-    fields_sent: ['operasyonel_ozet'], record_counts: {}, input_chars: text.length, text,
-  }
-}

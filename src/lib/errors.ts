@@ -19,6 +19,7 @@ const PG_CODE_MESSAGES: Record<string, string> = {
   '23505': 'Bu değer zaten kullanılıyor. Lütfen farklı bir değer girin.',
   '23503': 'Bu kayıt başka kayıtlarla ilişkili olduğu için işlem tamamlanamadı.',
   '23502': 'Zorunlu bir alan boş bırakılamaz.',
+  '23514': 'Girilen değer bu alan için izin verilen aralık/değer dışında.',
   '22P02': 'Girilen değer geçersiz. Lütfen kontrol edin.',
   '22004': 'Zorunlu bir alan eksik.',
 }
@@ -41,6 +42,13 @@ function isFunctionsHttpError(e: unknown): e is FunctionsHttpError {
 /** Herhangi bir hatayı kullanıcıya gösterilecek Türkçe mesaja çevirir. */
 export async function toUserMessage(error: unknown): Promise<string> {
   if (error instanceof AppError) return error.message
+
+  // Teşhis için ham hatayı HER ZAMAN konsola yaz (kod + mesaj + detay).
+  // Kullanıcıya sadeleştirilmiş mesaj gider; geliştirici gerçeğini burada görür.
+  const raw = error as { code?: string; message?: string; details?: string; hint?: string } | null
+  console.error('[toUserMessage] backend hatası:', {
+    code: raw?.code, message: raw?.message, details: raw?.details, hint: raw?.hint, error,
+  })
 
   // Edge Function hataları — gövdedeki {error} bizim Türkçe mesajımızdır.
   if (isFunctionsHttpError(error)) {

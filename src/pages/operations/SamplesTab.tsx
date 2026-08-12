@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Shirt, Copy, Loader2, Save, Truck, Check, X, BadgeCheck } from 'lucide-react'
+import { Plus, Trash2, Shirt, Copy, Loader2, Save, Truck, Check, X, BadgeCheck, Lock, LockOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { toUserMessage } from '@/lib/errors'
@@ -115,6 +115,10 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
 
   const closed = statuses.data?.find((s) => s.id === sample.status_id)?.is_closed ?? false
   const statusIdByKey = (key: string) => statuses.data?.find((s) => s.key === key)?.id ?? null
+  // Onaylanmış numune varsayılan olarak KİLİTLİ (salt-okunur). "Yeniden aç" ile düzenlenebilir.
+  const approved = !!sample.approved_at
+  const [unlocked, setUnlocked] = useState(false)
+  const locked = approved && !unlocked
 
   async function saveHeader() {
     try {
@@ -144,6 +148,9 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
+          {approved && (unlocked
+            ? <Button size="sm" variant="outline" onClick={() => setUnlocked(false)}><Lock className="size-3.5" /> Kilitle</Button>
+            : <Button size="sm" variant="outline" onClick={() => setUnlocked(true)}><LockOpen className="size-3.5" /> Yeniden aç</Button>)}
           <Button size="sm" variant="outline" onClick={() => void markShipped()} disabled={closed}><Truck className="size-3.5" /> Gönderildi</Button>
           <Button size="sm" variant="outline" onClick={() => setApproveOpen(true)} disabled={closed}><Check className="size-3.5" /> Onayla</Button>
           <Button size="sm" variant="outline" onClick={() => setRejectOpen(true)} disabled={closed}><X className="size-3.5" /> Reddet</Button>
@@ -159,7 +166,10 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
       {/* Onay özeti (kim/ne zaman/yöntem) */}
       {sample.approved_at && (
         <div className="border-success/40 bg-success/5 rounded-lg border p-3 text-sm">
-          <div className="text-success-foreground flex items-center gap-1.5 font-medium"><BadgeCheck className="size-4" /> Onaylandı</div>
+          <div className="text-success-foreground flex items-center gap-1.5 font-medium">
+            <BadgeCheck className="size-4" /> Onaylandı
+            {locked && <span className="text-text-muted inline-flex items-center gap-1 text-xs font-normal"><Lock className="size-3" /> kilitli — düzenlemek için “Yeniden aç”</span>}
+          </div>
           <div className="text-text-secondary mt-1 grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
             <span>Tarih: {fmtDateTime(sample.approved_at)}</span>
             <span>Yöntem: {methodLabel(sample.approval_method)}</span>
@@ -174,45 +184,45 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Durum</Label>
-          <SearchableSelect options={(statuses.data ?? []).map((s) => ({ value: String(s.id), label: s.label }))}
+          <SearchableSelect disabled={locked} options={(statuses.data ?? []).map((s) => ({ value: String(s.id), label: s.label }))}
             value={sample.status_id ? String(sample.status_id) : null}
             onChange={async (v) => { if (v) { try { await update.mutateAsync({ id: sample.id, operationId, status_id: Number(v) }); toast.success('Durum güncellendi.') } catch (err) { toast.error(await toUserMessage(err)) } } }} />
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">İlgili teklif</Label>
-          <SearchableSelect clearable options={(quotes.data ?? []).filter((q) => !q.deleted_at).map((q) => ({ value: String(q.id), label: `Teklif v${q.version}` }))}
+          <SearchableSelect clearable disabled={locked} options={(quotes.data ?? []).filter((q) => !q.deleted_at).map((q) => ({ value: String(q.id), label: `Teklif v${q.version}` }))}
             value={quoteId} onChange={setQuoteId} placeholder="—" />
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Numune ücreti</Label>
-          <Input type="text" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="—" />
+          <Input type="text" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="—" disabled={locked} />
         </div>
         <label className="flex items-end gap-2 pb-2 text-sm">
-          <input type="checkbox" checked={deduct} onChange={(e) => setDeduct(e.target.checked)} className="size-4" />
+          <input type="checkbox" checked={deduct} onChange={(e) => setDeduct(e.target.checked)} className="size-4" disabled={locked} />
           <span className="text-text-secondary">Siparişten düşülecek</span>
         </label>
       </div>
 
       <div className="max-w-xs space-y-1">
         <Label className="text-text-muted text-xs">Numune termini</Label>
-        <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+        <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} disabled={locked} />
         <p className="text-text-muted text-[11px]">Dolunca sesli uyarı verilir. Boş bırakılabilir.</p>
       </div>
 
       <div className="space-y-1">
         <Label className="text-xs">Açıklama</Label>
-        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Numune detayı, müşteri isteği…" />
+        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Numune detayı, müşteri isteği…" disabled={locked} />
       </div>
 
       {/* Kargo */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Kargo firması</Label>
-          <Input value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="ör. Aras" />
+          <Input value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="ör. Aras" disabled={locked} />
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Takip no</Label>
-          <Input value={tracking} onChange={(e) => setTracking(e.target.value)} />
+          <Input value={tracking} onChange={(e) => setTracking(e.target.value)} disabled={locked} />
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Gönderim</Label>
@@ -225,8 +235,8 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
           if (!confirm(`Numune N${sample.version} silinsin mi?`)) return
           try { await del.mutateAsync({ id: sample.id, operationId }); toast.success('Numune silindi.') }
           catch (err) { toast.error(await toUserMessage(err)) }
-        }} disabled={del.isPending}><Trash2 className="size-4" /> Sil</Button>
-        <Button onClick={() => void saveHeader()} disabled={update.isPending}>
+        }} disabled={del.isPending || locked}><Trash2 className="size-4" /> Sil</Button>
+        <Button onClick={() => void saveHeader()} disabled={update.isPending || locked}>
           {update.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Kaydet
         </Button>
       </div>

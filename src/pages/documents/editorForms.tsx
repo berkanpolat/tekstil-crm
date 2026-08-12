@@ -40,7 +40,7 @@ export function blankData(typeKey: string): Data {
     case 'numune_etiketi':
       return { norder: { musteri: '', urunkodu: '' }, numuneler: [{ musteri: '', urunkodu: '', beden: '', renk: '' }] }
     case 'siparis_formu':
-      return { sip: { no6: '', urunkodu: '', tarih: '', toplam: '', alici: { unvan: '', vno: '', vd: '', adres: '' }, grup: '', tur: '', bsistem: 'Alfa', bedenler: BEDEN_SETLERI.Alfa!.slice(), renkler: [], kompozisyon: '', bakim: BAKIM_DEFAULTS.slice(), yorum: '', para: 'TRY', birim: '', tavsiye: '', odeme: '%50 Ön Ödeme %50 Sevkiyat Öncesi' } }
+      return { sip: { no6: '', urunkodu: '', tarih: '', teslim: '', toplam: '', alici: { unvan: '', vno: '', vd: '', adres: '' }, grup: '', tur: '', bsistem: 'Alfa', bedenler: BEDEN_SETLERI.Alfa!.slice(), renkler: [], kompozisyon: '', bakim: BAKIM_DEFAULTS.slice(), yorum: '', para: 'TRY', birim: '', tavsiye: '', odeme: '%50 Ön Ödeme %50 Sevkiyat Öncesi' } }
     case 'koli_ustu':
       return { order: { musteri: '', icerik: '', adres: '', toplam: 1 }, koliler: [{ renk: '', beden: '', adet: '', agirlik: '' }] }
     default:
@@ -517,6 +517,7 @@ function SiparisFormuForm({ data, set }: { data: Data; set: (d: Data) => void })
           <TasField label="Sipariş No" value={s.no6} onChange={setNo6} />
           <T label="Ürün Kodu (otomatik)" value={s.urunkodu || (s.no6?.length === 6 ? `${TAS_PREFIX}-${s.no6}` : '')} onChange={() => {}} placeholder="Sipariş No ile aynı" />
           <D label="Değişiklik Tarihi" value={s.tarih} onChange={(v) => up({ tarih: v })} />
+          <D label="Teslim Tarihi" value={s.teslim} onChange={(v) => up({ teslim: v })} />
           <Sel label="Beden Sistemi" value={s.bsistem} onChange={(v) => setBsistem(v ?? 'Alfa')} options={Object.keys(BEDEN_SETLERI).map((k) => ({ value: k, label: k }))} />
           <CategorySelect grup={s.grup} tur={s.tur} onGrup={(v) => up({ grup: v })} onTur={(v) => up({ tur: v })} />
           {/* Ayırıcı noktalı virgül: tek bir beden ondalık olabilsin (ör. "40,5"). */}

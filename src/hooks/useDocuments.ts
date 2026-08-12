@@ -104,7 +104,9 @@ export async function fetchOrderDocFields(operationId: number): Promise<{ fields
   const join = (a: unknown) => Array.isArray(a) ? a.join(', ') : a
   return { docLabel: label, fields: {
     adet: f(s.toplam), birim_fiyat: f(s.birim), renkler: f(join(s.renkler)), bedenler: f(join(s.bedenler)),
-    toplam_tutar: f(''), teslim_tarihi: f(s.tarih), odeme_kosulu: f(s.odeme),
+    // teslim_tarihi AYRI alandan (sip.teslim) okunur — s.tarih belgenin değişiklik tarihidir, teslim değil.
+    // Alan boşsa boş gelir (yanlış değer gösterilmez).
+    toplam_tutar: f(''), teslim_tarihi: f(s.teslim), odeme_kosulu: f(s.odeme),
   } }
 }
 

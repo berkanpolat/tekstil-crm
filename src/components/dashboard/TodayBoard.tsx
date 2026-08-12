@@ -110,11 +110,11 @@ function TopCards({ period }: { period: Period }) {
 // ② Teklif bekliyor ─────────────────────────────────────────────────────
 function Thumb({ path }: { path: string | null | undefined }) {
   const [noTx, setNoTx] = useState(false)
-  const url = useSignedUrl(path ? { bucket: 'documents', storage_path: path } : null, path && !noTx ? { width: 80, resize: 'cover' } : undefined)
-  if (!path) return <div className="bg-muted text-text-muted flex size-9 shrink-0 items-center justify-center rounded-md"><Shirt className="size-4" /></div>
+  const url = useSignedUrl(path ? { bucket: 'documents', storage_path: path } : null, path && !noTx ? { width: 112, resize: 'contain' } : undefined)
+  if (!path) return <div className="bg-muted text-text-muted flex size-11 shrink-0 items-center justify-center rounded-md"><Shirt className="size-4" /></div>
   return url.data
-    ? <img src={url.data} alt="" className="size-9 shrink-0 rounded-md object-cover" loading="lazy" decoding="async" onError={() => { if (!noTx) setNoTx(true) }} />
-    : <div className="size-9 shrink-0 animate-pulse rounded-md bg-muted" />
+    ? <img src={url.data} alt="" className="size-11 shrink-0 rounded-md bg-muted object-contain" loading="lazy" decoding="async" onError={() => { if (!noTx) setNoTx(true) }} />
+    : <div className="size-11 shrink-0 animate-pulse rounded-md bg-muted" />
 }
 
 function PendingQuotesSection({ nowMs }: { nowMs: number }) {

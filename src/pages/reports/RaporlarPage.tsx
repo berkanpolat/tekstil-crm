@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { usePeriod } from '@/hooks/useMetrics'
 import { useHasPermission } from '@/hooks/useCatalog'
 import { PeriodPicker, type CsvExport } from '@/components/reports/ReportKit'
-import { ReportAiInsight } from '@/components/reports/ReportAiInsight'
 import { exportReportCsv, printReport } from '@/lib/exportReport'
 import { REPORTS } from './reportRegistry'
 
@@ -78,7 +77,6 @@ export function RaporlarPage() {
         <p className="text-sm text-neutral-600">{period.label} · {new Date(period.from).toLocaleDateString('tr-TR')} – {new Date(period.to).toLocaleDateString('tr-TR')}</p>
       </div>
 
-      <ReportAiInsight period={period} />
       <active.Component period={period} setCsv={stableSetCsv} />
     </div>
   )

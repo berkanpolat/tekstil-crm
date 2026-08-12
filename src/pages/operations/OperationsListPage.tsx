@@ -38,11 +38,11 @@ function fmtDate(iso: string | null) {
  *  yoksa kırık ikon değil, nötr bir ürün (tekstil) yer tutucusu. */
 function Thumb({ path }: { path: string | null }) {
   const [noTx, setNoTx] = useState(false)
-  const url = useSignedUrl(path ? { bucket: 'documents', storage_path: path } : null, path && !noTx ? { width: 80, resize: 'cover' } : undefined)
-  if (!path) return <div className="bg-muted text-text-muted flex size-10 items-center justify-center rounded-md"><Shirt className="size-4" /></div>
+  const url = useSignedUrl(path ? { bucket: 'documents', storage_path: path } : null, path && !noTx ? { width: 120, resize: 'contain' } : undefined)
+  if (!path) return <div className="bg-muted text-text-muted flex size-12 items-center justify-center rounded-md"><Shirt className="size-4" /></div>
   return url.data
-    ? <img src={url.data} alt="" className="size-10 rounded-md object-cover" loading="lazy" decoding="async" onError={() => { if (!noTx) setNoTx(true) }} />
-    : <div className="size-10 animate-pulse rounded-md bg-muted" />
+    ? <img src={url.data} alt="" className="size-12 rounded-md bg-muted object-contain" loading="lazy" decoding="async" onError={() => { if (!noTx) setNoTx(true) }} />
+    : <div className="size-12 animate-pulse rounded-md bg-muted" />
 }
 
 /** Talepler = operasyonlar. Sunucu tarafı liste/arama/filtre/sayfalama. */
