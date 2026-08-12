@@ -86,10 +86,14 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
 | **P7** | Raporlar + Gösterge Paneli: `metrics.*` tek kaynak, çalışan+yönetici panel, 6 rapor + Excel/PDF, YZ yorum, yetki matrisi | ✅ |
 | **Intake** | tekstilas.com talep entegrasyonu (intake_process RPC + edge fn + taslak teklif + birleştirme + eşleşmeyen kod çözümü) | 🟡 sunucu+UI bitti; **deploy sende** |
 | **Düzeltme turu 2** | 6 (durum cascade) ✅, 5 (belgeden sipariş) ✅, 4 (yaklaşan süreler) ✅ | 🟡 1/2/3/7/8 kaldı |
+| **P9** | Bildirimler (madde 16): ses politikası (3 sesli olay) + talep/teklif/numune/sipariş durum bildirimleri + teklife 1s kala sesli + numune/sipariş termini doldu sesli | 🟡 kod bitti; **migration sende** |
 
 ## Sıradaki adım / bekleyenler
 
-1. **Intake deploy (sende):** `INTAKE_SECRET`'i Supabase Secrets + `lead.php`'ye gir
+1. **P9 Bildirimler migration (sende):** `20260815000000_p9_notifications.sql` ELLE
+   uygulanmalı (canlı DB'ye yazılmadı). Uygulanana kadar madde-16 bildirimleri DB'de
+   üretilmez (eski davranış sürer); `samples.target_date` UI'de görünür ama yazılamaz.
+2. **Intake deploy (sende):** `INTAKE_SECRET`'i Supabase Secrets + `lead.php`'ye gir
    (`.secrets/intake-secret.txt`), `supabase functions deploy intake-request`, `lead.php`
    eklentisini yapıştır (`docs/api/lead-php-eklenti.md`).
 2. **Tam üretim temizliği:** onay bekliyor (kullanıcı/veri silme planı hazır, parkta).
