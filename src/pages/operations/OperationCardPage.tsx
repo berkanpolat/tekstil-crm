@@ -9,6 +9,7 @@ import { OpenFileBand } from './OpenFileBand'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ImageLightbox, type LightboxImage } from '@/components/shared/ImageLightbox'
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { EntityTimeline } from '@/components/timeline/EntityTimeline'
 import { QuotesTab } from './QuotesTab'
@@ -189,19 +190,43 @@ export function OperationCardPage() {
   )
 }
 
-/** H2 — Talebin görseli Genel sekmesinde büyük ve hemen görünür (dosyalarda saklı değil). */
+/** H2 — Talebin görselleri Genel sekmesinde büyük ve hemen görünür (kırpılmadan, tıkla-büyüt). */
 function OperationHero({ operationId }: { operationId: number }) {
   const files = useEntityFiles('operation', String(operationId))
-  const img = (files.data ?? []).find((f) => (f.mime_type ?? '').startsWith('image/'))
-  const url = useSignedUrl(img ? { bucket: img.bucket, storage_path: img.storage_path } : null)
-  if (!img) return null
+  const images = (files.data ?? []).filter((f) => (f.mime_type ?? '').startsWith('image/'))
+  const [lightbox, setLightbox] = useState<number | null>(null)
+  if (images.length === 0) return null
+  const lb: LightboxImage[] = images.map((f) => ({ bucket: f.bucket, storage_path: f.storage_path, name: f.original_name }))
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-muted/30">
-      {url.data
-        ? <img src={url.data} alt="Talep görseli" className="max-h-80 w-full object-contain" />
-        : <div className="flex h-48 items-center justify-center text-text-muted"><Loader2 className="size-5 animate-spin" /></div>}
+    <div className="space-y-2">
+      <button type="button" onClick={() => setLightbox(0)}
+        className="block w-full cursor-zoom-in overflow-hidden rounded-lg border border-border bg-muted/30">
+        <HeroImage file={images[0]!} />
+      </button>
+      {images.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {images.map((f, i) => (
+            <button key={f.id} type="button" onClick={() => setLightbox(i)}
+              className="size-16 cursor-zoom-in overflow-hidden rounded-md border border-border bg-muted/30">
+              <HeroImage file={f} thumb />
+            </button>
+          ))}
+        </div>
+      )}
+      <ImageLightbox images={lb} index={lightbox} onIndexChange={setLightbox} onClose={() => setLightbox(null)} />
     </div>
   )
+}
+
+function HeroImage({ file, thumb }: { file: { bucket: string; storage_path: string }; thumb?: boolean }) {
+  const url = useSignedUrl({ bucket: file.bucket, storage_path: file.storage_path } as never,
+    thumb ? { width: 160, resize: 'contain' } : undefined)
+  if (!url.data) {
+    return <div className={cn('flex items-center justify-center text-text-muted', thumb ? 'size-full' : 'h-48')}>
+      <Loader2 className="size-5 animate-spin" /></div>
+  }
+  return <img src={url.data} alt="Talep görseli"
+    className={cn('object-contain', thumb ? 'size-full' : 'max-h-80 w-full')} />
 }
 
 function GeneralTab({ op }: { op: NonNullable<ReturnType<typeof useOperation>['data']> }) {

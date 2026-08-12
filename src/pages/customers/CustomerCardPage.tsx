@@ -24,7 +24,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { InteractionsPanel } from '@/components/interactions/InteractionsPanel'
 import { EntityTimeline } from '@/components/timeline/EntityTimeline'
 import { NotesPanel } from '@/components/notes/NotesPanel'
-import { FilesPanel } from '@/components/files/FilesPanel'
+import { CustomerFilesTab } from './CustomerFilesTab'
 import { TagsPanel } from '@/components/tags/TagsPanel'
 import { DuplicateBand } from '@/components/search/DuplicateBand'
 import { Button } from '@/components/ui/button'
@@ -244,7 +244,7 @@ export function CustomerCardPage() {
         </div>
       )}
       {tab === 'notlar' && <NotesPanel entityType="customer" entityId={c.id} />}
-      {tab === 'dosyalar' && <FilesPanel entityType="customer" entityId={c.id} />}
+      {tab === 'dosyalar' && <CustomerFilesTab customerId={c.id} />}
       {tab === 'zaman' && (
         <div className="max-w-2xl">
           <EntityTimeline entityType="customer" entityId={c.id} />

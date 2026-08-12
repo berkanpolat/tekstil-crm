@@ -3,6 +3,10 @@ import {
   Sparkles,
   Building2,
   MessageSquare,
+  MessageCircle,
+  Phone,
+  Mail,
+  AtSign,
   ArrowLeftRight,
   UserRound,
   UserRoundCheck,
@@ -39,6 +43,30 @@ function fmt(iso: string): string {
 }
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null)
 
+/** Etkileşim kanalına göre ikon (WhatsApp→mesaj, arama→telefon, e-posta→zarf …). */
+function channelIcon(channel: string | null): LucideIcon {
+  const c = (channel ?? '').toLocaleLowerCase('tr')
+  if (c.includes('whatsapp') || c.includes('wp')) return MessageCircle
+  if (c.includes('telefon') || c.includes('arama') || c.includes('çağrı') || c.includes('cagri') || c.includes('call')) return Phone
+  if (c.includes('mail') || c.includes('posta') || c.includes('email')) return Mail
+  if (c.includes('instagram') || c.includes('insta')) return AtSign
+  if (c.includes('telegram')) return Send
+  return MessageSquare
+}
+
+/** Olay zamanını okunur gruba yerleştirir: Bugün / Dün / Bu hafta / Daha eski. */
+function dateGroup(iso: string, now: number): string {
+  const d = new Date(iso)
+  const startOfToday = new Date(now)
+  startOfToday.setHours(0, 0, 0, 0)
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const diffDays = Math.floor((startOfToday.getTime() - startOfDay) / 86_400_000)
+  if (diffDays <= 0) return 'Bugün'
+  if (diffDays === 1) return 'Dün'
+  if (diffDays < 7) return 'Bu hafta'
+  return 'Daha eski'
+}
+
 /** Geçmişe kayıt: olay zamanı ile loglama zamanı arasındaki fark ≥ ~1 gün ise not. */
 function backdatedNote(occurredAt: string, createdAt: string): string | null {
   const diffMs = new Date(createdAt).getTime() - new Date(occurredAt).getTime()
@@ -74,7 +102,7 @@ function render(ev: TimelineEvent): { title: string; description?: string; icon:
       const dir = p.direction === 'inbound' ? 'Gelen' : 'Giden'
       const ch = str(p.channel) ?? 'etkileşim'
       const oc = str(p.outcome)
-      return { title: `${dir} ${ch}${oc ? ` — ${oc}` : ''}`, description: str(p.summary) ?? undefined, icon: MessageSquare, tone: 'default' }
+      return { title: `${dir} ${ch}${oc ? ` — ${oc}` : ''}`, description: str(p.summary) ?? undefined, icon: channelIcon(ch), tone: 'default' }
     }
     case 'interaction.removed':
       return { title: 'Etkileşim kaldırıldı', icon: MessageSquare, tone: 'default' }
@@ -133,17 +161,21 @@ function render(ev: TimelineEvent): { title: string; description?: string; icon:
 /** Kart zaman çizelgesi — TEK kaynaktan (event_log) okur, sayfalı ("Daha fazla"). */
 export function EntityTimeline({ entityType, entityId }: { entityType: TimelineEntity; entityId: number }) {
   const [limit, setLimit] = useState(20)
+  const [now] = useState(() => Date.now()) // render-saf: bir kez sabitlenir
   const { data, isLoading, isFetching } = useTimeline(entityType, entityId, limit)
 
   if (isLoading) return <Skeleton className="h-40 w-full" />
 
-  const items: TimelineItem[] = (data?.rows ?? []).map((ev) => {
+  const items: TimelineItem[] = (data?.rows ?? []).map((ev, idx) => {
     const r = render(ev)
     const note = backdatedNote(ev.occurred_at, ev.created_at) // geçmişe kayıt uyarısı
+    const hasDetail = !!r.description || !!ev.actor_name || !!note
     return {
       id: ev.id,
+      group: dateGroup(ev.occurred_at, now),
+      defaultOpen: idx < 3, // son 3 olay açık gelir
       title: r.title,
-      description: (
+      description: hasDetail ? (
         <>
           {r.description}
           {(ev.actor_name || note) && (
@@ -155,7 +187,7 @@ export function EntityTimeline({ entityType, entityId }: { entityType: TimelineE
             </span>
           )}
         </>
-      ),
+      ) : undefined,
       timestamp: fmt(ev.occurred_at), // NE ZAMAN OLDU
       icon: r.icon,
       tone: r.tone,

@@ -87,6 +87,7 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
 | **Intake** | tekstilas.com talep entegrasyonu (intake_process RPC + edge fn + taslak teklif + birleştirme + eşleşmeyen kod çözümü) | 🟡 sunucu+UI bitti; **deploy sende** |
 | **Düzeltme turu 2** | 6 (durum cascade) ✅, 5 (belgeden sipariş) ✅, 4 (yaklaşan süreler) ✅ | 🟡 1/2/3/7/8 kaldı |
 | **P9** | Bildirimler (madde 16): ses politikası (3 sesli olay) + talep/teklif/numune/sipariş durum bildirimleri + teklife 1s kala sesli + numune/sipariş termini doldu sesli | 🟡 kod bitti; **migration sende** |
+| **P10** | Görsel/erişim (madde 10/12/13): zaman çizelgesi sadeleştirme (kanal ikonu + tarih grubu + katlanır detay, son 3 açık), müşteri Dosyalar sekmesi (üretilen belgeler tip+tarih + yüklenenler), talep görseli tıkla-büyüt lightbox (Esc/←/→) | ✅ (migration yok) |
 
 ## Sıradaki adım / bekleyenler
 
