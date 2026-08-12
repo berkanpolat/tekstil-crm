@@ -27,6 +27,7 @@ import { HandHelping, GitMerge, X as XIcon, Search } from 'lucide-react'
 import { useOperation, useOperationStageOptions, useClaimOperation, useMergeSuggestion, useMergeOperations, useDismissMerge } from '@/hooks/useOperations'
 import { useTimeline } from '@/hooks/useTimeline'
 import { useTaskList } from '@/hooks/useTasks'
+import { pickNextAction } from '@/lib/nextAction'
 import { useOperationInteractions } from '@/hooks/useOperationActivity'
 import { useOperationCatalogItems, useAddCatalogItem, useDeleteCatalogItem, useCatalogProductSearch, useCatalogCollections, useResolveCatalogItem, useCreateCatalogProductAndLink, type CatalogItem } from '@/hooks/useOperationCatalog'
 
@@ -363,6 +364,8 @@ function SummaryPanel({ op, nextStep }: { op: NonNullable<ReturnType<typeof useO
   const interactions = useOperationInteractions(op.id)
   const opTasks = useTaskList({ entityType: 'operation', entityId: op.id })
   const openTasks = (opTasks.data ?? []).filter((t) => !t.status_closed && !t.completed_at).length
+  const [nowMs] = useState(() => Date.now())
+  const nextAction = pickNextAction(opTasks.data ?? [], nowMs)
   const lastEvent = timeline.data?.rows[0]
   const lastTalk = interactions.data?.[0]
 
@@ -371,6 +374,15 @@ function SummaryPanel({ op, nextStep }: { op: NonNullable<ReturnType<typeof useO
       <div className="border-border border-b px-3 py-2 text-sm font-medium text-foreground">Özet</div>
       <dl>
         <SummaryRow label="Sıradaki adım"><span className="flex items-center gap-1"><ArrowRight className="text-primary size-3.5" /> {nextStep}</span></SummaryRow>
+        <SummaryRow label="Sıradaki aksiyon">
+          {opTasks.isLoading ? <span className="text-text-muted text-xs">…</span>
+            : nextAction ? (
+              <span className={cn('block', nextAction.overdue ? 'text-danger-foreground font-medium' : 'text-foreground')}>
+                {nextAction.title}
+                {nextAction.due_at && <span className={cn('ml-1 text-xs', !nextAction.overdue && 'text-text-muted')}>· {fmtDate(nextAction.due_at)}</span>}
+              </span>
+            ) : <span className="text-text-muted text-xs">Açık görev yok</span>}
+        </SummaryRow>
         <SummaryRow label="Teklif Süresi">{teklifSuresi(op.sla_deadline)}</SummaryRow>
         <SummaryRow label="Son işlem">{lastEvent ? fmtDT(lastEvent.occurred_at) : '—'}</SummaryRow>
         <SummaryRow label="Son müşteri görüşmesi">
