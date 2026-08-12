@@ -157,11 +157,10 @@ create trigger operations_close_auto_tasks after update of stage_id on public.op
   for each row execute function public.operations_close_auto_tasks();
 
 -- =====================================================================
--- İSTEĞE BAĞLI — P6.3 öneri sistemiyle çakışma giderme.
+-- P6.3 öneri sistemiyle çakışma giderme (KARAR: uygulanacak).
 --   teklif_gonderildi / numune_gonderildi olayları artık OTOMATİK üretiliyor;
 --   aynı olay için ÖNERİ de gelmesin diye ilgili şablonları pasifleştir.
---   (İki sistemi de açık tutmak istersen bu bloğu UYGULAMA.)
 -- ---------------------------------------------------------------------
--- update public.task_templates set is_active = false
---   where trigger_event in ('teklif_gonderildi','numune_gonderildi');
+update public.task_templates set is_active = false
+  where trigger_event in ('teklif_gonderildi','numune_gonderildi');
 -- =====================================================================

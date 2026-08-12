@@ -355,7 +355,7 @@ function QuickCustomerDialog({ onClose, onCreated }: { onClose: () => void; onCr
         full_name: fullName.trim() || null, company_name: company.trim() || null,
         customer_type_id: null, status_id: null, country: null, city: null, district: null,
         address: null, tax_office: null, tax_number: null, iban: null, bank_name: null, account_holder: null,
-        assigned_to: null, next_action_at: null,
+        assigned_to: null, next_action_at: null, first_contact_channel_id: null, first_contact_date: null,
       })
       if (phone.trim()) {
         const { data: { user } } = await supabase.auth.getUser()
