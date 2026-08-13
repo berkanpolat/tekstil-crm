@@ -7,6 +7,7 @@ import { FilterBar } from '@/components/shared/FilterBar'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { DataTable, type DataTableColumn, type SortState } from '@/components/shared/DataTable'
+import { Pagination } from '@/components/shared/Pagination'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -98,11 +99,14 @@ export function CatalogListPage() {
               </button>
             ))}
           </div>
-          <p className="text-center text-xs text-text-muted">{data?.total ?? 0} ürün {isFetching && '· yükleniyor…'}</p>
+          <Pagination page={page} pageSize={pageSize} total={data?.total ?? 0} unitLabel="ürün"
+            pageSizeOptions={[24, 48, 96]} loading={isFetching}
+            onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); resetPage() }} />
         </>
       ) : (
         <DataTable columns={columns} data={rows} rowKey={(r) => String(r.id)} loading={isLoading || isFetching}
           onRowClick={(r) => navigate(`/katalog/${r.id}`)} page={page} pageSize={pageSize} total={data?.total ?? 0}
+          pageSizeOptions={[24, 48, 96]}
           onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); resetPage() }} sort={sort} onSortChange={setSort} />
       )}
 
