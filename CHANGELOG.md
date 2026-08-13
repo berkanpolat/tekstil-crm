@@ -13,6 +13,37 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.2.0] — 2026-08-13
+
+### Eklendi
+- **Süreç Takip Sistemi verilerinin CRM'e aktarımı** (`scripts/surec-takip-aktar.mjs`):
+  **222 müşteri**, **224 talep** (operations), **275 durum geçmişi olayı** (event_log),
+  **196 etkileşim** (interactions). İki kademeli müşteri eşleşmesi (telefon-önce,
+  sonra marka; `normalize_tr`/telefon-son-10-hane), kaynak tarihlerin korunması
+  (`created_at`/`requested_at`/`occurred_at`), tüm adımlar idempotent. Satış rolünde
+  3 kullanıcı oluşturuldu (affan.ergul, ayse.duzgun, hakan.akgun); polat.cetiner
+  mevcut hesaba eşlendi. Telefonlar `contact_points`'e (187), notlar tek
+  `interactions` kaydı olarak (`[Süreç Takip aktarımı]` etiketli).
+- **"Teklif Reddedildi" terminal aşaması** (`operation_stages.teklif_reddedildi`,
+  migration `20260816000000_teklif_reddedildi_terminal_stage.sql`): reddedilen
+  teklifler artık "İptal" ile karışmaz; ayrı `danger` terminal aşamada. Aktarımdan
+  gelen **155 iptal → teklif_reddedildi** taşındı, quote'ları `reddedildi` durumuna
+  çekildi (gerekçe + yanıt tarihi), `quotes_close_op_on_reject` trigger'ı yeni
+  aşamaya yönlendirildi (bugünden sonraki gerçek redler de buraya gider).
+- **214 quote üretimi** (`scripts/surec-takip-quotes.mjs`): teklif verilmiş
+  aşamalardaki (teklif_iletildi/numune/siparis/tamamlandi/iptal) operasyonlara
+  quote kaydı (`sent_at` kaynak durum-değişim tarihinden). "Teklif bekliyor"
+  panelindeki şişme düzeldi (70 → 12).
+- **Etkileşim→operasyon backfill** (`scripts/surec-takip-etkilesim-operasyon-backfill.mjs`):
+  196 ithal etkileşime `interactions.operation_id` yazıldı → operasyon ekranında
+  da görünür oldular (`entity_type`/`entity_id` korunarak).
+- `cancellation_reasons`'a **"Teklif reddedildi"** (`teklif_reddedildi`) referansı.
+
+### Notlar
+- Uygulanan migration: `20260816000000_teklif_reddedildi_terminal_stage.sql`
+  (`psql -f` ile; defter kayması sürüyor). Toplu güncelleme öncesi yedek alındı
+  (`~/tekstil-crm-yedekler`).
+
 ## [1.1.0] — 2026-08-13
 
 ### Eklendi
