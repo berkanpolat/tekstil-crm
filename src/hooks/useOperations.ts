@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import { normalizeTr } from '@/lib/normalize'
@@ -272,13 +273,13 @@ export function useUpdateOperation() {
 
 // ---------- Seçenekler ----------
 export function useOperationStageOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['operation-stage-options'],
     queryFn: async () => (await supabase.from('operation_stages').select('id, key, label, color, sort_order').eq('is_active', true).order('sort_order')).data ?? [],
   })
 }
 export function useRequestStatusOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['request-status-options'],
     queryFn: async () => (await supabase.from('request_statuses').select('id, key, label').eq('is_active', true).order('sort_order')).data ?? [],
   })
@@ -301,13 +302,13 @@ export function useClaimOperation() {
 }
 
 export function useChannelOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['request-channel-options'],
     queryFn: async () => (await supabase.from('request_channels').select('id, key, label, color').eq('is_active', true).order('sort_order')).data ?? [],
   })
 }
 export function useProvinceOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['province-options'],
     staleTime: 600_000,
     queryFn: async () => (await supabase.from('provinces').select('id, name, plate_code').eq('is_active', true).order('name')).data ?? [],
@@ -394,7 +395,7 @@ export function useDeleteOperationItem() {
 // Müşteri seçici (talep formu) — aktif müşteriler önden yüklenir; SearchableSelect
 // istemci tarafında filtreler. (Büyük ölçekte server-search'e geçilebilir.)
 export function useAllCustomerOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['all-customer-options'],
     staleTime: 60_000,
     queryFn: async () => {

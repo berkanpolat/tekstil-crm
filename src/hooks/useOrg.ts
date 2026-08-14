@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { AppError, ensureRows } from '@/lib/errors'
 
@@ -22,7 +23,7 @@ export interface Position {
 
 // ---------- Departmanlar ----------
 export function useDepartments() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['departments'],
     queryFn: async (): Promise<Department[]> => {
       const { data, error } = await supabase
@@ -76,7 +77,7 @@ export function useSetDepartmentActive() {
 
 // ---------- Pozisyonlar ----------
 export function usePositions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['positions'],
     queryFn: async (): Promise<Position[]> => {
       const { data, error } = await supabase

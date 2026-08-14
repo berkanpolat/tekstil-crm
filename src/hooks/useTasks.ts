@@ -1,16 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 
 // ── Referans (durum/öncelik) ──────────────────────────────────────────────────
 export function useTaskStatuses() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['task-statuses'], staleTime: 300_000,
     queryFn: async () => ensureRows(await supabase.from('task_statuses').select('*').eq('is_active', true).order('sort_order')),
   })
 }
 export function useTaskPriorities() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['task-priorities'], staleTime: 300_000,
     queryFn: async () => ensureRows(await supabase.from('task_priorities').select('*').eq('is_active', true).order('sort_order')),
   })

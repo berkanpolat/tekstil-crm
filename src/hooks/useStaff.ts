@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import type { SortState } from '@/components/shared/DataTable'
@@ -91,7 +92,7 @@ export function useStaffList(filters: StaffFilters) {
 
 // --- Form seçenekleri (aktif kayıtlar) ---
 export function useRoleOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['role-options'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -106,7 +107,7 @@ export function useRoleOptions() {
 }
 
 export function useDepartmentOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['department-options'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -122,7 +123,7 @@ export function useDepartmentOptions() {
 }
 
 export function usePositionOptions(departmentId?: number | null) {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['position-options', departmentId ?? 'all'],
     queryFn: async () => {
       let q = supabase.from('positions').select('id, name, department_id').eq('is_active', true)

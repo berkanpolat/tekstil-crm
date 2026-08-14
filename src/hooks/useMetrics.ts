@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 
 // ── Dönem (URL'de kalıcı) ──────────────────────────────────────────────
@@ -131,7 +132,7 @@ export function useChangeMinBase() {
 export interface FilterOpt { value: number; label: string }
 /** Talep raporu kırılım filtreleri için referans listeleri (kanal/kategori/il). */
 export function useFilterOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['report-filter-options'],
     staleTime: 600_000,
     queryFn: async () => {

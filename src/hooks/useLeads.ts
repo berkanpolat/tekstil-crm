@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import { normalizeTr } from '@/lib/normalize'
@@ -446,7 +447,7 @@ export function useConvertLead() {
 
 // --- Filtre seçenekleri (aktif referans kayıtları) ---
 export function useLeadStatusOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['lead-status-options'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -462,7 +463,7 @@ export function useLeadStatusOptions() {
 }
 
 export function useLeadSourceOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['lead-source-options'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -478,7 +479,7 @@ export function useLeadSourceOptions() {
 }
 
 export function useAssigneeOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['assignee-options'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -495,7 +496,7 @@ export function useAssigneeOptions() {
 
 // Şehir listesi: mevcut leads'ten benzersiz (filtre için). RPC yok; distinct alalım.
 export function useLeadCityOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['lead-city-options'],
     queryFn: async () => {
       const { data, error } = await supabase

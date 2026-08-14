@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
 import { ensureRows } from '@/lib/errors'
@@ -146,7 +147,7 @@ export interface DocCategoryOptions { groups: { id: number; label: string }[]; t
 
 /** Ürün Grubu (Grup/Dal) + Türü açılır menüleri için aktif kategori ağacı (A3). */
 export function useDocCategoryOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['doc-category-options'],
     queryFn: async (): Promise<DocCategoryOptions> => {
       const { data, error } = await supabase.from('product_categories')

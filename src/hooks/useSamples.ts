@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 
@@ -175,7 +176,7 @@ export function useDeleteSample() {
 }
 
 export function useSampleStatusOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['sample-status-options'],
     queryFn: async () => (await supabase.from('sample_statuses').select('id, key, label, color, is_closed').eq('is_active', true).order('sort_order')).data ?? [],
   })

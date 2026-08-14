@@ -13,6 +13,29 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.3.1] — 2026-08-14
+
+### Düzeltildi
+- **Referans dropdown'ları boş gelme sınıf hatası** (ör. Sipariş Onay belgesinde
+  "Ürün Grubu" seçilemiyor): oturum tam kurulmadan çalışan bir referans sorgusu,
+  **paylaşılan statik query key**'e 0-satır sonucu yazıyordu; `staleTime` (30sn)
+  penceresi boyunca aynı key'i kullanan tüm tüketiciler o boş listeyi alıyor, yeni
+  istek gitmiyordu (RLS/veri/token değil — react-query bellek-içi önbelleği).
+  Teşhis: soğuk açılışta `getSession()` süresi dolmuş token döndürebiliyor; token
+  yenilenmeden giden ilk istek PostgREST'te anon sayılıp RLS `is_active_user()`
+  false → 0 satır.
+- **Kalıp çözüm** — yeni `useReferenceQuery` sarmalayıcısı (`src/hooks/useReferenceQuery.ts`,
+  `useSessionReady` ile): oturum hazır **ve** `useCurrentUser` (getUser ile token'ı
+  doğrular) çözülüp kullanıcı gelene kadar sorguyu göndermez (`enabled=false`).
+  Böylece oturum öncesi boş sonuç hiç önbelleğe girmez. RLS'e bağlı statik-key'li
+  **29 referans/lookup sorgusu** (13 hook dosyası) bu korumaya alındı: ürün
+  kategorileri, talep/teklif/numune/sipariş durum & kanal seçenekleri, iller,
+  rol/departman/pozisyon, görev durum/öncelik, ödeme yöntemi/banka, müşteri
+  seçenekleri, rapor filtreleri, genel referans tablosu.
+
+### Notlar
+- Migration yok. `npm run build` + 193 birim testi yeşil.
+
 ## [1.3.0] — 2026-08-14
 
 ### Eklendi

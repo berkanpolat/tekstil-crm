@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import { normalizeTr } from '@/lib/normalize'
@@ -50,7 +51,7 @@ export function ratesToMap(info: RateInfo | undefined): Rates {
 
 // ── Marj kademeleri (P4B.6) ─────────────────────────────────────────────────
 export function useMarginTiers() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['margin-tiers'],
     staleTime: 300_000,
     queryFn: async (): Promise<MarginTier[]> => {
@@ -62,7 +63,7 @@ export function useMarginTiers() {
 
 // ── Kataloglar / koleksiyonlar ──────────────────────────────────────────────
 export function useCatalogs() {
-  return useQuery({ queryKey: ['catalogs'], queryFn: async () => (await supabase.from('catalogs').select('id, name, season, year, is_active').is('deleted_at', null).order('created_at', { ascending: false })).data ?? [] })
+  return useReferenceQuery({ queryKey: ['catalogs'], queryFn: async () => (await supabase.from('catalogs').select('id, name, season, year, is_active').is('deleted_at', null).order('created_at', { ascending: false })).data ?? [] })
 }
 export function useCollections(catalogId: number | null) {
   return useQuery({

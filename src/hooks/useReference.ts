@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { AppError, ensureRows } from '@/lib/errors'
 
@@ -33,7 +34,7 @@ export interface ReferenceRow {
 }
 
 export function useReferenceList(table: ReferenceTable) {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['reference', table],
     queryFn: async (): Promise<ReferenceRow[]> => {
       const { data, error } = await supabase

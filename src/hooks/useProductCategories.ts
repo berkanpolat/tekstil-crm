@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 
@@ -15,7 +16,7 @@ export interface ProductCategory {
 
 /** Üst kategoriler (parent_id null), aktif, sıralı. */
 export function useCategoryOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['product-categories', 'top'],
     queryFn: async (): Promise<ProductCategory[]> => {
       const { data, error } = await supabase.from('product_categories')
@@ -29,7 +30,7 @@ export function useCategoryOptions() {
 
 /** Bir kategorinin türleri (alt düğümler), aktif, sıralı. */
 export function useTypeOptions(categoryId: number | null) {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['product-categories', 'types', categoryId],
     enabled: categoryId != null,
     queryFn: async (): Promise<ProductCategory[]> => {
@@ -44,7 +45,7 @@ export function useTypeOptions(categoryId: number | null) {
 
 /** Ayarlar için tüm ağaç (aktif+pasif). */
 export function useCategoryTree() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['product-categories', 'all'],
     queryFn: async (): Promise<ProductCategory[]> => {
       const { data, error } = await supabase.from('product_categories')

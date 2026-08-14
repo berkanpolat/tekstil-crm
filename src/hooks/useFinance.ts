@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import { normalizeTr } from '@/lib/normalize'
@@ -21,7 +22,7 @@ export function useFinancePerms() {
 
 // ── Ödeme yöntemleri (referans) ──────────────────────────────────────────────
 export function usePaymentMethods(activeOnly = true) {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['payment-methods', activeOnly],
     queryFn: async () => {
       let q = supabase.from('payment_methods').select('*').order('sort_order')
@@ -33,7 +34,7 @@ export function usePaymentMethods(activeOnly = true) {
 
 // ── Banka hesapları ──────────────────────────────────────────────────────────
 export function useBankAccounts(activeOnly = false) {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['bank-accounts', activeOnly],
     queryFn: async () => {
       let q = supabase.from('bank_accounts').select('*').order('sort_order').order('bank_name')
@@ -72,7 +73,7 @@ export function useSavePaymentMethod() {
 
 // ── Müşteri seçici (aranabilir) — tüm aktif müşteriler; cmdk yerelde filtreler ──
 export function useCustomerOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['customer-options'],
     staleTime: 120_000,
     queryFn: async () => {

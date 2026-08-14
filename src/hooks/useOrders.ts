@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import { parseDecimal } from '@/lib/money'
@@ -267,7 +268,7 @@ function invalidate(qc: ReturnType<typeof useQueryClient>, orderId: number) {
 }
 
 export function useOrderStatusOptions() {
-  return useQuery({
+  return useReferenceQuery({
     queryKey: ['order-status-options'],
     queryFn: async () => (await supabase.from('order_statuses').select('id, key, label, color, is_closed').eq('is_active', true).order('sort_order')).data ?? [],
   })
