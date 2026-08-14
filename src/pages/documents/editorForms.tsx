@@ -22,6 +22,14 @@ const CURRENCIES = [{ value: 'TRY', label: '₺ Türk Lirası' }, { value: 'USD'
 const CUR_SYM: Record<string, string> = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' }
 const VALIDITY = ['7 Gün', '14 Gün', '30 Gün']
 const BEDEN_SETLERI: Record<string, string[]> = { Alfa: ['XS', 'S', 'M', 'L', 'XL'], Numara: ['34', '36', '38', '40', '42', '44', '46'], Özel: ['S', 'M', 'L'] }
+// Bedenler alanı HAM METİN olarak tutulur (sip.bedenlerText); diziye YALNIZ çıkışta
+// (render'da matris kolonları + normalizeForRender dışa aktarımı) çevrilir. Böylece
+// kullanıcı ayraç (";") yazarken karakter, filter+join gidiş-dönüşünde silinmez.
+export const parseSizes = (text: string): string[] => text.split(';').map((x) => x.trim()).filter(Boolean)
+// Eski kaydedilmiş belgeler bedenler'i dizi olarak tutmuş olabilir → metne düş.
+export const sizesText = (s: Data): string => s.bedenlerText ?? (Array.isArray(s.bedenler) ? s.bedenler.join('; ') : '')
+// Etiket örneği seçili beden sistemine göre değişir (Alfa'da XS; S; M, Numara'da 40; 40,5; 41).
+const SIZE_HINT: Record<string, string> = { Alfa: 'XS; S; M', Numara: '40; 40,5; 41', Özel: 'S; M; L' }
 // Sipariş formu bakım talimatları (studio.html BAKIM; def=varsayılan işaretli).
 const BAKIM = [
   { k: '30', t: '30°C Yıka', def: true }, { k: '40', t: '40°C Yıka', def: false }, { k: 'handwash', t: 'Elde Yıka', def: false },
@@ -41,7 +49,7 @@ export function blankData(typeKey: string): Data {
     case 'numune_etiketi':
       return { norder: { musteri: '', urunkodu: '' }, numuneler: [{ musteri: '', urunkodu: '', beden: '', renk: '' }] }
     case 'siparis_formu':
-      return { sip: { no6: '', urunkodu: '', tarih: '', teslim: '', toplam: '', alici: { unvan: '', vno: '', vd: '', adres: '' }, grup: '', tur: '', bsistem: 'Alfa', bedenler: BEDEN_SETLERI.Alfa!.slice(), renkler: [], kompozisyon: '', bakim: BAKIM_DEFAULTS.slice(), yorum: '', para: 'TRY', birim: '', tavsiye: '', odeme: '%50 Ön Ödeme %50 Sevkiyat Öncesi' } }
+      return { sip: { no6: '', urunkodu: '', tarih: '', teslim: '', toplam: '', alici: { unvan: '', vno: '', vd: '', adres: '' }, grup: '', tur: '', bsistem: 'Alfa', bedenlerText: BEDEN_SETLERI.Alfa!.join('; '), renkler: [], kompozisyon: '', bakim: BAKIM_DEFAULTS.slice(), yorum: '', para: 'TRY', birim: '', tavsiye: '', odeme: '%50 Ön Ödeme %50 Sevkiyat Öncesi' } }
     case 'koli_ustu':
       return { order: { musteri: '', icerik: '', adres: '', toplam: 1 }, koliler: [{ renk: '', beden: '', adet: '', agirlik: '' }] }
     default:
@@ -70,6 +78,11 @@ export function normalizeForRender(typeKey: string, data: Data): Data {
       renk: k.renk || '', beden: k.beden || '', adet: k.adet || '', agirlik: k.agirlik || '',
     }))
     return { ...data, order: { ...o, toplam: koliler.length || 1 }, koliler }
+  }
+  if (typeKey === 'siparis_formu') {
+    // Ham metin → dizi ÇIKIŞTA: PDF servisi eskisi gibi sip.bedenler dizisini alır.
+    const s = data.sip || {}
+    return { ...data, sip: { ...s, bedenler: parseSizes(sizesText(s)) } }
   }
   return data
 }
@@ -501,7 +514,7 @@ function KoliForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data
 function SiparisFormuForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   const s = data.sip || {}
   const up = (patch: Data) => set(patchSection('sip', patch))
-  const bedenler: string[] = s.bedenler || []
+  const bedenler = parseSizes(sizesText(s))   // matris kolonları için türetilir; kaynak ham metin
   const renkler: Data[] = s.renkler || []
   const bakim: string[] = s.bakim || []
   const setRenkler = (r: Data[]) => up({ renkler: r })
@@ -509,7 +522,7 @@ function SiparisFormuForm({ data, set }: { data: Data; set: Dispatch<SetStateAct
   // Sipariş No (no6) → ürün kodu otomatik TAS-no6 (E1/E2).
   const setNo6 = (body: string) => up({ no6: body, urunkodu: body.length === 6 ? `${TAS_PREFIX}-${body}` : '' })
   // Beden sistemi → hazır set (Özel'de dokunma).
-  const setBsistem = (v: string) => { const bs = BEDEN_SETLERI[v]; if (v !== 'Özel' && bs) up({ bsistem: v, bedenler: bs.slice() }); else up({ bsistem: v }) }
+  const setBsistem = (v: string) => { const bs = BEDEN_SETLERI[v]; if (v !== 'Özel' && bs) up({ bsistem: v, bedenlerText: bs.join('; ') }); else up({ bsistem: v }) }
   const toggleBakim = (k: string) => up({ bakim: bakim.includes(k) ? bakim.filter((x) => x !== k) : [...bakim, k] })
   return (
     <div className="space-y-6">
@@ -521,8 +534,9 @@ function SiparisFormuForm({ data, set }: { data: Data; set: Dispatch<SetStateAct
           <D label="Teslim Tarihi" value={s.teslim} onChange={(v) => up({ teslim: v })} />
           <Sel label="Beden Sistemi" value={s.bsistem} onChange={(v) => setBsistem(v ?? 'Alfa')} options={Object.keys(BEDEN_SETLERI).map((k) => ({ value: k, label: k }))} />
           <CategorySelect grup={s.grup} tur={s.tur} onGrup={(v) => up({ grup: v })} onTur={(v) => up({ tur: v })} />
-          {/* Ayırıcı noktalı virgül: tek bir beden ondalık olabilsin (ör. "40,5"). */}
-          <T label="Bedenler (noktalı virgülle: 40; 40,5; 41)" value={bedenler.join('; ')} onChange={(v) => up({ bedenler: v.split(';').map((x) => x.trim()).filter(Boolean) })} wide />
+          {/* Ham metin: kullanıcı ne yazarsa durur (ayraç ";" silinmez); diziye çıkışta çevrilir.
+              Ondalık beden (ör. "40,5") virgülle yazılır, bedenler noktalı virgülle ayrılır. */}
+          <T label={`Bedenler (noktalı virgülle: ${SIZE_HINT[s.bsistem] ?? SIZE_HINT.Özel})`} value={sizesText(s)} onChange={(v) => up({ bedenlerText: v })} wide />
         </Grid>
       </FieldGroup>
 

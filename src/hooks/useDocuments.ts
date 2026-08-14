@@ -103,8 +103,12 @@ export async function fetchOrderDocFields(operationId: number): Promise<{ fields
   }
   const s = (doc.data?.sip ?? {}) as Record<string, unknown>
   const join = (a: unknown) => Array.isArray(a) ? a.join(', ') : a
+  // Bedenler noktalı virgülle ayrılır (ör. "40,5" ondalığı virgül belirsizliği yaratmasın).
+  // Kaynak ham metin (bedenlerText); eski belgelerde dizi biçimine düşülür.
+  const bedenlerText = (s.bedenlerText as string | undefined) ?? (Array.isArray(s.bedenler) ? (s.bedenler as string[]).join('; ') : '')
+  const bedenler = bedenlerText.split(';').map((x) => x.trim()).filter(Boolean).join('; ')
   return { docLabel: label, fields: {
-    adet: f(s.toplam), birim_fiyat: f(s.birim), renkler: f(join(s.renkler)), bedenler: f(join(s.bedenler)),
+    adet: f(s.toplam), birim_fiyat: f(s.birim), renkler: f(join(s.renkler)), bedenler: f(bedenler),
     // teslim_tarihi AYRI alandan (sip.teslim) okunur — s.tarih belgenin değişiklik tarihidir, teslim değil.
     // Alan boşsa boş gelir (yanlış değer gösterilmez).
     toplam_tutar: f(''), teslim_tarihi: f(s.teslim), odeme_kosulu: f(s.odeme),

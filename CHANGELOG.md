@@ -13,6 +13,33 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.3.3] — 2026-08-14
+
+### Düzeltildi
+- **Sipariş Formu — Bedenler alanına noktalı virgül yazılamıyordu.** Alan
+  değeri `bedenler.join('; ')` ile filtrelenmiş diziden türetiliyordu; kullanıcı
+  ayraç (`;`) yazınca boş son eleman `filter(Boolean)` ile atılıyor, ayraç bir
+  sonraki render'da siliniyordu (bir sonraki bedeni asla ekleyemiyordunuz). Alan
+  artık **ham metin** olarak tutuluyor (`sip.bedenlerText`); diziye **yalnız
+  çıkışta** (matris kolonları + `normalizeForRender` dışa aktarımı) çevriliyor.
+  Eski (dizi biçimli) kaydedilmiş belgelerle geriye uyumlu.
+- **Payload tutarsızlığı:** `useDocuments` alan-eşleme çıktısı bedenleri
+  `', '` ile birleştiriyordu; ondalık beden (`40,5`) virgül belirsizliği
+  yaratıyordu. Artık `'; '` ile birleştiriliyor.
+
+### Değişti
+- **Bedenler etiketi seçili beden sistemine göre değişiyor:** Alfa'da
+  "XS; S; M", Numara'da "40; 40,5; 41", Özel'de "S; M; L" örneği gösterilir.
+
+### Not (ayrı iş — kod değişmedi)
+- PDF şablonu (`services/pdf-renderer/templates/studio.html:2408`) "Beden
+  Sistemi" **künye özet satırında** bedenleri `sistem (ilk–son)` uç-nokta
+  aralığı olarak basıyor (önizlemedeki "Alfa (30–30)" bundan). **Renk×Beden
+  dağıtım tablosu ve barkodlar TAM listeyi** gösterir — ara bedenler
+  kaybolmaz; yalnız künye özeti uç noktaları gösterir. Uç noktalar dizi
+  sırasına göredir (sayısal min–max değil). Künye özetini tam listeye çevirmek
+  isterse ayrı bir şablon işidir.
+
 ## [1.3.2] — 2026-08-14
 
 ### Düzeltildi
