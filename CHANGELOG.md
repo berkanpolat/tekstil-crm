@@ -13,6 +13,34 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.5.0] — 2026-08-14
+
+### Eklendi
+- **Gösterge paneli — satır kısayolları (madde 3).**
+  - **Teklif iletildi:** satır sonunda onayla/reddet ikonları. Onaylamada
+    "Sıradaki aşama" seçimi (Numune varsayılan · Sipariş · "Şimdilik sadece
+    işaretle"); seçime göre hem teklif sonucu hem operasyon aşaması güncellenir
+    (aşama geçişi `useAdvanceStage` ile — QuotesTab'ın kanonik kabul yolu).
+    Reddetmede **red sebebi zorunlu** (sebepsiz red engellendi).
+  - **Numuneler / Siparişler:** satır sonunda durum güncelleme menüsü
+    (`useUpdateSample` / `useUpdateOrder`). Mevcut durum işaretli/pasif.
+  - İkonlar küçük ve satır sonunda; satır tıklamasını (`stopPropagation`) bozmaz.
+- **Paylaşılan `QuoteAcceptDialog` / `QuoteRejectDialog`**
+  (`src/components/operations/QuoteResultDialogs.tsx`). QuotesTab ve gösterge
+  paneli aynı diyaloğu kullanır — iki kopyanın iki farklı davranışa dönüşmesi
+  önlendi. Red diyaloğu artık her iki yerde de sebebi **zorunlu** kılar.
+
+### Değişti
+- **Gösterge paneli yerleşimi (madde 2).** Dört ana bölüm (Teklif bekliyor ·
+  Teklif iletildi · Numuneler · Siparişler) **2×2 ızgara**da, her biri **sabit
+  yükseklikte** (`h-72`) ve **kendi içinde kaydırılır**; başlık + toplam sayı
+  sabit kalır. Kullanıcı sayfayı kaydırmadan dördünü birden görür.
+  **Hatırlatıcılar** ızgaradan çıkıp altta tam genişlik ayrı bölüme alındı.
+
+Bu paket kod-only; migration yok.
+
+---
+
 ## [1.4.0] — 2026-08-14
 
 ### Eklendi

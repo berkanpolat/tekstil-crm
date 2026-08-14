@@ -2,21 +2,26 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, MessageSquare, FlaskConical, Package, BellRing, HandHelping,
-  Zap, Shirt, Clock, CheckCircle2, Loader2, AlertTriangle,
+  Zap, Shirt, Clock, CheckCircle2, XCircle, SlidersHorizontal, Loader2, AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { toUserMessage } from '@/lib/errors'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
 import { useSignedUrl } from '@/hooks/useFiles'
 import {
   computeRange, type Period, type PeriodKey,
   useRequestsMetric, useQuotesMetric, useInteractionsMetric, useActiveFunnel,
   usePendingRequests, type PendingRequest,
 } from '@/hooks/useMetrics'
-import { useAllQuotes, type QuoteListRow } from '@/hooks/useQuotes'
-import { useAllSamples, type SampleListRow } from '@/hooks/useSamples'
-import { useAllOrders, type OrderListRow } from '@/hooks/useOrders'
+import { useAllQuotes, useSetQuoteResult, useAdvanceStage, type QuoteListRow } from '@/hooks/useQuotes'
+import { useAllSamples, useUpdateSample, useSampleStatusOptions, type SampleListRow } from '@/hooks/useSamples'
+import { useAllOrders, useUpdateOrder, useOrderStatusOptions, type OrderListRow } from '@/hooks/useOrders'
 import { useTaskList, useUpdateTask, useTaskStatuses, type TaskRow } from '@/hooks/useTasks'
 
 // ── Zaman + biçim yardımcıları ─────────────────────────────────────────
@@ -53,21 +58,49 @@ function PeriodPicker({ value, onPick }: { value: PeriodKey; onPick: (k: PeriodK
   )
 }
 
-// ── Ortak kabuk: bölüm + özet kart ─────────────────────────────────────
+// ── Ortak kabuk: bölüm (sabit yükseklik, başlık sabit, liste iç kaydırmalı) ──
 function Section({ icon: Icon, title, count, loading, empty, children }: {
   icon: typeof FileText; title: string; count: number; loading: boolean; empty: string; children: React.ReactNode
 }) {
   return (
-    <section className="bg-card space-y-2 rounded-lg border border-border p-4 shadow-card">
-      <div className="flex items-center gap-2">
+    <section className="bg-card flex h-72 flex-col rounded-lg border border-border p-4 shadow-card">
+      <div className="mb-2 flex shrink-0 items-center gap-2">
         <Icon className="text-accent-primary size-4" />
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         {count > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-text-secondary">{count}</span>}
       </div>
-      {loading ? <Skeleton className="h-16 w-full" /> : count === 0
-        ? <p className="text-text-secondary py-3 text-sm">{empty}</p>
-        : <div className="space-y-1">{children}</div>}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {loading ? <Skeleton className="h-16 w-full" /> : count === 0
+          ? <p className="text-text-secondary py-3 text-sm">{empty}</p>
+          : <div className="space-y-1 pr-1">{children}</div>}
+      </div>
     </section>
+  )
+}
+
+// ── Satır sonu durum menüsü (numune + sipariş ortak) ───────────────────
+function StatusMenu({ options, currentKey, pending, onPick }: {
+  options: { id: number; key: string; label: string }[]
+  currentKey: string | null; pending: boolean; onPick: (id: number) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" title="Durum güncelle" disabled={pending} onClick={(e) => e.stopPropagation()}
+          className="text-text-muted hover:text-accent-primary hover:bg-accent-pale shrink-0 rounded-md p-1.5 transition-colors">
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <SlidersHorizontal className="size-4" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuLabel>Durum güncelle</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {options.map((o) => (
+          <DropdownMenuItem key={o.id} disabled={o.key === currentKey} onSelect={() => onPick(o.id)}>
+            {o.key === currentKey && <CheckCircle2 className="text-accent-primary size-3.5" />}{o.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -176,14 +209,20 @@ function quoteResult(key: string | null): { label: string; tone: string } {
 function SentQuotesSection() {
   const nav = useNavigate()
   const { data, isLoading } = useAllQuotes()
+  const setResult = useSetQuoteResult()
+  const advance = useAdvanceStage()
+  const [acceptFor, setAcceptFor] = useState<QuoteListRow | null>(null)
+  const [rejectFor, setRejectFor] = useState<QuoteListRow | null>(null)
   const rows = useMemo(() => {
     const sent = (data ?? []).filter((q) => q.sent_at)
     return sent.sort((a, b) => new Date(b.sent_at!).getTime() - new Date(a.sent_at!).getTime()).slice(0, 12)
   }, [data]) as QuoteListRow[]
+  const busy = setResult.isPending || advance.isPending
   return (
     <Section icon={FileText} title="Teklif iletildi" count={rows.length} loading={isLoading} empty="Henüz iletilmiş teklif yok.">
       {rows.map((q) => {
         const res = quoteResult(q.status_key)
+        const closed = RESULT_ACCEPTED.has(q.status_key ?? '') || RESULT_REJECTED.has(q.status_key ?? '')
         return (
           <div key={q.id} role="button" tabIndex={0} onClick={() => nav(`/talepler/${q.operation_id}`)}
             onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && nav(`/talepler/${q.operation_id}`)}
@@ -191,9 +230,36 @@ function SentQuotesSection() {
             <span className="text-foreground min-w-0 flex-1 truncate font-medium">{q.customer_name ?? '—'}</span>
             <span className="text-text-muted shrink-0 text-xs">iletildi {fmt(q.sent_at)}</span>
             <span className={cn('shrink-0 text-xs font-medium', res.tone)}>{res.label}</span>
+            {!closed && (
+              <span className="flex shrink-0 items-center gap-0.5">
+                <button type="button" title="Onaylandı işaretle" disabled={busy}
+                  onClick={(e) => { e.stopPropagation(); setAcceptFor(q) }}
+                  className="text-text-muted hover:text-success-foreground hover:bg-success/10 rounded-md p-1 transition-colors">
+                  <CheckCircle2 className="size-4" />
+                </button>
+                <button type="button" title="Reddedildi işaretle" disabled={busy}
+                  onClick={(e) => { e.stopPropagation(); setRejectFor(q) }}
+                  className="text-text-muted hover:text-danger-foreground hover:bg-danger/10 rounded-md p-1 transition-colors">
+                  <XCircle className="size-4" />
+                </button>
+              </span>
+            )}
           </div>
         )
       })}
+      {acceptFor && <QuoteAcceptDialog onClose={() => setAcceptFor(null)} onAccept={async (choice) => {
+        const q = acceptFor; setAcceptFor(null)
+        try {
+          await setResult.mutateAsync({ id: q.id, operationId: q.operation_id, statusKey: 'kabul_edildi' })
+          if (choice === 'mark') { toast.success('Teklif kabul edildi olarak işaretlendi.') }
+          else { await advance.mutateAsync({ operationId: q.operation_id, stageKey: choice }); toast.success(`Teklif kabul edildi — aşama: ${choice === 'numune' ? 'Numune' : 'Sipariş'}.`) }
+        } catch (err) { toast.error(await toUserMessage(err)) }
+      }} />}
+      {rejectFor && <QuoteRejectDialog onClose={() => setRejectFor(null)} onReject={async (reasonId, note) => {
+        const q = rejectFor; setRejectFor(null)
+        try { await setResult.mutateAsync({ id: q.id, operationId: q.operation_id, statusKey: 'reddedildi', rejectionReasonId: reasonId, rejectionNote: note || null }); toast.success('Teklif reddedildi olarak işaretlendi.') }
+        catch (err) { toast.error(await toUserMessage(err)) }
+      }} />}
     </Section>
   )
 }
@@ -203,7 +269,14 @@ function SentQuotesSection() {
 function SamplesSection() {
   const nav = useNavigate()
   const { data, isLoading } = useAllSamples()
+  const statusOpts = useSampleStatusOptions()
+  const upd = useUpdateSample()
   const rows = (data ?? []).slice(0, 12) as SampleListRow[] // useAllSamples zaten created_at desc
+  const opts = (statusOpts.data ?? []).map((o) => ({ id: o.id, key: o.key, label: o.label }))
+  async function setStatus(s: SampleListRow, statusId: number) {
+    try { await upd.mutateAsync({ id: s.id, operationId: s.operation_id, status_id: statusId }); toast.success('Numune durumu güncellendi.') }
+    catch (e) { toast.error(await toUserMessage(e)) }
+  }
   return (
     <Section icon={FlaskConical} title="Numuneler" count={rows.length} loading={isLoading} empty="Kayıtlı numune yok.">
       {rows.map((s) => {
@@ -215,6 +288,7 @@ function SamplesSection() {
             <span className="text-foreground min-w-0 flex-1 truncate font-medium">{s.customer_name ?? '—'}</span>
             {s.status_label && <span className="bg-muted text-text-secondary shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium">{s.status_label}</span>}
             <span className="text-text-muted shrink-0 text-xs">güncelleme {fmt(last)}</span>
+            <StatusMenu options={opts} currentKey={s.status_key} pending={upd.isPending} onPick={(id) => void setStatus(s, id)} />
           </div>
         )
       })}
@@ -226,6 +300,8 @@ function SamplesSection() {
 function OrdersSection({ nowMs }: { nowMs: number }) {
   const nav = useNavigate()
   const { data, isLoading } = useAllOrders()
+  const statusOpts = useOrderStatusOptions()
+  const upd = useUpdateOrder()
   const rows = useMemo(() => {
     const open = (data ?? []).filter((o) => !o.actual_delivery) // teslim edilmemiş açık siparişler
     return open.sort((a, b) => {
@@ -234,6 +310,11 @@ function OrdersSection({ nowMs }: { nowMs: number }) {
       return ta - tb // en yakın termin üstte
     }).slice(0, 12)
   }, [data]) as OrderListRow[]
+  const opts = (statusOpts.data ?? []).map((o) => ({ id: o.id, key: o.key, label: o.label }))
+  async function setStatus(o: OrderListRow, statusId: number) {
+    try { await upd.mutateAsync({ id: o.id, operationId: o.operation_id, status_id: statusId }); toast.success('Sipariş durumu güncellendi.') }
+    catch (e) { toast.error(await toUserMessage(e)) }
+  }
   return (
     <Section icon={Package} title="Siparişler" count={rows.length} loading={isLoading} empty="Açık sipariş yok.">
       {rows.map((o) => {
@@ -247,6 +328,7 @@ function OrdersSection({ nowMs }: { nowMs: number }) {
             <span className={cn('shrink-0 text-xs tabular-nums', overdue ? 'text-danger-foreground font-medium' : 'text-text-secondary')}>
               termin {fmt(o.promised_delivery)}{overdue ? ' · geçti' : ''}
             </span>
+            <StatusMenu options={opts} currentKey={o.status_key} pending={upd.isPending} onPick={(id) => void setStatus(o, id)} />
           </div>
         )
       })}
@@ -315,13 +397,15 @@ export function TodayBoard() {
       </div>
       <FlowCards period={period} />
       <StatusCards />
+      {/* Dört ana bölüm 2×2 — sabit yükseklik, her biri kendi içinde kaydırılır;
+          kullanıcı kaydırmadan dördünü de görür. Hatırlatıcılar altta ayrı. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PendingQuotesSection nowMs={nowMs} />
         <SentQuotesSection />
         <SamplesSection />
         <OrdersSection nowMs={nowMs} />
-        <RemindersSection nowMs={nowMs} />
       </div>
+      <RemindersSection nowMs={nowMs} />
     </div>
   )
 }

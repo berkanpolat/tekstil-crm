@@ -6,7 +6,6 @@ import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -15,12 +14,13 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { DatePicker } from '@/components/shared/DatePicker'
+import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
 import { getSignedUrl } from '@/hooks/useFiles'
 import { GenerateDocButton } from './GenerateDocButton'
 import { buildDraftQuotePrefill } from '@/hooks/useDocuments'
 import {
   useOperationQuotes, useUploadQuoteFile, useSetQuoteResult, useDeleteQuote, useAdvanceStage,
-  useQuoteRejectionReasonOptions, useDraftQuote, useApproveDraftQuote, type Quote, type DraftQuote,
+  useDraftQuote, useApproveDraftQuote, type Quote, type DraftQuote,
 } from '@/hooks/useQuotes'
 import { formatMoney } from '@/lib/money'
 
@@ -165,15 +165,15 @@ export function QuotesTab({ operationId }: { operationId: number }) {
         </ul>
       )}
 
-      {acceptFor && <AcceptDialog onClose={() => setAcceptFor(null)} onAccept={async (stageKey) => {
+      {acceptFor && <QuoteAcceptDialog onClose={() => setAcceptFor(null)} onAccept={async (choice) => {
         const q = acceptFor; setAcceptFor(null)
         try {
           await setResult.mutateAsync({ id: q.id, operationId, statusKey: 'kabul_edildi' })
-          await advance.mutateAsync({ operationId, stageKey })
-          toast.success(`Teklif kabul edildi — aşama: ${stageKey === 'numune' ? 'Numune' : 'Sipariş'}.`)
+          if (choice === 'mark') { toast.success('Teklif kabul edildi olarak işaretlendi.') }
+          else { await advance.mutateAsync({ operationId, stageKey: choice }); toast.success(`Teklif kabul edildi — aşama: ${choice === 'numune' ? 'Numune' : 'Sipariş'}.`) }
         } catch (err) { toast.error(await toUserMessage(err)) }
       }} />}
-      {rejectFor && <RejectDialog operationId={operationId} onClose={() => setRejectFor(null)} onReject={async (reasonId, note) => {
+      {rejectFor && <QuoteRejectDialog onClose={() => setRejectFor(null)} onReject={async (reasonId, note) => {
         const q = rejectFor; setRejectFor(null)
         try { await setResult.mutateAsync({ id: q.id, operationId, statusKey: 'reddedildi', rejectionReasonId: reasonId, rejectionNote: note || null }); toast.success('Teklif reddedildi olarak işaretlendi.') }
         catch (err) { toast.error(await toUserMessage(err)) }
@@ -212,52 +212,6 @@ function FollowUpDialog({ onClose, onSave }: { onClose: () => void; onSave: (rea
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Vazgeç</Button>
           <Button disabled={!valid} onClick={() => valid && onSave(reason.trim(), new Date(date + 'T09:00:00').toISOString())}>Kaydet</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function AcceptDialog({ onClose, onAccept }: { onClose: () => void; onAccept: (stageKey: string) => void }) {
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Teklif kabul edildi</DialogTitle>
-          <DialogDescription>Hangi aşamaya geçilsin?</DialogDescription></DialogHeader>
-        <div className="flex gap-2">
-          <Button className="flex-1" variant="outline" onClick={() => onAccept('numune')}>Numuneye geç</Button>
-          <Button className="flex-1" onClick={() => onAccept('siparis')}>Doğrudan siparişe geç</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function RejectDialog({ operationId: _op, onClose, onReject }: { operationId: number; onClose: () => void; onReject: (reasonId: number | null, note: string) => void }) {
-  const reasons = useQuoteRejectionReasonOptions()
-  const [reasonId, setReasonId] = useState<string | null>(null)
-  const [note, setNote] = useState('')
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Teklif reddedildi</DialogTitle>
-          <DialogDescription>Red nedeni zorunlu.</DialogDescription></DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Red nedeni <span className="text-danger-foreground">*</span></Label>
-            <SearchableSelect clearable options={(reasons.data ?? []).map((r) => ({ value: String(r.id), label: r.label }))}
-              value={reasonId} onChange={setReasonId} placeholder="Seçin" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Not</Label>
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="ör. Fiyat yüksek bulundu" />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Vazgeç</Button>
-          <Button variant="destructive" disabled={!reasonId && !note.trim()}
-            onClick={() => (reasonId || note.trim()) ? onReject(reasonId ? Number(reasonId) : null, note) : toast.error('Red nedeni girin.')}>
-            Reddedildi işaretle</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
