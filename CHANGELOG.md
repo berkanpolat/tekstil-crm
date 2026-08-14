@@ -13,6 +13,38 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.4.0] — 2026-08-14
+
+### Eklendi
+- **Gösterge paneli — Anlık durum kartları.** "Numunede" ve "Siparişte"
+  kartları artık dönemden **bağımsız**, operasyonun **güncel aşamasına**
+  (`operations.stage_id` → `operation_stages.key`) bakar. Kartlar dönem
+  seçicisinden görsel olarak ayrık, "Anlık durum" başlığı altında; dönem
+  değiştiğinde değişmezler.
+  - Numunede = `stage 'numune'`; Siparişte = `stage 'siparis' + 'uretim'`
+    (üretimdeki iş de "siparişte" sayılır). Terminal aşamalar ve silinenler hariç.
+  - Yeni RPC: `metric_active_funnel()` (tarih parametresiz) + public köprü.
+
+### Düzeltildi
+- **"Numunede" kartı 0 gösteriyordu.** Kart eskiden `metric_funnel`'den
+  besleniyordu; o RPC operasyonu **açılış tarihine** (`requested_at/created_at ∈
+  dönem`) göre kesip "aşamaya ulaşmış operasyon" (kümülatif huni) sayıyordu.
+  Operasyonlar dönemden önce açıldıysa şu an numunede olsalar bile 0 çıkıyordu.
+  Artık anlık durum sorgusundan (`metric_active_funnel`) beslenir.
+
+### Değişti
+- **Akış kartları** ("Gelen talep", "Verilen teklif", "Girilen aksiyon")
+  döneme bağlı kalmaya devam eder; her kartın altında aktif dönem etiketi
+  ("bugün", "son 2 gün" vb.) gösterilir. Akış vs durum karışıklığı böylece
+  görsel olarak ayrışır.
+
+### Migration (ELLE uygulanacak — sende)
+- `20260818000000_p7_active_funnel.sql`: `metric_active_funnel()` RPC + public
+  köprü + grant. Uygulanana kadar "Numunede/Siparişte" kartları veri çekemez
+  (RPC yok → 0/boş). Diğer kartlar etkilenmez.
+
+---
+
 ## [1.3.3] — 2026-08-14
 
 ### Düzeltildi

@@ -99,6 +99,11 @@ export const useFinanceMetric = (period: Period, on = true) => useMetric<Finance
 export const useEmployeesMetric = (period: Period, on = true) => useMetric<EmployeeRow[]>('metric_employees', p2(period), on)
 export const useRequestTrend = (period: Period, on = true) => useMetric<TrendPoint[]>('metric_request_trend', p2(period), on)
 
+/** Anlık durum sayıları — dönemden BAĞIMSIZ, operasyonun güncel aşamasına bakar.
+ *  "Şu an kaç iş numunede/siparişte" — akış (metric_funnel) ile karıştırma. */
+export interface ActiveFunnelMetric { samples: number; orders: number }
+export const useActiveFunnel = (on = true) => useMetric<ActiveFunnelMetric>('metric_active_funnel', {}, on)
+
 // ── Yönetici canlı listeleri (dönemden bağımsız, "şimdi") ──────────────
 export interface Intervention { key: string; label: string; href: string; count: number }
 export interface PendingRequest { operation_id: number; code: string; customer: string | null; category: string | null; owner_name: string | null; unowned: boolean; sla_deadline: string | null; requested_at: string | null; image_path?: string | null }

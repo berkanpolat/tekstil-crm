@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useSignedUrl } from '@/hooks/useFiles'
 import {
   computeRange, type Period, type PeriodKey,
-  useRequestsMetric, useQuotesMetric, useInteractionsMetric, useFunnelMetric,
+  useRequestsMetric, useQuotesMetric, useInteractionsMetric, useActiveFunnel,
   usePendingRequests, type PendingRequest,
 } from '@/hooks/useMetrics'
 import { useAllQuotes, type QuoteListRow } from '@/hooks/useQuotes'
@@ -71,8 +71,8 @@ function Section({ icon: Icon, title, count, loading, empty, children }: {
   )
 }
 
-function StatCard({ icon: Icon, label, value, loading, onClick }: {
-  icon: typeof FileText; label: string; value: number; loading: boolean; onClick?: () => void
+function StatCard({ icon: Icon, label, value, caption, loading, onClick }: {
+  icon: typeof FileText; label: string; value: number; caption?: string; loading: boolean; onClick?: () => void
 }) {
   return (
     <button type="button" onClick={onClick} disabled={!onClick}
@@ -84,25 +84,38 @@ function StatCard({ icon: Icon, label, value, loading, onClick }: {
       {loading
         ? <Skeleton className="h-8 w-12" />
         : <div className="text-foreground text-2xl font-semibold tabular-nums">{value}</div>}
+      {caption && <div className="text-text-muted text-[11px]">{caption}</div>}
     </button>
   )
 }
 
-// ① Özet kartları ───────────────────────────────────────────────────────
-function TopCards({ period }: { period: Period }) {
+// ① Akış kartları — döneme bağlı ("bugün kaç oldu") ─────────────────────
+function FlowCards({ period }: { period: Period }) {
   const nav = useNavigate()
   const req = useRequestsMetric(period)
   const quo = useQuotesMetric(period)
   const inter = useInteractionsMetric(period)
-  const fun = useFunnelMetric(period)
-  const funLoading = fun.isLoading
+  const cap = period.label.toLocaleLowerCase('tr-TR')
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-      <StatCard icon={FileText} label="Gelen talep" value={req.data?.total ?? 0} loading={req.isLoading} onClick={() => nav('/talepler')} />
-      <StatCard icon={FileText} label="Verilen teklif" value={quo.data?.sent ?? 0} loading={quo.isLoading} onClick={() => nav('/teklifler')} />
-      <StatCard icon={MessageSquare} label="Girilen aksiyon" value={inter.data?.total ?? 0} loading={inter.isLoading} onClick={() => nav('/raporlar?rapor=etkilesim')} />
-      <StatCard icon={FlaskConical} label="Numunede ürün" value={fun.data?.samples ?? 0} loading={funLoading} onClick={() => nav('/numuneler')} />
-      <StatCard icon={Package} label="Siparişte ürün" value={fun.data?.orders ?? 0} loading={funLoading} onClick={() => nav('/siparisler')} />
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <StatCard icon={FileText} label="Gelen talep" value={req.data?.total ?? 0} caption={cap} loading={req.isLoading} onClick={() => nav('/talepler')} />
+      <StatCard icon={FileText} label="Verilen teklif" value={quo.data?.sent ?? 0} caption={cap} loading={quo.isLoading} onClick={() => nav('/teklifler')} />
+      <StatCard icon={MessageSquare} label="Girilen aksiyon" value={inter.data?.total ?? 0} caption={cap} loading={inter.isLoading} onClick={() => nav('/raporlar?rapor=etkilesim')} />
+    </div>
+  )
+}
+
+// ①b Anlık durum kartları — dönemden BAĞIMSIZ ("şu an kaç iş sürüyor") ───
+function StatusCards() {
+  const nav = useNavigate()
+  const act = useActiveFunnel()
+  return (
+    <div className="space-y-2">
+      <h3 className="text-text-secondary text-xs font-semibold uppercase tracking-wide">Anlık durum</h3>
+      <div className="grid grid-cols-2 gap-3 lg:max-w-md">
+        <StatCard icon={FlaskConical} label="Numunede" value={act.data?.samples ?? 0} caption="şu an açık" loading={act.isLoading} onClick={() => nav('/numuneler')} />
+        <StatCard icon={Package} label="Siparişte" value={act.data?.orders ?? 0} caption="şu an açık" loading={act.isLoading} onClick={() => nav('/siparisler')} />
+      </div>
     </div>
   )
 }
@@ -300,7 +313,8 @@ export function TodayBoard() {
         <h2 className="text-base font-semibold text-foreground">Bugün durum ne?</h2>
         <PeriodPicker value={key} onPick={setKey} />
       </div>
-      <TopCards period={period} />
+      <FlowCards period={period} />
+      <StatusCards />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PendingQuotesSection nowMs={nowMs} />
         <SentQuotesSection />
