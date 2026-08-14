@@ -31,6 +31,8 @@ const ITEM_TYPES = [
 ]
 const usd = (n: number) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const trл = (n: number) => Number(n || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺'
+// Kayıtlı maliyet kalemini pricing çekirdeğinin beklediği biçime çevirir (canlı kur hesabı için).
+const toCostItem = (i: CostItemRow): CostItem => ({ calculation_type: (i.calculation_type as 'metre_fiyat' | 'sabit') || 'sabit', quantity: i.quantity, unit_price: i.unit_price, amount: i.amount, currency: i.currency || 'USD' })
 
 export function CatalogProductPage() {
   const { id } = useParams()
@@ -147,8 +149,15 @@ function TechInfo({ product }: { product: CatalogProductDetail }) {
 function PriceTab({ product }: { product: CatalogProductDetail }) {
   const cost = useProductCost(product.id)
   const tiers = useMarginTiers()
+  const rates = useExchangeRates()
   const canCost = useHasPermission('costs.view')
-  const unitCostUsd = cost.data?.total_cost_usd ?? null
+  const rateMap = ratesToMap(rates.data)
+  const items = cost.data?.items
+  // Birim maliyet GÜNCEL kurla hesaplanır (donmuş total_cost_usd yerine); kalem yoksa donmuşa düşer.
+  const unitCostUsd = useMemo(
+    () => (items?.length ? sumCost(items.map(toCostItem), rateMap).totalUsd : cost.data?.total_cost_usd ?? null),
+    [items, rateMap, cost.data?.total_cost_usd],
+  )
   const rows = useMemo(() => unitCostUsd != null ? tierRows(unitCostUsd, tiers.data ?? [], product.custom_margin_percent) : [], [unitCostUsd, tiers.data, product.custom_margin_percent])
 
   if (unitCostUsd == null) return (
@@ -158,6 +167,7 @@ function PriceTab({ product }: { product: CatalogProductDetail }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-text-secondary">Birim maliyet <b>{usd(unitCostUsd)}</b>{product.custom_margin_percent != null && <span> · ürüne özel marj %{product.custom_margin_percent}</span>}</p>
+      <p className="text-xs text-text-muted">Güncel kurla hesaplandı — teklif/belgedeki fiyat kayıt anındaki kura sabittir, farklı olabilir.</p>
       <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs text-text-muted"><tr>
@@ -269,7 +279,8 @@ function CostTab({ product }: { product: CatalogProductDetail }) {
                 ))}</tbody>
               </table>
             </div>
-            <div className="flex justify-end gap-6 text-sm"><span>Toplam: <b>{trл(c.total_cost_try)}</b></span><span>≈ <b>{usd(c.total_cost_usd)}</b></span></div>
+            <div className="flex justify-end gap-6 text-sm"><span>Toplam: <b>{trл(sumCost(c.items.map(toCostItem), rateMap).totalTry)}</b></span><span>≈ <b>{usd(sumCost(c.items.map(toCostItem), rateMap).totalUsd)}</b></span></div>
+            <p className="text-right text-xs text-text-muted">Güncel kurla hesaplandı (kayıt anı: {trл(c.total_cost_try)} · {usd(c.total_cost_usd)}).</p>
             <p className="flex items-center gap-1 text-xs text-warning-foreground"><Lock className="size-3.5" /> Maliyet iç kullanımdır; müşteriye giden belgelerde görünmez.</p>
           </>
         )}

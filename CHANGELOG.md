@@ -13,6 +13,35 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.6.0] — 2026-08-14
+
+### Değişti
+- **Katalog maliyeti artık GÜNCEL kurla hesaplanır (iç görünüm).**
+  `CatalogProductPage` → Fiyat sekmesi (birim maliyet + fiyat kademeleri) ve
+  Maliyet sekmesi toplamı, donmuş `total_cost_usd`/`total_cost_try` yerine
+  kalemlerin kendi para birimi + **canlı kur** ile `sumCost` üzerinden yeniden
+  hesaplanır. TL kalemler TL saklanır (`product_cost_items.currency='TRY'`),
+  toplam bugünün kuruyla değerlenir. "Bugünkü maliyetim ne?" sorusu güncel yanıt verir.
+- Ortak `toCostItem` yardımcısı: kayıtlı kalemi (`CostItemRow`) pricing
+  çekirdeğinin `CostItem` biçimine çevirir (görüntü + fiyat aynı kaynaktan).
+
+### Korundu (bilinçli)
+- **Teklif/maliyet belgesi kuru DONUK.** `CostDocButton` ve belge üretimi
+  `cost.total_cost_usd`/`_try`'yi **kayıt anındaki** kurla kullanmaya devam eder;
+  müşteriye verilen fiyat sonradan değişmez. Belgede kullanılan kur + tarih
+  zaten görünür (`usdRate` / `rateDate`).
+- **`total_cost_usd`, `total_cost_try`, `rate_snapshot` şemada kalıyor** —
+  audit/geçmiş değeri; silinmedi. Migration **yok**.
+
+### UI
+- Katalog maliyet görünümlerine "**Güncel kurla hesaplandı**" notu; Maliyet
+  sekmesinde kayıt anı değeri de parantezde gösterilir (kullanıcı iki rakam
+  farkında şaşırmasın).
+
+Bu paket kod-only; migration yok.
+
+---
+
 ## [1.5.0] — 2026-08-14
 
 ### Eklendi
