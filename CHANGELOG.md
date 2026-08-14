@@ -13,6 +13,36 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.3.0] — 2026-08-14
+
+### Eklendi
+- **4 yeni teklif red sebebi** (`quote_rejection_reasons`, migration
+  `20260817000000_red_sebepleri_yeni.sql`): `moq_fazla` (MOQ Fazla),
+  `sonra_degerlendirecek` (Sonra Değerlendirecek), `numune_ucreti_fazla`
+  (Numune Ücreti Fazla), `yanlis_numara` (Yanlış Numara). Idempotent
+  (`on conflict do nothing`).
+- **Reddedilen tekliflere red sebebi atandı** (`scripts/red-sebep-yaz.mjs`,
+  kaynak `data/red-sebepleri.csv` — 118 kayıt): `teklif_reddedildi`
+  aşamasındaki operasyonların quote'larına `rejection_reason_id` yazıldı.
+  Eşleşme müşteri markası üzerinden DB `normalize_tr` ile (JS/SQL sapması yok),
+  yalnız `rejection_reason_id IS NULL` olanlara, `rejection_note`'a
+  dokunulmadan. **118 quote** güncellendi (116 otomatik + 2 elle: "Ayaz Atlas"→
+  AYAZ ALTAS, "Mahir Tuğanatay"→Mahir Tuğantay yazım farkları). Dağılım:
+  Ulaşılamadı 53, Fiyat Yüksek 34, Müşteri Vazgeçti 10, MOQ Fazla 8,
+  Sonra Değerlendirecek 6, Numune Ücreti Fazla 5, Yanlış Numara 2.
+  CSV'de olmayan 37 quote boş bırakıldı. "Melike Hanım" `numune` aşamasında
+  olduğu için (reddedilmemiş) atlandı.
+- Kuru koşu scripti `scripts/red-sebep-kuru-kosu.mjs` (yalnız okuma).
+
+### Notlar
+- Uygulanan migration: `20260817000000_red_sebepleri_yeni.sql` (`psql -f` ile;
+  defter kayması sürüyor). Toplu güncelleme öncesi yedek alındı
+  (`~/tekstil-crm-yedekler/quotes_operations_20260814_redsebep.sql`).
+- Bildirim gürültüsü **0**: yazma yalnız `rejection_reason_id`'ye dokunduğu,
+  `status_id`/`sent_at` değişmediği için notify/timeline/hard_gate trigger'ları
+  tetiklenmedi (`notifications` 212→212, `event_log` 9081→9081). `sync_operation_status`
+  koşulsuz çalıştı ama 155 op zaten `teklif_bekliyor` olduğundan net değişiklik yok.
+
 ## [1.2.0] — 2026-08-13
 
 ### Eklendi
