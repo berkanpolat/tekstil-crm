@@ -3,7 +3,7 @@
 // sayısal fiyat/adet; sipariş formu bakım talimatları; sipariş onay tarih+imza; numune
 // çoklu müşteri. Her form doğrudan render verisini düzenler.
 /* eslint-disable @typescript-eslint/no-explicit-any, react-refresh/only-export-components */
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,6 +13,7 @@ import { DatePicker } from '@/components/shared/DatePicker'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { Plus, Trash2, ChevronUp, ChevronDown, Loader2, Wand2, Image as ImageIcon, Lock } from 'lucide-react'
 import { sanitizeTasBody, validateTasBody, TAS_PREFIX } from '@/lib/tasCode'
+import { patchSection } from '@/lib/formPatch'
 import { generateTasBody, fetchRates, useDocCategoryOptions } from '@/hooks/useDocuments'
 
 export type Data = Record<string, any>
@@ -231,13 +232,13 @@ function CategorySelect({ grup, tur, onGrup, onTur }: { grup: string; tur: strin
 
 /** İç Not (QA#10) — görsel olarak ayrışır (kilit + sarı zemin). data.internalNote (üst seviye);
  *  stripInternal ile önizleme+PDF'ten AYIKLANIR, yalnız belge kaydında (documents.data) durur. */
-function InternalNoteField({ data, set }: { data: Data; set: (d: Data) => void }) {
+function InternalNoteField({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   return (
     <div className="col-span-2 rounded-md border border-warning bg-warning-badge/40 p-3">
       <Label className="flex items-center gap-1.5 text-xs font-semibold text-warning-foreground">
         <Lock className="size-3.5" /> İç Not (yalnız ekip)
       </Label>
-      <Textarea value={data.internalNote ?? ''} onChange={(e) => set({ ...data, internalNote: e.target.value })}
+      <Textarea value={data.internalNote ?? ''} onChange={(e) => set((d) => ({ ...d, internalNote: e.target.value }))}
         rows={2} className="mt-1.5 bg-card" placeholder="Ekip içi not — müşteriye gitmez…" />
       <p className="mt-1 text-xs text-warning-foreground">Bu not müşteriye gitmez, belgeye yazılmaz.</p>
     </div>
@@ -260,9 +261,9 @@ function RowControls<TItem>({ list, i, set, min = 1 }: { list: TItem[]; i: numbe
 }
 
 // ── Fiyat Teklifi ─────────────────────────────────────────────────────────
-function FiyatTeklifiForm({ data, set }: { data: Data; set: (d: Data) => void }) {
+function FiyatTeklifiForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   const s = data.tkS || {}
-  const up = (patch: Data) => set({ ...data, tkS: { ...s, ...patch } })
+  const up = (patch: Data) => set(patchSection('tkS', patch))
   const opts: Data[] = s.opts || []
   const setOpts = (o: Data[]) => up({ opts: o })
   const taxOpts: number[] = data._taxOptions || [0, 1, 10, 20]
@@ -274,7 +275,7 @@ function FiyatTeklifiForm({ data, set }: { data: Data; set: (d: Data) => void })
     if (!foreign) return
     if (data.rates && data.rates[s.para] != null) return
     let cancelled = false
-    fetchRates().then((r) => { if (r && !cancelled) set({ ...data, rates: { ...(data.rates || {}), ...r } }) })
+    fetchRates().then((r) => { if (r && !cancelled) set((d) => ({ ...d, rates: { ...(d.rates || {}), ...r } })) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.para])
@@ -346,21 +347,21 @@ function FiyatTeklifiForm({ data, set }: { data: Data; set: (d: Data) => void })
 }
 
 // ── Sipariş Onay Formu ────────────────────────────────────────────────────
-function SiparisOnayForm({ data, set }: { data: Data; set: (d: Data) => void }) {
+function SiparisOnayForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   const s = data.soS || {}
   const cur = s.para || 'TRY'
   const sym = CUR_SYM[cur] || '₺'
   // Birim fiyat + para + adet → görünen birim ("1.850,00 ₺") ve otomatik toplam tutar.
-  const recompute = (patch: Data) => {
-    const next = { ...s, ...patch }
+  const recompute = (patch: Data) => set((d) => {
+    const next = { ...(d.soS || {}), ...patch }
     const bn = parseFloat(String(next._birimNum || '').replace(',', '.'))
     const ad = parseFloat(String(next.adet || '').replace(/[^0-9.]/g, ''))
     const c = CUR_SYM[next.para || 'TRY'] || '₺'
     next.birim = next._birimNum ? `${trNum(bn)} ${c}` : ''
     next.tutar = (bn && ad) ? `${trNum(bn * ad)} ${c}` : ''
-    set({ ...data, soS: next })
-  }
-  const up = (patch: Data) => set({ ...data, soS: { ...s, ...patch } })
+    return { ...d, soS: next }
+  })
+  const up = (patch: Data) => set(patchSection('soS', patch))
   return (
     <div className="space-y-6">
       <FieldGroup title="Temel Bilgiler">
@@ -418,9 +419,9 @@ function SiparisOnayForm({ data, set }: { data: Data; set: (d: Data) => void }) 
 }
 
 // ── Numune Etiketi (çoklu müşteri) ────────────────────────────────────────
-function NumuneForm({ data, set }: { data: Data; set: (d: Data) => void }) {
+function NumuneForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   const list: Data[] = data.numuneler || []
-  const setList = (l: Data[]) => set({ ...data, numuneler: l })
+  const setList = (l: Data[]) => set((d) => ({ ...d, numuneler: l }))
   const upRow = (i: number, patch: Data) => setList(list.map((x, j) => j === i ? { ...x, ...patch } : x))
   const addRow = () => { const last = list[list.length - 1] || {}; setList([...list, { musteri: last.musteri || '', urunkodu: last.urunkodu || '', beden: '', renk: '' }]) }
   return (
@@ -455,11 +456,11 @@ function tasBodyOf(full: string): string {
 }
 
 // ── Koli Üstü Etiketi (çoklu) ─────────────────────────────────────────────
-function KoliForm({ data, set }: { data: Data; set: (d: Data) => void }) {
+function KoliForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   const o = data.order || {}
   const list: Data[] = data.koliler || []
-  const upO = (patch: Data) => set({ ...data, order: { ...o, ...patch } })
-  const setList = (l: Data[]) => set({ ...data, koliler: l })
+  const upO = (patch: Data) => set(patchSection('order', patch))
+  const setList = (l: Data[]) => set((d) => ({ ...d, koliler: l }))
   return (
     <div className="space-y-6">
       <FieldGroup title="Temel Bilgiler">
@@ -497,9 +498,9 @@ function KoliForm({ data, set }: { data: Data; set: (d: Data) => void }) {
 }
 
 // ── Sipariş Formu (renk×beden matris + bakım) ─────────────────────────────
-function SiparisFormuForm({ data, set }: { data: Data; set: (d: Data) => void }) {
+function SiparisFormuForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   const s = data.sip || {}
-  const up = (patch: Data) => set({ ...data, sip: { ...s, ...patch } })
+  const up = (patch: Data) => set(patchSection('sip', patch))
   const bedenler: string[] = s.bedenler || []
   const renkler: Data[] = s.renkler || []
   const bakim: string[] = s.bakim || []
@@ -604,7 +605,7 @@ function SiparisFormuForm({ data, set }: { data: Data; set: (d: Data) => void })
 }
 
 /** Tip → form eşlemesi. */
-export function EditorForm({ typeKey, data, set }: { typeKey: string; data: Data; set: (d: Data) => void }) {
+export function EditorForm({ typeKey, data, set }: { typeKey: string; data: Data; set: Dispatch<SetStateAction<Data>> }) {
   switch (typeKey) {
     case 'fiyat_teklifi': return <FiyatTeklifiForm data={data} set={set} />
     case 'siparis_onay': return <SiparisOnayForm data={data} set={set} />

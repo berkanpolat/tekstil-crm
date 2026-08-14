@@ -13,6 +13,30 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.3.2] — 2026-08-14
+
+### Düzeltildi
+- **Belge formlarında "Ürün Grubu" (ve türevleri) seçilemiyordu** — tıklanıyor ama
+  değer forma yazılmıyordu. Kök neden: `CategorySelect` tek olayda **iki** state
+  güncellemesi yapıyor (grup seç + tür sıfırla), ama form `up`'ları snapshot
+  tabanlıydı (`set({ ...data, soS: { ...s, ...patch } })`; `data`/`s` render'dan
+  sabit). İkinci güncelleme aynı eski snapshot'tan türeyip ilkini **eziyordu** →
+  grup seçimi kayboluyordu. (Katalog formu aynı deseni fonksiyonel `setF((s)=>…)`
+  ile kullandığından etkilenmiyordu — fark buydu.)
+- **Kalıp çözüm:** yeni saf yardımcı `patchSection` (`src/lib/formPatch.ts`) +
+  belge formlarındaki tüm snapshot-tabanlı güncellemeler **fonksiyonel setState**'e
+  çevrildi (ardışık çağrılar artık birikir, ezmez). Değişen yerler (`editorForms.tsx`):
+  `up` × 3 (fiyat_teklifi/soS·siparis_onay/sip·siparis_formu), `recompute`
+  (sipariş onay fiyat/tutar), `upO` (koli sipariş), `setList` × 2 (numune/koli),
+  döviz kuru efekti, iç-not alanı. Form bileşenlerinin `set` prop tipi
+  `Dispatch<SetStateAction<Data>>`'e genişletildi.
+- **Regresyon testi:** `src/lib/formPatch.test.ts` — art arda iki güncellemede
+  ilkinin korunduğunu doğrular + eski snapshot deseninin kaybettiğini karşıt
+  kanıtla gösterir (4 test).
+
+### Notlar
+- Migration yok. `npm run build` + **197 birim testi** yeşil (yeni 4 test dahil).
+
 ## [1.3.1] — 2026-08-14
 
 ### Düzeltildi
