@@ -13,6 +13,31 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.9.0] — 2026-08-17
+
+### Eklendi
+- **Yeni Sezon katalog maliyet aktarımı (469 ürün).** `data/maliyet.csv` →
+  `product_costs` + `product_cost_items`. Eşleştirme `catalog_products.source_code`
+  ile (katalog 4). Kur canlı okundu (TCMB 2026-08-17, USD=47.8066) ve `rate_snapshot`'a
+  kayıt anı kuru olarak donduruldu; canlı görünüm zaten `sumCost` ile güncel kurdan
+  hesaplıyor (v1.6.0).
+  - 469 `product_costs` + 1407 `product_cost_items` (ürün başına kumaş USD +
+    işçilik TRY + aksesuar TRY).
+  - Kumaş kalemi: `fabric_name` = katalog `composition`, `name` = `"Kumaş — <CSV orijinal>"`.
+  - **Maliyetsiz kalan 6 ürün** (kasıtlı atlandı): `BB_C_01`, `BB_C_03`, `BB_P_02`
+    (boş), `E_P_14` (yalnız kumaş adı), `K_P_07` (işçilik girilmemiş),
+    `004_takimi-kirmizi` (CSV'de yok). "Beyaz Yelekli Takım" kod değil ürün adı
+    olduğu için eşleşmedi.
+  - `scripts/maliyet-aktar.mjs`: idempotent (source_code, hedef 469 ürünle sınırlı),
+    tek transaction (hata → tam rollback), 4 katman doğrulama (çapraz kontrol,
+    aykırı değer taraması, elle kontrol listesi, marj doğrulaması). `--write`
+    olmadan kuru koşu. Migration gerekmedi.
+
+### Değiştirildi
+- **Marj kademeleri artırıldı:** 50 adet %25→**%40**, 200 adet %20→**%30**,
+  500 adet %10→**%25** (`margin_tiers`). *Ayarlar → Fiyatlandırma* ekranından
+  düzenlenebilir; yardım metnindeki eski örnek güncellendi.
+
 ## [1.8.2] — 2026-08-17
 
 ### Düzeltildi

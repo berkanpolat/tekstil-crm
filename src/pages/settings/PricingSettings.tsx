@@ -70,7 +70,7 @@ function PricingForm({ settings }: { settings: Record<string, SettingRow> }) {
           <h3 className="text-sm font-semibold">Adet kademeleri (aralık mantığı)</h3>
           <Button size="sm" variant="outline" onClick={() => setRows((r) => [...r, { min: '', margin: '' }])}><Plus className="size-3.5" /> Kademe</Button>
         </div>
-        <p className="mb-3 text-xs text-text-muted">min_quantity ≤ adet olan en büyük kademe geçerli. Ör. 50→%25, 200→%20, 500→%10.</p>
+        <p className="mb-3 text-xs text-text-muted">min_quantity ≤ adet olan en büyük kademe geçerli. Ör. 50→%40, 200→%30, 500→%25.</p>
         <div className="space-y-2">
           {rows.sort((a, b) => (Number(a.min) || 0) - (Number(b.min) || 0)).map((r, i) => (
             <div key={i} className="flex items-center gap-2">
