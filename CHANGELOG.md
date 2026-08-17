@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.7.0] — 2026-08-17
+
+### Eklendi
+- **Katalog görsel indirme araçları (kimlik-gerektirmeyen, idempotent).**
+  Önceki indirmede Drive oturumu koparak 367 ürün "klasör erişilemedi" hatası
+  almış, log yanıltıcı biçimde "BİTTİ: 475" yazmıştı. Yeni araç seti bunu
+  onarır ve tekrarlanabilir kılar:
+  - `scripts/katalog-eksikleri-bul.mjs` — `data/yeni-katalog.csv` ile diski
+    karşılaştırıp eksik ürünleri bulur; klasör kaynağını iki biçimden
+    (yardımcı klasör-kimliği kolonu veya `GÖRSEL LİNKİ` içindeki
+    `/folders/` ya da `/file/d/` URL'si) çözer.
+  - `scripts/katalog-manifest-derle.mjs` — çözülen parent klasörleri
+    `scripts/katalog-manifest.json`'a (kod→klasör eşlemesi) derler.
+  - `scripts/katalog-gorsel-indir.mjs` — **public** Drive URL'leriyle
+    (kimlik/oturum yok) klasör kazır, görselleri indirir, md5 ile mükerrer
+    eler, genişlik >1200 ise 1200'e küçültüp lossy `cwebp -q 80` ile
+    `.webp`'e çevirir. İdempotent (inmiş ürünü atlar), 3 kez yeniden deneme
+    (5-10-20 sn), art arda 5 hatada **devre kesici**, sonda dürüst rapor
+    (başarılı/atlandı/hatalı).
+  - `scripts/katalog-manifest.json` — 367 eksik ürünün kod→klasör eşlemesi.
+
+### Düzeltildi
+- Eksik 367 katalog ürünün görselleri indirildi; katalog **475/475 ürün tam**
+  (2.452 webp, boş klasör yok). Canlı DB'ye dokunulmadı; yalnız
+  `data/yeni-katalog-gorseller/` yazıldı.
+
 ## [1.6.0] — 2026-08-14
 
 ### Değişti
