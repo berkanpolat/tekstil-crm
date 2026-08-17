@@ -13,6 +13,25 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.11.1] — 2026-08-17
+
+### Düzeltildi
+- **Müşteri silme/arşivleme RPC'leri hiç commit edemiyordu (kritik).** `customer_archive`,
+  `customer_unarchive`, `customer_hard_delete` audit'e `source='rpc'` yazıyordu ama
+  `audit_source` enum'unda bu değer yoktu → her çağrı son adımda `invalid input value
+  for enum audit_source: rpc` ile **rollback** oluyordu (kalıcı silme sessizce başarısız,
+  arşiv operasyonları gizlemiyordu). Düzeltme: enum'a `rpc` değeri eklendi (audit izini
+  bozmamak için `source='user'`'a düşürülmedi).
+- **Arşivli müşterinin operasyonları yönetici havuzunda görünüyordu.**
+  `manager_pending_requests` ve `manager_pending_quotes` `customers` join'ine
+  `and c.deleted_at is null` eklendi (left join korundu — müşterisiz operasyonlar geçer).
+- **Backfill:** eski toplu "Sil" ile arşivlenmiş 8 müşterinin 16 aktif operasyonu
+  gizlendi + `archived_with_customer=true` bayraklandı (idempotent UPDATE). Böylece
+  havuzdan düştüler ve ileride "Arşivden çıkar" doğru geri getirir.
+- Migration `20260821000001_customer_delete_fixes.sql` (enum ADD VALUE transaction'sız
+  `psql -f` ile uygulandı). Arşivle→gizle / arşivden çıkar→geri getir / preview
+  akışları owner JWT'siyle BEGIN…ROLLBACK içinde doğrulandı.
+
 ## [1.11.0] — 2026-08-17
 
 ### Eklendi
