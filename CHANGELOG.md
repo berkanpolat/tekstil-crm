@@ -13,6 +13,26 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.10.0] — 2026-08-17
+
+### Eklendi
+- **Müşteri silme — iki aşamalı altyapı (backend).** Yanlış/deneme müşterilerin
+  raporları kirletmemesi için canlı öncesi temizlik.
+  - **Arşivle (soft-delete, geri alınabilir):** müşteri + o an açık operasyonları
+    `deleted_at` ile gizlenir. Birlikte arşivlenenler `operations.archived_with_customer`
+    ile işaretlenir; arşivden çıkarınca **yalnız** onlar geri gelir (önceden ayrı
+    silinmişler kalır).
+  - **Kalıcı sil (`customers.delete` yetkisi = owner+admin):** `SECURITY DEFINER`
+    RPC, tek transaction, sıralı silme. Cari hareketi/ödemesi olan müşteri kalıcı
+    silinemez (muhasebe izi) — arşivle yetinilir. Storage yolları çağırana döndürülür
+    (istemci `storage.remove` ile temizler).
+  - **Önizleme RPC:** silmeden önce talep/teklif/numune/sipariş/belge/etkileşim/dosya
+    sayıları + `cari_hareket`/`odeme` + `can_hard_delete`.
+  - Migration `20260821000000_customer_two_stage_delete.sql`: `operations.archived_with_customer`
+    kolonu, `customers.delete` yetkisi (owner+admin), 4 RPC (`customer_delete_preview`,
+    `customer_archive`, `customer_unarchive`, `customer_hard_delete`). Canlıya `psql -f`
+    ile uygulandı; guard'ın `false` yolu rollback'li denemeyle doğrulandı. UI ayrı pakette.
+
 ## [1.9.0] — 2026-08-17
 
 ### Eklendi

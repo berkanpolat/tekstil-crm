@@ -114,10 +114,11 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
 ## Bekleyen İşler
 
 ### 🔴 Öncelikli
-- **Red sebepleri — 116 quote'a `rejection_reason_id` yazımı.** Kaynak
-  `data/red-sebepleri.csv` (118 kayıt). Yazmadan önce **4 yeni sebep migration'ının
-  uygulanıp uygulanmadığı** kontrol edilmeli (uygulanmadıysa sebep id eşleşmeleri
-  eksik kalır). Kuru koşu → onay → tek transaction düzeninde ilerlenir.
+- ✅ **Red sebepleri — TAMAM.** `data/red-sebepleri.csv` (118 kayıt) işlendi:
+  118 quote'a `rejection_reason_id` yazıldı (hepsi `stage=teklif_reddedildi`),
+  dağılım CSV ile birebir. 4 yeni sebep (MOQ Fazla, Sonra Değerlendirecek, Numune
+  Ücreti Fazla, Yanlış Numara) eklendi. Fuzzy isimler de bağlandı (Ayaz Atlas→AYAZ
+  ALTAS, Mahir Tuğanatay→Mahir Tuğantay). Listede olmayan 37 reddedilmiş quote boş.
 - **Müşteri silme — iki aşamalı.** Arşivle → kalıcı sil; silmeden ÖNCE neyin
   gideceği (bağlı talep/teklif/etkileşim/dosya) gösterilecek. Canlı öncesi
   üretim temizliği için gerekli.
