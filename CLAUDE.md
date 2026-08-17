@@ -35,6 +35,11 @@
 > 3. **Test scriptleri canlı DB'ye veri YAZMAZ.** (`scripts/*-ui.mjs`, `e2e-*.mjs`,
 >    seed'ler) Yalnız okuma; yazma gerekiyorsa ayrı/izole ortam + onay.
 > 4. **Her paket sonunda commit + push** (mevcut kural sürüyor).
+> 5. **Her paket sonunda sürüm & değişiklik günlüğü:** `CHANGELOG.md`'ye girdi
+>    eklenir (sürüm + tarih + değişiklikler + uygulanan migration'lar),
+>    `package.json` `version` [SemVer](https://semver.org) ile artırılır
+>    (yama `1.0.1`, özellik `1.1.0`, kırıcı `2.0.0`) ve commit sonrası
+>    `git tag vX.Y.Z` atılır. Sürüm artışı olmadan paket "bitti" sayılmaz.
 >
 > ---
 
@@ -88,6 +93,7 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
 | **Düzeltme turu 2** | 6 (durum cascade) ✅, 5 (belgeden sipariş) ✅, 4 (yaklaşan süreler) ✅ | 🟡 1/2/3/7/8 kaldı |
 | **P9** | Bildirimler (madde 16): ses politikası (3 sesli olay) + talep/teklif/numune/sipariş durum bildirimleri + teklife 1s kala sesli + numune/sipariş termini doldu sesli | 🟡 kod bitti; **migration sende** |
 | **P10** | Görsel/erişim (madde 10/12/13): zaman çizelgesi sadeleştirme (kanal ikonu + tarih grubu + katlanır detay, son 3 açık), müşteri Dosyalar sekmesi (üretilen belgeler tip+tarih + yüklenenler), talep görseli tıkla-büyüt lightbox (Esc/←/→) | ✅ (migration yok) |
+| **Maliyet aktarımı** | Yeni Sezon katalog (id=4) maliyeti: `data/maliyet.csv` → 469 `product_costs` + 1407 `product_cost_items` (source_code eşleştirme, kur canlı okundu → `rate_snapshot`'a donduruldu), marj kademeleri %40/%30/%25'e çıkarıldı, `scripts/maliyet-aktar.mjs` (idempotent, tek transaction, 4 katman doğrulama) | ✅ v1.9.0 (migration yok) |
 
 ## Sıradaki adım / bekleyenler
 
@@ -104,6 +110,34 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
 5. **Gösterge paneli migration (sende):** `20260813000000_p7_pending_requests_image.sql`
    ELLE uygulanmalı — `manager_pending_requests` RPC'sine ürün görseli (`image_path`) ekler.
    Uygulanana kadar "Teklif bekliyor" satırlarında görsel yer tutucu (gömlek ikonu) çıkar.
+
+## Bekleyen İşler
+
+### 🔴 Öncelikli
+- **Red sebepleri — 116 quote'a `rejection_reason_id` yazımı.** Kaynak
+  `data/red-sebepleri.csv` (118 kayıt). Yazmadan önce **4 yeni sebep migration'ının
+  uygulanıp uygulanmadığı** kontrol edilmeli (uygulanmadıysa sebep id eşleşmeleri
+  eksik kalır). Kuru koşu → onay → tek transaction düzeninde ilerlenir.
+- **Müşteri silme — iki aşamalı.** Arşivle → kalıcı sil; silmeden ÖNCE neyin
+  gideceği (bağlı talep/teklif/etkileşim/dosya) gösterilecek. Canlı öncesi
+  üretim temizliği için gerekli.
+
+### 🟡 Sonra
+- **Gösterge paneli tasarım iyileştirmesi.**
+- **Raporlar sayfası gözden geçirme.**
+- **Eşleşmeyen ~50 lead** (`data/leads.csv`) — çözüm/eşleştirme.
+- **İzlenmeyen dosyaların commit'i:** `services/pdf-renderer/templates/studio.html`
+  + `scripts/` altındaki izlenmeyen yardımcı scriptler.
+
+### 🧪 Test edilmemiş sürümler
+v1.3.2, v1.3.3, v1.3.4, v1.4.0, v1.5.0 — arayüzde doğrulanmadı.
+
+### 📊 Veri notu (maliyet aktarımı, v1.9.0)
+- **6 ürün kasıtlı maliyetsiz:** `BB_C_01`, `BB_C_03`, `BB_P_02` (boş),
+  `E_P_14` (yalnız kumaş adı), `K_P_07` (işçilik girilmemiş),
+  `004_takimi-kirmizi` (CSV'de yok). Sonradan girilebilir.
+- **4 ürünün toplam maliyeti $5 altı** (`BB_C_08 $3.15`, `ET_P_04 $4.56`,
+  `BB_C_10 $4.88`, `BB_C_14 $4.93`) — hesap doğru, **kaynak veri kontrolü bekliyor**.
 
 ## Bilinen teknik notlar (kritik)
 
