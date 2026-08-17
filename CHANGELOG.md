@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.8.0] — 2026-08-17
+
+### Eklendi
+- **Yeni Sezon Katalog aktarımı (475 ürün + 2452 görsel).** `data/yeni-katalog.csv`
+  ve `data/yeni-katalog-gorseller/` kaynaklarından, mevcut 197 ürünlük katalog ile
+  342 kayıtlık kategori ağacına dokunmadan ayrı bir sezon kataloğu oluşturuldu:
+  - Yeni `catalogs` kaydı "Yeni Sezon Katalog" (season `26SS`, year `2026`).
+  - Yeni kategori ağacı: kök `ys_root` "Yeni Sezon" + 14 çocuk (Elbise, Tunik,
+    Ferace, Pantolon, Etek, Gömlek, Ceket, Tulum, Sweatshirt, T-Shirt,
+    Kimono & Panço, Alt Üst Takım, Bluz & Büstiyer, Ev Giyim).
+  - 3 koleksiyon (katalog-scoped): Tesettür (175), Premium (156), Casual (144).
+  - 475 ürün: kod `YS-0001…YS-0475`, CSV "Kodlar" değeri `source_code`'ta saklandı
+    (maliyet eşleştirme + idempotent koruma), kumaş 52 ham yazımdan 36 kanonik
+    değere normalize edildi (küratörlü sözlük; Crep+Krep→Krep, Viscon+Viskon→Viscon,
+    Tencel+Tensel→Tencel, Cupra+Kupra→Kupra; İ/I 'en' locale ile Denim/Viscon).
+  - 2452 görsel Storage'a (`documents/catalog/YS-*`) + `files` + `catalog_product_images`
+    olarak yüklendi; `1.webp` → ana görsel, diğerleri diğer.
+- `scripts/yeni-katalog-aktar.mjs` — katalog→kategori→koleksiyon→ürün, idempotent
+  (`(catalog_id, source_code)` çakışmasında günceller), tek transaction.
+- `scripts/yeni-katalog-gorsel-yukle.mjs` — görsel yükleyici; idempotent (yüklenmiş
+  dosyayı atlar), her 100 dosyada ilerleme, art arda 5 hata devre kesici.
+
+### Uygulanan migration
+- `20260819000000_catalog_source_code.sql` — `catalog_products.source_code text`
+  kolonu + kısmi unique index (`catalog_id, source_code` — idempotent içe aktarma).
+
 ## [1.7.0] — 2026-08-17
 
 ### Eklendi
