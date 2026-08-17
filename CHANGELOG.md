@@ -13,6 +13,22 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.8.1] — 2026-08-17
+
+### Değişti
+- **Yeni katalog ürün kodları sıralıdan rastgeleye.** `YS-0001…YS-0475` sıralı
+  formatı, `YS-` + 6 rastgele karakter (`YS-XXXXXX`) formatına taşındı. Alfabe
+  `generate_operation_code` ile aynı: `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`
+  (karışıklık yaratan I/O/0/1 hariç). 475 ürünün tamamı taşındı, çakışma 0.
+  - **Storage'a dokunulmadı:** `files.storage_path` (`catalog/YS-0001/N.ext`)
+    donuk kaldı; yol ile `code` arasında join olmadığından yalnız
+    `catalog_products.code` değişti. 2452 görsel bağı korundu (id FK üzerinden).
+  - **Eşleme/rollback logu:** kalıcı `catalog_yscode_migration` tablosu
+    (`source_code ↔ old_code ↔ new_code`). Geri alma tek UPDATE ile mümkün.
+  - Ön-kontrol: hiçbir teklif/belge/operasyon YS kodunu metin olarak
+    kopyalamamıştı (0 kayıt) → taşıma yan etkisiz. Mevcut 197 ST- ürünü etkilenmedi.
+  - Migration: `20260820000000_catalog_ys_random_code.sql`.
+
 ## [1.8.0] — 2026-08-17
 
 ### Eklendi
