@@ -52,7 +52,7 @@ export function CatalogListPage() {
   const clearAll = () => { setSearch(''); setCatalogId(null); setCollectionId(null); setCategoryId(null); setHasCost(null); setActive(null); resetPage() }
 
   const columns: DataTableColumn<CatalogRow>[] = [
-    { key: 'image', header: '', cell: (r) => <CatalogImage path={r.image_path} alt={r.name} width={80} className="size-10 rounded" /> },
+    { key: 'image', header: '', cell: (r) => <CatalogImage path={r.image_path} alt={r.name} width={80} contain className="size-10 rounded bg-muted/30" /> },
     { key: 'code', header: 'Kod', sortable: true, cell: (r) => <span className="font-mono text-xs">{r.code}</span> },
     { key: 'name', header: 'Ürün', sortable: true, cell: (r) => <span className="text-sm font-medium">{r.name}</span> },
     { key: 'cat', header: 'Kategori / Tür', hideable: true, cell: (r) => <span className="text-text-secondary text-xs">{[r.category_label, r.type_label].filter(Boolean).join(' / ') || '—'}</span> },
@@ -90,7 +90,7 @@ export function CatalogListPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {rows.map((r) => (
               <button key={r.id} type="button" onClick={() => navigate(`/katalog/${r.id}`)} className="group overflow-hidden rounded-lg border border-border bg-card text-left transition-shadow hover:shadow-card">
-                <CatalogImage path={r.image_path} alt={r.name} width={400} contain className="aspect-[2/3] w-full bg-muted/30" />
+                <CatalogImage path={r.image_path} alt={r.name} width={400} contain className="aspect-[5/7] w-full bg-muted/30" />
                 <div className="p-2">
                   <div className="truncate text-sm font-medium text-foreground">{r.name}</div>
                   <div className="font-mono text-[11px] text-text-muted">{r.code}</div>

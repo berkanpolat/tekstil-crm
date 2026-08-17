@@ -13,6 +13,26 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.8.2] — 2026-08-17
+
+### Düzeltildi
+- **Karışık en/boy oranlı katalog görselleri artık kesilmiyor.** Yeni katalog
+  kaynak dosyaları 15 farklı en/boy oranında (çoğunluk 0.746; 363 dosya 0.558 çok
+  uzun; bazıları kare). Arayüz eski tekdüze 2:3 kataloğa göre yazıldığından yeni
+  görseller kırpılıyordu.
+  - Izgara kartı: `aspect-[2/3]` → `aspect-[5/7]`, `object-contain` (kırpma yok;
+    boşluk nötr `bg-muted/30` ile dolar). Eski 2:3 görseller de bozulmadan sığar.
+  - Liste satırı thumbnail (`size-10`) ve detay galeri thumbnail (`size-14`):
+    `object-cover` → `object-contain` (`contain` prop → Supabase transform de
+    `resize: contain`).
+
+### Not
+- **4 düşük çözünürlüklü kaynak görsel** tespit edildi (gerekirse Drive'dan
+  yeniden indirilecek):
+  - `P_C_10` → **YS-0171** Çizgili Cepli Pamuk Keten Kapri Pantolon — 1.webp, 2.webp (400×533)
+  - `TK_T_011` → **YS-0365** Modal Etek Takım Haki — 2.webp (326×489)
+  - `ET_T_14` → **YS-0115** Pamuk Keten Uzun Kot Etek Kahverengi — 2.webp (326×489)
+
 ## [1.8.1] — 2026-08-17
 
 ### Değişti

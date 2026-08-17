@@ -6,7 +6,7 @@ import { ImageOff } from 'lucide-react'
 /**
  * Katalog görseli (QA#6). width verilirse thumbnail (Supabase transform) — ızgarada tam-boy
  * yerine küçük görsel yüklenir. Plan transform desteklemezse onError ile orijinale düşer.
- * contain=true → 2:3 kart içinde KIRPILMADAN sığar.
+ * contain=true → kart oranından bağımsız KIRPILMADAN sığar (karışık en/boy oranlı katalog).
  */
 export function CatalogImage({ path, alt, className, width, contain }:
   { path: string | null; alt: string; className?: string; width?: number; contain?: boolean }) {

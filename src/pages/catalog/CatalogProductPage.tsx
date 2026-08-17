@@ -114,7 +114,7 @@ function Gallery({ product }: { product: CatalogProductDetail }) {
         <div className="flex gap-2">
           {imgs.map((im, i) => (
             <button key={im.id} onClick={() => setSel(i)} className={cn('overflow-hidden rounded border-2', i === sel ? 'border-primary' : 'border-transparent')}>
-              <CatalogImage path={im.files?.storage_path ?? null} alt="" className="size-14" />
+              <CatalogImage path={im.files?.storage_path ?? null} alt="" contain className="size-14 bg-muted/30" />
             </button>
           ))}
         </div>
