@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Plus, Trash2, X, Loader2, Upload, Download } from 'lucide-react'
+import { Building2, Plus, Trash2, X, Loader2, Upload, Download, Archive, ArchiveRestore } from 'lucide-react'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -20,6 +20,7 @@ import {
   useCustomerTypeOptions,
   useCustomerCityOptions,
   useSoftDeleteCustomers,
+  useUnarchiveCustomer,
   useBulkAssignCustomers,
   useBulkStatusCustomers,
   fetchCustomersForExport,
@@ -59,6 +60,7 @@ export function CustomersListPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [archived, setArchived] = useState(false)
 
   const statuses = useCustomerStatusOptions()
   const types = useCustomerTypeOptions()
@@ -70,6 +72,7 @@ export function CustomersListPage() {
   const bulkTag = useBulkAddTag()
   const [exporting, setExporting] = useState(false)
   const softDelete = useSoftDeleteCustomers()
+  const unarchive = useUnarchiveCustomer()
 
   const selectedIds = useMemo(() => [...selected].map(Number), [selected])
   const clearSelection = () => setSelected(new Set())
@@ -91,6 +94,7 @@ export function CustomersListPage() {
     typeId: typeId ? Number(typeId) : null,
     assignedTo,
     city,
+    archived,
     page,
     pageSize,
     sort,
@@ -173,6 +177,12 @@ export function CustomersListPage() {
         description="Müşteri kartları, ticari bilgiler ve iletişim geçmişi. Arama/filtre sunucu tarafında."
         action={
           <div className="flex gap-2">
+            <Button
+              variant={archived ? 'default' : 'outline'}
+              onClick={() => { setArchived((a) => !a); clearSelection(); resetPage() }}
+            >
+              <Archive className="size-4" /> {archived ? 'Aktifler' : 'Arşiv'}
+            </Button>
             <Button variant="outline" disabled={exporting} onClick={() => void exportCsv(false)}>
               {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Dışa aktar
             </Button>
@@ -189,6 +199,22 @@ export function CustomersListPage() {
       {selected.size > 0 && (
         <div className="border-border bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border p-2">
           <span className="px-1 text-sm font-medium">{selected.size} seçili</span>
+          {archived && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void runBulk(
+                  () => Promise.all(selectedIds.map((id) => unarchive.mutateAsync(id))),
+                  'Arşivden çıkarıldı.',
+                )
+              }
+            >
+              <ArchiveRestore className="size-4" /> Arşivden çıkar
+            </Button>
+          )}
+          {!archived && (
+          <>
           <SearchableSelect
             options={[
               { value: 'unassigned', label: 'Atanmamış' },
@@ -237,10 +263,12 @@ export function CustomersListPage() {
           <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
             <Trash2 className="size-4" /> Sil
           </Button>
+          </>
+          )}
           <Button variant="ghost" size="sm" onClick={clearSelection}>
             <X className="size-4" /> Seçimi bırak
           </Button>
-          {(bulkAssign.isPending || bulkStatus.isPending || bulkTag.isPending || softDelete.isPending) && (
+          {(bulkAssign.isPending || bulkStatus.isPending || bulkTag.isPending || softDelete.isPending || unarchive.isPending) && (
             <Loader2 className="text-text-muted size-4 animate-spin" />
           )}
         </div>

@@ -33,6 +33,8 @@ export interface CustomerFilters {
   page: number
   pageSize: number
   sort?: SortState | null
+  /** true ise arşivlenmiş (deleted_at dolu) müşteriler listelenir. */
+  archived?: boolean
 }
 
 const SORT_COLUMN: Record<string, string> = {
@@ -75,7 +77,7 @@ export function useCustomerList(filters: CustomerFilters) {
       let query = supabase
         .from('customers')
         .select(LIST_SELECT, { count: 'exact' })
-        .is('deleted_at', null)
+      query = filters.archived ? query.not('deleted_at', 'is', null) : query.is('deleted_at', null)
 
       if (filters.search) {
         // Firma/kişi/şehir normalize (Türkçe duyarsız); ayrıca müşteri kodu ve
@@ -327,6 +329,83 @@ export function useSoftDeleteCustomers() {
           .is('deleted_at', null)
           .select('id'),
       )
+    },
+    onSuccess: () => invalidate(qc),
+  })
+}
+
+// ── İki aşamalı silme (v1.10.0 RPC'leri) ────────────────────────────────────
+/** Kalıcı silme önizlemesi: neyin gideceği + cari kontrolü (can_hard_delete). */
+export interface DeletePreview {
+  customer_id: number
+  talep: number
+  teklif: number
+  numune: number
+  siparis: number
+  belge: number
+  etkilesim: number
+  dosya: number
+  cari_hareket: number
+  odeme: number
+  can_hard_delete: boolean
+}
+
+/** Arşivle: müşteri + o an açık operasyonları soft-delete (geri alınabilir). */
+export function useArchiveCustomer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.rpc('customer_archive' as never, { p_customer_id: id } as never)
+      if (error) throw error
+    },
+    onSuccess: () => invalidate(qc),
+  })
+}
+
+/** Arşivden çıkar: müşteri + yalnız birlikte arşivlenen operasyonlar geri gelir. */
+export function useUnarchiveCustomer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.rpc('customer_unarchive' as never, { p_customer_id: id } as never)
+      if (error) throw error
+    },
+    onSuccess: () => invalidate(qc),
+  })
+}
+
+/** Silme önizlemesi (sayı dökümü + can_hard_delete). */
+export function useCustomerDeletePreview(id: number | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['customer-delete-preview', id],
+    enabled: enabled && id != null,
+    staleTime: 0,
+    queryFn: async (): Promise<DeletePreview> => {
+      const { data, error } = await supabase.rpc('customer_delete_preview' as never, { p_customer_id: id } as never)
+      if (error) throw error
+      return data as unknown as DeletePreview
+    },
+  })
+}
+
+/** Kalıcı sil: RPC DB satırlarını siler + storage yollarını döndürür → bucket'tan sil. */
+export function useHardDeleteCustomer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data, error } = await supabase.rpc('customer_hard_delete' as never, { p_customer_id: id } as never)
+      if (error) throw error
+      // RPC bucket'ı silemez → dönen [{bucket, path}] listesini burada temizle
+      const paths = (data as unknown as { bucket: string; path: string }[]) ?? []
+      const byBucket = new Map<string, string[]>()
+      for (const p of paths) {
+        if (!p?.bucket || !p?.path) continue
+        byBucket.set(p.bucket, [...(byBucket.get(p.bucket) ?? []), p.path])
+      }
+      for (const [bucket, keys] of byBucket) {
+        // storage hatası veriyi geri getirmez; sessiz geç (DB zaten silindi)
+        await supabase.storage.from(bucket).remove(keys)
+      }
     },
     onSuccess: () => invalidate(qc),
   })

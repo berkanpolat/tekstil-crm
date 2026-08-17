@@ -119,9 +119,10 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
   dağılım CSV ile birebir. 4 yeni sebep (MOQ Fazla, Sonra Değerlendirecek, Numune
   Ücreti Fazla, Yanlış Numara) eklendi. Fuzzy isimler de bağlandı (Ayaz Atlas→AYAZ
   ALTAS, Mahir Tuğanatay→Mahir Tuğantay). Listede olmayan 37 reddedilmiş quote boş.
-- **Müşteri silme — iki aşamalı.** Arşivle → kalıcı sil; silmeden ÖNCE neyin
-  gideceği (bağlı talep/teklif/etkileşim/dosya) gösterilecek. Canlı öncesi
-  üretim temizliği için gerekli.
+- ✅ **Müşteri silme — iki aşamalı TAMAM (v1.10.0 backend + v1.11.0 UI).**
+  Arşivle (soft-delete, operasyonlar `archived_with_customer` ile geri alınabilir)
+  + Kalıcı Sil (`customers.delete` = owner+admin, cari/ödeme guard, storage temizliği,
+  önizleme + ad yazarak onay). Migration `20260821000000` canlıda.
 
 ### 🟡 Sonra
 - **Gösterge paneli tasarım iyileştirmesi.**

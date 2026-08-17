@@ -13,6 +13,21 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.11.0] — 2026-08-17
+
+### Eklendi
+- **Müşteri silme — arayüz.** v1.10.0 backend RPC'lerinin UI'si.
+  - Müşteri kartında **"Arşivle"** (mevcut yetki) — onay sonrası müşteri + açık
+    operasyonları gizlenir, listeye döner.
+  - Müşteri kartında **"Kalıcı Sil"** yalnız `customers.delete` yetkisiyle görünür.
+    Akış: önizleme (talep/teklif/numune/sipariş/belge/etkileşim/dosya dökümü) →
+    cari/ödeme varsa buton kapalı + "arşivleyin" uyarısı → **müşteri adını yazarak**
+    onay → `customer_hard_delete` → dönen storage yolları bucket'tan temizlenir → toast.
+  - Müşteri listesinde **"Arşiv"** toggle'ı: arşivlenenleri gösterir; seçip
+    **"Arşivden çıkar"** ile geri alınır (yalnız birlikte arşivlenen operasyonlar döner).
+  - Hook'lar: `useArchiveCustomer`, `useUnarchiveCustomer`, `useCustomerDeletePreview`,
+    `useHardDeleteCustomer` (`useCustomers.ts`); `CustomerDangerActions` bileşeni.
+
 ## [1.10.0] — 2026-08-17
 
 ### Eklendi

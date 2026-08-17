@@ -44,6 +44,7 @@ import {
 import { ContactLine } from '@/components/shared/ContactLine'
 import { CustomerFormDialog } from './CustomerFormDialog'
 import { CustomerTaleplerTab, CustomerChildTab } from './CustomerOperationTabs'
+import { CustomerDangerActions } from './CustomerDangerActions'
 import { CariTab } from '@/pages/finance/CariTab'
 import { useFinancePerms } from '@/hooks/useFinance'
 import { CustomerSummary } from '@/pages/ai/CustomerSummary'
@@ -167,9 +168,12 @@ export function CustomerCardPage() {
             <TagsPanel entityType="customer" entityId={c.id} />
           </div>
         </div>
-        <Button variant="outline" onClick={() => setEditOpen(true)}>
-          <Pencil className="size-4" /> Düzenle
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Pencil className="size-4" /> Düzenle
+          </Button>
+          <CustomerDangerActions customerId={c.id} customerName={title} />
+        </div>
       </div>
 
       <DuplicateBand
