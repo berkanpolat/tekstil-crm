@@ -13,6 +13,39 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.16.0] — 2026-08-18
+
+### Eklendi (Yerel otomatik yedekleme + doğrulama)
+- **`scripts/yedek-al.sh`** — günlük yerel yedek (yalnız okuma, canlı DB'ye yazmaz):
+  - **DB:** `pg_dump -Fc -Z6` → `~/tekstil-crm-yedekler/db/YYYY-MM-DD.dump` (proje DIŞINDA).
+    Yanında `YYYY-MM-DD.counts.tsv` (dump anındaki canlı satır sayıları — doğrulamanın
+    referansı; sabit sayı gömülmez, veri büyümesine dayanıklı).
+  - **Storage (artımlı):** `storage.objects` psql ile listelenir, service-role key ile
+    REST üzerinden **yalnız eksik/boyutu değişen** nesneler indirilir (paralel, `xargs -P8`).
+    Bucket başına döner (documents/avatars). rclone/S3 anahtarı GEREKMEZ — sadece `.env`.
+  - **Rotasyon:** `db/` altında 30 günden eski `*.dump` + `*.counts.tsv` silinir. Storage
+    canlı ayna olduğu için budanmaz (silinen uzak dosya yedekte kalır — kurtarma lehine).
+  - **Log:** `~/tekstil-crm-yedekler/logs/yedek.log` (tarih, boyut, dosya sayısı, sonuç).
+  - **Hata görünürlüğü:** başarısızlıkta macOS bildirimi (`osascript`) + `logs/SON-HATA.txt`
+    işaret dosyası (sonraki başarılı koşuda silinir). Sessiz başarısızlık yok.
+  - **Dayanıklılık:** `pg_dump` ve psql çağrıları geçici pooler hatalarına (Supavisor
+    `tenant not found`) karşı retry (`pg_dump` 5×30sn, psql 5×20sn).
+- **`scripts/yedek-dogrula.sh`** — son dump'ı **izole yerel Postgres**'e (Postgres.app,
+  `localhost`) geçici DB'ye geri yükler, sayıları `.counts.tsv` ile karşılaştırır
+  (customers/operations/catalog_products/storage.objects), yerel storage dosya sayısını
+  sayar, raporlar; uyuşmazlıkta çıkış kodu 1. Canlıya dokunmaz; bash 3.2 uyumlu.
+- **`scripts/com.tekstilcrm.yedek.plist`** — launchd ajanı (versiyon-kontrollü kopya).
+  Kanonik konum `~/Library/LaunchAgents/`'a kurulu ve yüklü. Her gün **09:00**;
+  o an Mac kapalı/uykudaysa `StartCalendarInterval` işi bir sonraki açılışta telafi eder.
+- **Doğrulandı (2026-08-18):** ilk tam koşu — DB dump 23M + 3226 storage nesnesi (0 hata,
+  ~5,5 dk). `yedek-dogrula.sh` izole geri yükleme: 264/268/672/3226 satır **tam eşleşti**.
+  Not: yerelde 3807 storage dosyası — 581'i 30 Tem'den kalma eski katalog `.jpg`'leri
+  (zararsız, yedeğe dahil).
+
+> **Bağlam:** Supabase **Pro** planı günlük fiziksel yedek alıyor (7 gün saklama) ama
+> **PITR kapalı** ve **Storage (3226 görsel) yedeklenmiyor** — bu yerel yedek özellikle
+> Storage boşluğunu ve daha uzun/granüler DB geçmişini kapatır.
+
 ## [1.15.0] — 2026-08-18
 
 ### Eklendi (Raporlar yenileme — Paket C: profesyonel rapor PDF'i)
