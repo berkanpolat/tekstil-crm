@@ -55,3 +55,8 @@ supabase/.branches
 data/
 scripts/.import-*.generated.sql
 scripts/.maliyet-*.generated.sql
+
+# Geçici aktarım çalışma dosyaları
+scripts/.*.generated.sql
+scripts/.katalog-*
+scripts/.leads-*
