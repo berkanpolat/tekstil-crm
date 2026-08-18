@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  FileText, MessageSquare, FlaskConical, Package, BellRing, HandHelping,
-  Zap, Shirt, Clock, CheckCircle2, XCircle, SlidersHorizontal, Loader2, AlertTriangle,
+  FileText, FlaskConical, Package, BellRing, HandHelping,
+  Zap, Shirt, Clock, CheckCircle2, XCircle, SlidersHorizontal, Loader2, AlertTriangle, ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,7 @@ import { useAllQuotes, useSetQuoteResult, useAdvanceStage, type QuoteListRow } f
 import { useAllSamples, useUpdateSample, useSampleStatusOptions, type SampleListRow } from '@/hooks/useSamples'
 import { useAllOrders, useUpdateOrder, useOrderStatusOptions, type OrderListRow } from '@/hooks/useOrders'
 import { useTaskList, useUpdateTask, useTaskStatuses, type TaskRow } from '@/hooks/useTasks'
+import { Kpi } from '@/components/reports/ReportKit'
 
 // ── Zaman + biçim yardımcıları ─────────────────────────────────────────
 const HOUR = 3600e3
@@ -31,10 +32,18 @@ const fmt = (iso: string | null) =>
 /** "ne kadar süredir bekliyor" — iso'dan nowMs'e kadar geçen süre. */
 function since(iso: string | null, nowMs: number): string {
   if (!iso) return '—'
-  const ms = nowMs - new Date(iso).getTime()
+  return ago(nowMs - new Date(iso).getTime())
+}
+/** ms süreyi "N dk/saat/gün" olarak biçimler. */
+function ago(ms: number): string {
   if (ms < HOUR) return `${Math.max(1, Math.floor(ms / 60000))} dk`
   if (ms < 24 * HOUR) return `${Math.floor(ms / HOUR)} saat`
   return `${Math.floor(ms / (24 * HOUR))} gün`
+}
+/** Akış metriği rozeti: değişim oku + dönem etiketi. */
+function trendSub(pct: number | null | undefined, cap: string): string {
+  if (pct == null) return cap
+  return `${pct >= 0 ? '↑' : '↓'} %${Math.abs(Math.round(pct))} · ${cap}`
 }
 
 // ── Dönem seçici (varsayılan: Bugün) ───────────────────────────────────
@@ -59,21 +68,33 @@ function PeriodPicker({ value, onPick }: { value: PeriodKey; onPick: (k: PeriodK
 }
 
 // ── Ortak kabuk: bölüm (sabit yükseklik, başlık sabit, liste iç kaydırmalı) ──
-function Section({ icon: Icon, title, count, loading, empty, children }: {
-  icon: typeof FileText; title: string; count: number; loading: boolean; empty: string; children: React.ReactNode
+// collapsible=true ise başlık tıklanır; kapalıyken yalnız başlık (h-72 kalkar).
+function Section({ icon: Icon, title, count, loading, empty, children, collapsible = false, defaultOpen = true }: {
+  icon: typeof FileText; title: string; count: number; loading: boolean; empty: string
+  children: React.ReactNode; collapsible?: boolean; defaultOpen?: boolean
 }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const showBody = !collapsible || open
+  const header = (
+    <>
+      {collapsible && <ChevronDown className={cn('text-text-muted size-4 shrink-0 transition-transform', !open && '-rotate-90')} />}
+      <Icon className="text-accent-primary size-4 shrink-0" />
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {count > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-text-secondary">{count}</span>}
+    </>
+  )
   return (
-    <section className="bg-card flex h-72 flex-col rounded-lg border border-border p-4 shadow-card">
-      <div className="mb-2 flex shrink-0 items-center gap-2">
-        <Icon className="text-accent-primary size-4" />
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        {count > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-text-secondary">{count}</span>}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading ? <Skeleton className="h-16 w-full" /> : count === 0
-          ? <p className="text-text-secondary py-3 text-sm">{empty}</p>
-          : <div className="space-y-1 pr-1">{children}</div>}
-      </div>
+    <section className={cn('bg-card flex flex-col rounded-lg border border-border p-4 shadow-card', showBody && 'h-72')}>
+      {collapsible
+        ? <button type="button" onClick={() => setOpen((v) => !v)} className="mb-2 flex shrink-0 items-center gap-2 text-left">{header}</button>
+        : <div className="mb-2 flex shrink-0 items-center gap-2">{header}</div>}
+      {showBody && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? <Skeleton className="h-16 w-full" /> : count === 0
+            ? <p className="text-text-secondary py-3 text-sm">{empty}</p>
+            : <div className="space-y-1 pr-1">{children}</div>}
+        </div>
+      )}
     </section>
   )
 }
@@ -104,51 +125,97 @@ function StatusMenu({ options, currentKey, pending, onPick }: {
   )
 }
 
-function StatCard({ icon: Icon, label, value, caption, loading, onClick }: {
-  icon: typeof FileText; label: string; value: number; caption?: string; loading: boolean; onClick?: () => void
-}) {
-  return (
-    <button type="button" onClick={onClick} disabled={!onClick}
-      className={cn('bg-card flex flex-col gap-1 rounded-lg border border-border p-4 text-left shadow-card transition-colors',
-        onClick && 'hover:border-accent-primary/50 cursor-pointer')}>
-      <div className="text-text-secondary flex items-center gap-1.5 text-xs font-medium">
-        <Icon className="text-accent-primary size-4" /> {label}
-      </div>
-      {loading
-        ? <Skeleton className="h-8 w-12" />
-        : <div className="text-foreground text-2xl font-semibold tabular-nums">{value}</div>}
-      {caption && <div className="text-text-muted text-[11px]">{caption}</div>}
-    </button>
-  )
-}
+// ⓪ Aksiyon şeridi — gecikmiş HER ŞEY tek yerde, aciliyet+kazanç sırasıyla.
+// Tip ağırlığı: sipariş > numune > teklif > görev (aynı ağırlıkta en çok geciken üstte).
+// En fazla 5 satır; "ve N tane daha" ile açılır. 20'yi aşınca dürüst başlık.
+const KIND_WEIGHT: Record<'siparis' | 'numune' | 'teklif' | 'gorev', number> = { siparis: 3, numune: 2, teklif: 1, gorev: 1 }
+interface OverdueItem { key: string; kind: 'siparis' | 'teklif' | 'gorev'; label: string; sub: string; overMs: number; href: string }
+const OVERDUE_ICON = { siparis: Package, teklif: HandHelping, gorev: BellRing } as const
 
-// ① Akış kartları — döneme bağlı ("bugün kaç oldu") ─────────────────────
-function FlowCards({ period }: { period: Period }) {
-  const nav = useNavigate()
-  const req = useRequestsMetric(period)
-  const quo = useQuotesMetric(period)
-  const inter = useInteractionsMetric(period)
-  const cap = period.label.toLocaleLowerCase('tr-TR')
+function OverdueRow({ item, onGo }: { item: OverdueItem; onGo: () => void }) {
+  const Icon = OVERDUE_ICON[item.kind]
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-      <StatCard icon={FileText} label="Gelen talep" value={req.data?.total ?? 0} caption={cap} loading={req.isLoading} onClick={() => nav('/talepler')} />
-      <StatCard icon={FileText} label="Verilen teklif" value={quo.data?.sent ?? 0} caption={cap} loading={quo.isLoading} onClick={() => nav('/teklifler')} />
-      <StatCard icon={MessageSquare} label="Girilen aksiyon" value={inter.data?.total ?? 0} caption={cap} loading={inter.isLoading} onClick={() => nav('/raporlar?rapor=etkilesim')} />
+    <div role="button" tabIndex={0} onClick={onGo}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onGo()}
+      className="border-danger-foreground/15 hover:bg-danger/5 flex cursor-pointer items-center gap-2.5 rounded-md border bg-card px-3 py-2 text-sm transition-colors">
+      <Icon className="text-danger-foreground size-4 shrink-0" />
+      <span className="text-foreground min-w-0 flex-1 truncate font-medium">{item.label}</span>
+      <span className="text-text-muted shrink-0 font-mono text-[11px]">{item.sub}</span>
+      <span className="text-danger-foreground shrink-0 text-xs font-semibold tabular-nums">{ago(item.overMs)} gecikti</span>
     </div>
   )
 }
 
-// ①b Anlık durum kartları — dönemden BAĞIMSIZ ("şu an kaç iş sürüyor") ───
-function StatusCards() {
+function ActionStrip({ nowMs }: { nowMs: number }) {
   const nav = useNavigate()
-  const act = useActiveFunnel()
+  const [expanded, setExpanded] = useState(false)
+  const pending = usePendingRequests(50)
+  const orders = useAllOrders()
+  const tasks = useTaskList({ view: 'today' })
+  const items = useMemo<OverdueItem[]>(() => {
+    const out: OverdueItem[] = []
+    for (const r of (pending.data ?? []) as PendingRequest[]) {
+      if (r.sla_deadline && new Date(r.sla_deadline).getTime() < nowMs)
+        out.push({ key: `p${r.operation_id}`, kind: 'teklif', label: r.customer ?? '—', sub: r.code, overMs: nowMs - new Date(r.sla_deadline).getTime(), href: `/talepler/${r.operation_id}` })
+    }
+    for (const o of (orders.data ?? []) as OrderListRow[]) {
+      if (!o.actual_delivery && o.promised_delivery && new Date(o.promised_delivery).getTime() < nowMs)
+        out.push({ key: `o${o.id}`, kind: 'siparis', label: o.customer_name ?? '—', sub: o.status_label ?? 'Sipariş', overMs: nowMs - new Date(o.promised_delivery).getTime(), href: `/talepler/${o.operation_id}` })
+    }
+    for (const t of (tasks.data ?? []) as TaskRow[]) {
+      if (t.due_at && new Date(t.due_at).getTime() < nowMs)
+        out.push({ key: `t${t.id}`, kind: 'gorev', label: t.title, sub: 'Görev', overMs: nowMs - new Date(t.due_at).getTime(), href: t.entity_type === 'operation' && t.entity_id ? `/talepler/${t.entity_id}` : '/gorevler' })
+    }
+    out.sort((a, b) => KIND_WEIGHT[b.kind] - KIND_WEIGHT[a.kind] || b.overMs - a.overMs)
+    return out
+  }, [pending.data, orders.data, tasks.data, nowMs])
+
+  if (pending.isLoading || orders.isLoading || tasks.isLoading) return <Skeleton className="h-28 w-full rounded-lg" />
+
+  const total = items.length
+  if (total === 0) return (
+    <div className="border-success-foreground/30 bg-success/10 flex items-center gap-2 rounded-lg border p-4 text-sm">
+      <CheckCircle2 className="text-success-foreground size-5 shrink-0" />
+      <span className="text-foreground font-medium">Bugün geciken iş yok. Her şey yolunda.</span>
+    </div>
+  )
+  const shown = expanded ? items : items.slice(0, 5)
+  const heading = total > 20 ? `${total} iş gecikti — en acil 5'i:` : `${total} iş gecikti — en acilinden başla`
   return (
-    <div className="space-y-2">
-      <h3 className="text-text-secondary text-xs font-semibold uppercase tracking-wide">Anlık durum</h3>
-      <div className="grid grid-cols-2 gap-3 lg:max-w-md">
-        <StatCard icon={FlaskConical} label="Numunede" value={act.data?.samples ?? 0} caption="şu an açık" loading={act.isLoading} onClick={() => nav('/numuneler')} />
-        <StatCard icon={Package} label="Siparişte" value={act.data?.orders ?? 0} caption="şu an açık" loading={act.isLoading} onClick={() => nav('/siparisler')} />
+    <section className="border-danger-foreground/25 border-l-danger-foreground bg-danger/5 rounded-lg border border-l-4 p-4 shadow-card">
+      <div className="mb-2 flex items-center gap-2">
+        <AlertTriangle className="text-danger-foreground size-5 shrink-0" />
+        <h2 className="text-danger-foreground text-sm font-semibold">{heading}</h2>
       </div>
+      <div className="space-y-1">
+        {shown.map((it) => <OverdueRow key={it.key} item={it} onGo={() => nav(it.href)} />)}
+      </div>
+      {total > 5 && (
+        <button type="button" onClick={() => setExpanded((v) => !v)}
+          className="text-accent-primary mt-2 text-xs font-medium hover:underline">
+          {expanded ? 'daha az göster' : `ve ${total - 5} tane daha →`}
+        </button>
+      )}
+    </section>
+  )
+}
+
+// ① Metrik şeridi — 3 akış (döneme bağlı, trend oku) + 2 anlık durum, tek sıra Kpi.
+function MetricStrip({ period }: { period: Period }) {
+  const nav = useNavigate()
+  const req = useRequestsMetric(period)
+  const quo = useQuotesMetric(period)
+  const inter = useInteractionsMetric(period)
+  const act = useActiveFunnel()
+  const cap = period.label.toLocaleLowerCase('tr-TR')
+  const num = (v: number | undefined) => (v == null ? '—' : String(v))
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <Kpi label="Gelen talep" value={num(req.data?.total)} sub={trendSub(req.data?.change_pct, cap)} onClick={() => nav('/talepler')} />
+      <Kpi label="Verilen teklif" value={num(quo.data?.sent)} sub={trendSub(quo.data?.change_pct, cap)} onClick={() => nav('/teklifler')} />
+      <Kpi label="Girilen aksiyon" value={num(inter.data?.total)} sub={trendSub(inter.data?.change_pct, cap)} onClick={() => nav('/raporlar?rapor=etkilesim')} />
+      <Kpi label="Numunede" value={num(act.data?.samples)} sub="şu an açık" onClick={() => nav('/numuneler')} />
+      <Kpi label="Siparişte" value={num(act.data?.orders)} sub="şu an açık" onClick={() => nav('/siparisler')} />
     </div>
   )
 }
@@ -219,7 +286,7 @@ function SentQuotesSection() {
   }, [data]) as QuoteListRow[]
   const busy = setResult.isPending || advance.isPending
   return (
-    <Section icon={FileText} title="Teklif iletildi" count={rows.length} loading={isLoading} empty="Henüz iletilmiş teklif yok.">
+    <Section icon={FileText} title="Teklif iletildi" count={rows.length} loading={isLoading} empty="Henüz iletilmiş teklif yok." collapsible defaultOpen={false}>
       {rows.map((q) => {
         const res = quoteResult(q.status_key)
         const closed = RESULT_ACCEPTED.has(q.status_key ?? '') || RESULT_REJECTED.has(q.status_key ?? '')
@@ -278,7 +345,7 @@ function SamplesSection() {
     catch (e) { toast.error(await toUserMessage(e)) }
   }
   return (
-    <Section icon={FlaskConical} title="Numuneler" count={rows.length} loading={isLoading} empty="Kayıtlı numune yok.">
+    <Section icon={FlaskConical} title="Numuneler" count={rows.length} loading={isLoading} empty="Kayıtlı numune yok." collapsible>
       {rows.map((s) => {
         const last = s.received_at ?? s.shipped_at ?? s.created_at
         return (
@@ -316,7 +383,7 @@ function OrdersSection({ nowMs }: { nowMs: number }) {
     catch (e) { toast.error(await toUserMessage(e)) }
   }
   return (
-    <Section icon={Package} title="Siparişler" count={rows.length} loading={isLoading} empty="Açık sipariş yok.">
+    <Section icon={Package} title="Siparişler" count={rows.length} loading={isLoading} empty="Açık sipariş yok." collapsible>
       {rows.map((o) => {
         const overdue = o.promised_delivery ? new Date(o.promised_delivery).getTime() < nowMs : false
         return (
@@ -382,9 +449,11 @@ function RemindersSection({ nowMs }: { nowMs: number }) {
   )
 }
 
-/** P7 — Gösterge Paneli. "Bugün durum ne?" tek ekranda: 5 sayı + 5 açık liste.
- *  Grafik yok; yalnız liste ve sayı. Varsayılan dönem BUGÜN. reports.view olan
- *  kullanıcıya, kişisel çalışma bloklarının ÜSTÜNDE görünür (bkz. DashboardPage). */
+/** P7 — Gösterge Paneli. Aciliyet sıralı: en üstte gecikmiş HER ŞEY tek şeritte
+ *  (aksiyon şeridi), sonra kompakt metrik nabzı, sonra günlük aksiyon listeleri
+ *  (teklif bekleyen + hatırlatıcılar), en altta katlanır takip listeleri.
+ *  Varsayılan dönem BUGÜN. reports.view olan kullanıcıya, kişisel çalışma
+ *  bloklarının ÜSTÜNDE görünür (bkz. DashboardPage). */
 export function TodayBoard() {
   const [nowMs] = useState(() => Date.now())
   const [key, setKey] = useState<PeriodKey>('today')
@@ -395,17 +464,28 @@ export function TodayBoard() {
         <h2 className="text-base font-semibold text-foreground">Bugün durum ne?</h2>
         <PeriodPicker value={key} onPick={setKey} />
       </div>
-      <FlowCards period={period} />
-      <StatusCards />
-      {/* Dört ana bölüm 2×2 — sabit yükseklik, her biri kendi içinde kaydırılır;
-          kullanıcı kaydırmadan dördünü de görür. Hatırlatıcılar altta ayrı. */}
+
+      {/* ⓪ En üstte: müdahale gereken gecikmiş işler — kaynağı fark etmez. */}
+      <ActionStrip nowMs={nowMs} />
+
+      {/* ① Nabız: 3 akış + 2 anlık durum, tek kompakt sıra. */}
+      <MetricStrip period={period} />
+
+      {/* ② Günlük aksiyon listeleri — teklif bekleyen + hatırlatıcılar yan yana. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PendingQuotesSection nowMs={nowMs} />
-        <SentQuotesSection />
-        <SamplesSection />
-        <OrdersSection nowMs={nowMs} />
+        <RemindersSection nowMs={nowMs} />
       </div>
-      <RemindersSection nowMs={nowMs} />
+
+      {/* ③ Takip listeleri — günlük izlenen (numune/sipariş) açık, teklif iletildi kapalı. */}
+      <div className="space-y-4">
+        <h3 className="text-text-secondary text-xs font-semibold uppercase tracking-wide">Takip listeleri</h3>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <SamplesSection />
+          <OrdersSection nowMs={nowMs} />
+        </div>
+        <SentQuotesSection />
+      </div>
     </div>
   )
 }

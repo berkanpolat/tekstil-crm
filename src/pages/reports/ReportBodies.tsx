@@ -2,10 +2,9 @@ import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { formatMoney } from '@/lib/money'
 import {
-  Kpi, Insight, ReportSection, DataTable, ReportLoading,
+  Kpi, Insight, ReportSection, DataTable, ReportLoading, BarList, TrendLine,
   Funnel, HourHistogram, Donut, SwatchLegend, LowDataNotice, type ReportProps, type FunnelStep,
 } from '@/components/reports/ReportKit'
-import { BarList, TrendLine } from '@/components/dashboard/MiniCharts'
 import {
   useRequestsMetric, useRequestTrend, useQuotesMetric, useEmployeesMetric,
   useInteractionsMetric, useFilterOptions, usePipelineMetric, useActiveFunnel, type Labeled,

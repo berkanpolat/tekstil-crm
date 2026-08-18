@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.19.0] — 2026-08-18
+
+### Gösterge paneli tasarım iyileştirmesi (aciliyet sıralı panel)
+Panel "durum raporu"ndan "bugün neye müdahale etmeliyim" ekranına dönüştürüldü.
+Yeni dikey öncelik: **aksiyon şeridi → metrik nabzı → günlük listeler → katlanır takip.**
+
+- **Aksiyon şeridi (yeni, en üstte):** gecikmiş HER şey kaynağından bağımsız tek
+  kırmızı şeritte toplanır — SLA'sı geçen teklif bekleyen talep + termini geçen
+  sipariş + süresi dolan görev. **Tip ağırlığı** ile sıralanır (sipariş > numune >
+  teklif > görev; aynı ağırlıkta en çok geciken üstte). **En fazla 5 satır**,
+  altında "ve N tane daha →" ile açılır/kapanır. Toplam 20'yi aşınca dürüst başlık:
+  "45 iş gecikti — en acil 5'i:". Hiç gecikme yoksa yeşil "her şey yolunda" kartı.
+- **Metrik nabzı:** eski 3 akış kartı + 2 anlık durum kartı, tek kompakt Kpi sırasına
+  birleşti (5 sütun). Akış metriklerinde değişim oku (↑/↓ %) eklendi. Kartlar
+  tıklanır (ilgili sayfaya gider).
+- **2×2 ızgara yeniden düzenlendi:** "Teklif bekliyor" + "Hatırlatıcılar" günlük
+  aksiyon listeleri olarak üstte yan yana kaldı. "Numuneler", "Siparişler",
+  "Teklif iletildi" **katlanır "Takip listeleri"** bölümüne indi — Numuneler ve
+  Siparişler varsayılan **açık**, Teklif iletildi **kapalı** gelir.
+- **ReportKit tutarlılığı:** panel artık raporlarla aynı `Kpi` bileşenini kullanır
+  (`onClick` ile tıklanabilir hale getirildi). `MiniCharts.tsx` kaldırıldı:
+  `TrendLine` + `BarList` (raporlarda kullanılıyordu) **ReportKit'e taşındı**,
+  kullanılmayan `MiniCharts.Funnel` silindi. Panel ile raporlar tek grafik dilinde.
+- **Renk disiplini:** kırmızı yalnız gecikmiş/kritik işler için (aksiyon şeridi).
+- Migration yok (yalnız önyüz). `npm run build` ✓, 214 birim testi ✓.
+
 ## [1.18.0] — 2026-08-18
 
 ### Güvenlik (parola politikası sertleştirme — min 12 + harf/rakam)
