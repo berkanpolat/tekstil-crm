@@ -3,10 +3,20 @@ import { AlertTriangle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PERIODS, type Period, type PeriodKey } from '@/hooks/useMetrics'
+import {
+  funnelSvg, hourHistogramSvg, donutSvg, CHART_PALETTE,
+  type FunnelStep, type DonutSegment, type ReportPdfModel,
+} from '@/lib/reportChartSvg'
+// Grafik geometrisi + PDF modeli tek kaynak (reportChartSvg); buradan yeniden dışa verilir.
+export type { FunnelStep, DonutSegment, ReportKpi, ReportBlock, ReportPdfModel } from '@/lib/reportChartSvg'
 
-/** Rapor gövdesi sözleşmesi — CSV dışa aktarımını kabuğa bildirir. */
+/** Rapor gövdesi sözleşmesi — CSV + PDF dışa aktarımını kabuğa bildirir. */
 export interface CsvExport { filename: string; headers: string[]; rows: (string | number | null)[][] }
-export interface ReportProps { period: Period; setCsv: (b: CsvExport | null) => void }
+export interface ReportProps {
+  period: Period
+  setCsv: (b: CsvExport | null) => void
+  setPdf: (m: ReportPdfModel | null) => void
+}
 
 // datetime-local <-> ISO dönüşümü (yerel saat; render'da argümanlı new Date güvenli).
 function toLocalInput(iso: string): string {
@@ -117,15 +127,9 @@ export function ReportLoading() {
   )
 }
 
-// ── Grafik bileşenleri (SAF SVG) ───────────────────────────────────────
-// Bu SVG'ler PDF şablonunda (studio.html) birebir yeniden çizilecek; bu yüzden
-// renkler açık hex (ikas paleti), metinler <text> olarak SVG içinde — Tailwind
-// sınıfı / React'e özel kod GÖMÜLMEZ. Etiket/legend HTML tarafında ayrı durur.
-const SVGC = { accent: '#6e55ff', stuck: '#f59e0b', track: '#efedff', text: '#131318', muted: '#6b7280', white: '#ffffff' }
-// Donut/legend ortak paleti — Donut ile SwatchLegend aynı sırayı kullanır.
-// (İç tutulur: fast-refresh yalnız bileşen export'u ister. Bodies renk vermezse
-// Donut ve SwatchLegend aynı sırayla otomatik boyar.)
-const CHART_PALETTE = ['#6e55ff', '#f59e0b', '#22c55e', '#94a3b8', '#5b43f0', '#ef4444']
+// ── Grafik bileşenleri (SAF SVG — reportChartSvg tek kaynak) ────────────
+// Ekran ve PDF AYNI string üreticisini kullanır (funnelSvg/donutSvg/hourHistogramSvg);
+// bu bileşenler yalnız o string'i basar. Böylece iki taraf tanım gereği birebir aynı.
 
 /** Büyük rakam + altında açıklayıcı cümle ("100 talebin 52'sine 24 saatte yanıt"). */
 export function Insight({ value, label, sentence, tone }: {
@@ -140,94 +144,24 @@ export function Insight({ value, label, sentence, tone }: {
   )
 }
 
-export interface FunnelStep { label: string; value: number; note?: string }
 /** Yatay dönüşüm hunisi — her adımda ilerleyen (mor) vs takılıp bekleyen (amber). */
 export function Funnel({ steps, width = 560, rowHeight = 52 }: { steps: FunnelStep[]; width?: number; rowHeight?: number }) {
   if (!steps.length) return null
-  const max = Math.max(1, ...steps.map((s) => s.value))
-  const labelW = 128
-  const barW = width - labelW
-  const gap = 14
-  const height = steps.length * (rowHeight + gap) - gap
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" preserveAspectRatio="xMinYMin meet"
-      style={{ maxWidth: width }} role="img" aria-label="Dönüşüm hunisi">
-      {steps.map((s, i) => {
-        const next = steps[i + 1]
-        const y = i * (rowHeight + gap)
-        const barY = y + 18
-        const barH = rowHeight - 18
-        const fillW = Math.max(2, (s.value / max) * barW)
-        const advW = next ? Math.max(2, (Math.min(next.value, s.value) / max) * barW) : 0
-        return (
-          <g key={s.label}>
-            <text x={0} y={y + 12} fontSize={12} fontWeight={600} fill={SVGC.text}>{s.label}</text>
-            {s.note && <text x={width} y={y + 12} fontSize={11} textAnchor="end" fill={SVGC.muted}>{s.note}</text>}
-            <rect x={labelW} y={barY} width={barW} height={barH} rx={6} fill={SVGC.track} />
-            <rect x={labelW} y={barY} width={fillW} height={barH} rx={6} fill={next ? SVGC.stuck : SVGC.accent} />
-            {next && <rect x={labelW} y={barY} width={advW} height={barH} rx={6} fill={SVGC.accent} />}
-            <text x={labelW + 8} y={barY + barH / 2} fontSize={13} fontWeight={700} fill={SVGC.white} dominantBaseline="central">{s.value}</text>
-          </g>
-        )
-      })}
-    </svg>
-  )
+  return <div dangerouslySetInnerHTML={{ __html: funnelSvg(steps, { width, rowHeight }) }} />
 }
 
 /** Saate göre dağılım — 0–23 dikey çubuklar (eksik saatler 0 çizilir). */
 export function HourHistogram({ data, width = 560, height = 140 }: {
   data: { hour: number; count: number }[]; width?: number; height?: number
 }) {
-  const map = new Map(data.map((d) => [d.hour, d.count]))
-  const hours = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: map.get(h) ?? 0 }))
-  const max = Math.max(1, ...hours.map((h) => h.count))
-  const padT = 8, padB = 18
-  const chartH = height - padT - padB
-  const gap = 3
-  const bw = (width - gap * 23) / 24
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Saate göre talep">
-      {hours.map((h, i) => {
-        const bh = (h.count / max) * chartH
-        const x = i * (bw + gap)
-        return (
-          <g key={h.hour}>
-            <rect x={x} y={padT + (chartH - bh)} width={bw} height={Math.max(0.5, bh)} rx={2} fill={h.count ? SVGC.accent : SVGC.track} />
-            {h.hour % 3 === 0 && <text x={x + bw / 2} y={height - 4} fontSize={9} textAnchor="middle" fill={SVGC.muted}>{h.hour}</text>}
-          </g>
-        )
-      })}
-    </svg>
-  )
+  return <div dangerouslySetInnerHTML={{ __html: hourHistogramSvg(data, { width, height }) }} />
 }
 
-export interface DonutSegment { label: string; value: number; color?: string }
 /** Halka grafik — merkezde toplam. Legend ayrı (SwatchLegend), SAF SVG kalsın. */
 export function Donut({ segments, size = 150, thickness = 24, centerLabel }: {
   segments: DonutSegment[]; size?: number; thickness?: number; centerLabel?: string
 }) {
-  const total = segments.reduce((s, x) => s + x.value, 0)
-  const r = (size - thickness) / 2
-  const c = size / 2
-  const circ = 2 * Math.PI * r
-  let offset = 0
-  return (
-    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label="Dağılım">
-      <circle cx={c} cy={c} r={r} fill="none" stroke={SVGC.track} strokeWidth={thickness} />
-      {total > 0 && segments.map((s, i) => {
-        const len = (s.value / total) * circ
-        const el = (
-          <circle key={i} cx={c} cy={c} r={r} fill="none" stroke={s.color ?? CHART_PALETTE[i % CHART_PALETTE.length]}
-            strokeWidth={thickness} strokeDasharray={`${len} ${circ - len}`} strokeDashoffset={-offset}
-            transform={`rotate(-90 ${c} ${c})`} />
-        )
-        offset += len
-        return el
-      })}
-      <text x={c} y={centerLabel ? c - 2 : c} textAnchor="middle" dominantBaseline="central" fontSize={22} fontWeight={700} fill={SVGC.text}>{total}</text>
-      {centerLabel && <text x={c} y={c + 16} textAnchor="middle" fontSize={11} fill={SVGC.muted}>{centerLabel}</text>}
-    </svg>
-  )
+  return <div style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: donutSvg(segments, { size, thickness, centerLabel }) }} />
 }
 
 /** Grafik legend'ı (HTML) — Donut ile aynı paleti/sırayı paylaşır. */

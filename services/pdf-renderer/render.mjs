@@ -140,6 +140,12 @@ async function buildDoc(page, { template, data, language }) {
           <div>${esc(L.note)}</div><div>${L.generated}: ${esc(e.generatedAt)}</div>
         </div>
       </div>`
+    } else if (template === 'rapor') {
+      // P7-C — Raporlar PDF. KPI/grafik/tablo gövdesi istemcide reportChartSvg ile
+      // kurulur (ekranla birebir aynı SVG) ve data.rapor.bodyHtml olarak gelir;
+      // antet/font/sayfa çerçevesi studio.html'deki window.reportDoc içindedir.
+      P('portrait')
+      root.innerHTML = window.reportDoc(data.rapor || {})
     } else {
       throw new Error('bilinmeyen şablon: ' + template)
     }

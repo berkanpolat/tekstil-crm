@@ -2405,7 +2405,9 @@ function siparisDocHTML(){
  const adet=parseInt(sip.toplam)||t.grand||0;
  const birim=parseFloat(sip.birim)||0,tav=parseFloat(sip.tavsiye)||0;
  const ara=adet*birim,kdv=ara*0.10,genel=ara+kdv;
- const bsistemLbl=sip.bsistem+(sip.bedenler.length?' ('+sip.bedenler[0]+'–'+sip.bedenler[sip.bedenler.length-1]+')':'');
+ // Künye özeti: tam beden listesi (noktalı virgülle). 5'ten uzunsa ilk 3 + "…+N" (künye taşmasın).
+ const bedenlerStr=sip.bedenler.length>5?sip.bedenler.slice(0,3).join('; ')+'; …+'+(sip.bedenler.length-3):sip.bedenler.join('; ');
+ const bsistemLbl=sip.bsistem+(sip.bedenler.length?' ('+bedenlerStr+')':'');
  const uk=sip.urunkodu||'—';
  const renkText=sip.renkler.length?sip.renkler.map(r=>H(r.ad)).join(' · '):'—';
  const grupTur=(sip.grup||'—');
@@ -3944,5 +3946,31 @@ function catExportList(){
     catExportCSV(r.aoa,'urun-fiyat-listesi-'+stamp+'.csv'); toast(msg+' (CSV)');
   });
 }
+
+// ── P7-C Raporlar PDF — ÇERÇEVE (antet/font/sayfa). Gövde (KPI/grafik/tablo)
+// istemcide reportChartSvg ile kurulup r.bodyHtml olarak gelir → ekranla birebir.
+// .sheet KULLANILMAZ: sabit yükseklik + overflow:hidden çok sayfalı raporu kırpar.
+// Bunun yerine akan kapsayıcı + gömülü @page{margin} (print-root her istekte
+// temizlendiği için stil kendini temizler).
+function reportDoc(r){
+  r = r || {};
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  var title=esc(r.title||'Rapor'), period=esc(r.periodLabel||''), range=r.rangeLabel?' · '+esc(r.rangeLabel):'';
+  var gen=esc(r.generatedAt||''), foot=esc(r.footnote||'Panelle aynı kaynaktan üretilmiştir; bilgilendirme amaçlıdır.');
+  return ''
+    + '<style>@media print{@page{size:A4 portrait;margin:14mm}}</style>'
+    + '<div style="width:100%;font-family:Inter,Arial,sans-serif;color:#131318;background:#fff">'
+    +   '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #6e55ff;padding-bottom:10px">'
+    +     '<div><div style="font-size:20px;font-weight:700">Tekstil A.Ş.</div>'
+    +       '<div style="color:#777;font-size:11px">Küçükbakkalköy Mah. Dudullu Cd. Brandium Rezidans, İstanbul / Türkiye · 0850 242 57 00 · info@tekstilas.com</div></div>'
+    +     '<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#6e55ff">'+title+'</div>'
+    +       '<div style="color:#888;font-size:11px">'+period+range+'</div></div>'
+    +   '</div>'
+    +   '<div style="margin-top:14px">'+(r.bodyHtml||'')+'</div>'
+    +   '<div style="margin-top:22px;display:flex;justify-content:space-between;color:#888;font-size:11px;border-top:1px solid #eee;padding-top:8px">'
+    +     '<div>'+foot+'</div><div>Oluşturma: '+gen+'</div></div>'
+    + '</div>';
+}
+window.reportDoc = reportDoc;
 
 </script>

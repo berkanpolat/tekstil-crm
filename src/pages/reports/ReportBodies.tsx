@@ -42,17 +42,33 @@ function useSimpleMetric<T>(fn: string, period: ReportProps['period'], on = true
 }
 
 // ── 1) TALEP RAPORU ────────────────────────────────────────────────────
-export function TalepRaporu({ period, setCsv }: ReportProps) {
+export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
   const [sp, setSp] = useSearchParams()
   const opts = useFilterOptions()
   const f = { channel: numOrNull(sp.get('ch')), category: numOrNull(sp.get('cat')), province: numOrNull(sp.get('prov')) }
   const { data, isLoading } = useRequestsMetric(period, f)
   const trend = useRequestTrend(period)
   useEffect(() => {
-    if (!data) { setCsv(null); return }
+    if (!data) { setCsv(null); setPdf(null); return }
     setCsv({ filename: `talep-raporu-${period.key}`, headers: ['Kanal', 'Talep'], rows: (data.by_channel ?? []).map((x) => [x.label, x.count]) })
-    return () => setCsv(null)
-  }, [data, period.key, setCsv])
+    setPdf({
+      kpis: [
+        { label: 'Toplam talep', value: String(data.total ?? 0), sub: `önceki dönem: ${data.prev_total ?? 0}` },
+        { label: '24 saat sözü', value: pct(data.sla_rate), sub: `${data.sla_met_count ?? 0} tuttu · ${data.sla_missed_count ?? 0} kaçtı · ${data.sla_pending_count ?? 0} sürüyor` },
+        { label: 'Ort. ilk yanıt', value: data.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—' },
+        { label: 'Süresi sürenler', value: String(data.sla_pending_count ?? 0), sub: 'henüz SLA dolmadı' },
+      ],
+      blocks: [
+        ...((data.total ?? 0) > 0 ? [{ kind: 'sentence' as const, text: `${data.total} talebin ${data.sla_met_count ?? 0}'ine söz verilen sürede (24 saat) teklif çıkıldı (${pct(data.sla_rate)}); ${data.sla_missed_count ?? 0}'i geç kaldı, ${data.sla_pending_count ?? 0}'inde süre henüz dolmadı.` }] : []),
+        { kind: 'hist', title: 'Saate göre talep dağılımı', data: data.by_hour ?? [], caption: 'Taleplerin günün hangi saatlerinde yoğunlaştığı (0–23, yerel saat).' },
+        { kind: 'bars', title: 'Kanala göre', rows: labeledRows(data.by_channel) },
+        { kind: 'bars', title: 'Kategoriye göre', rows: labeledRows(data.by_category) },
+        { kind: 'bars', title: 'İle göre', rows: labeledRows(data.by_province), empty: 'İl verisi yok.' },
+        { kind: 'notice', variant: 'none', title: 'İlçe kırılımı toplanmıyor', text: 'Coğrafi dağılım yalnızca il bazındadır; ilçe bu metrik için toplanmıyor.' },
+      ],
+    })
+    return () => { setCsv(null); setPdf(null) }
+  }, [data, period.key, setCsv, setPdf])
   function setF(key: string, v: string) { const p = new URLSearchParams(sp); if (v) p.set(key, v); else p.delete(key); setSp(p, { replace: true }) }
   if (isLoading) return <ReportLoading />
   return (
@@ -96,15 +112,31 @@ export function TalepRaporu({ period, setCsv }: ReportProps) {
 }
 
 // ── 2) TEKLİF RAPORU ───────────────────────────────────────────────────
-export function TeklifRaporu({ period, setCsv }: ReportProps) {
+export function TeklifRaporu({ period, setCsv, setPdf }: ReportProps) {
   const { data, isLoading } = useQuotesMetric(period)
   const decided = (data?.accepted ?? 0) + (data?.rejected ?? 0)
   const conv = decided > 0 ? (100 * (data?.accepted ?? 0)) / decided : null
   useEffect(() => {
-    if (!data) { setCsv(null); return }
+    if (!data) { setCsv(null); setPdf(null); return }
     setCsv({ filename: `teklif-raporu-${period.key}`, headers: ['Red sebebi', 'Adet'], rows: (data.by_rejection_reason ?? []).map((x) => [x.label, x.count]) })
-    return () => setCsv(null)
-  }, [data, period.key, setCsv])
+    setPdf({
+      kpis: [
+        { label: 'Gönderilen teklif', value: String(data.sent ?? 0), sub: `önceki dönem: ${data.prev_sent ?? 0}` },
+        { label: 'Dönüşüm (sonuçlanan)', value: pct(conv), sub: `${data.accepted ?? 0} kabul / ${decided} sonuçlanan` },
+        { label: 'Cevap bekleyen', value: String(data.pending ?? 0), sub: 'payda dışında' },
+        { label: 'Ort. yanıt süresi', value: data.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—' },
+      ],
+      blocks: [
+        ...((data.sent ?? 0) > 0 ? [{ kind: 'sentence' as const, text: `${data.sent} teklifin ${data.accepted ?? 0}'i kabul edildi, ${data.rejected ?? 0}'i reddedildi, ${data.pending ?? 0}'i hâlâ cevap bekliyor. Sonuçlananlar üzerinden dönüşüm ${pct(conv)}.` }] : []),
+        { kind: 'donut', title: 'Sonuç dağılımı', centerLabel: 'teklif',
+          segments: [{ label: 'Kabul', value: data.accepted ?? 0 }, { label: 'Reddedildi', value: data.rejected ?? 0 }, { label: 'Cevap bekleyen', value: data.pending ?? 0 }],
+          legend: [{ label: 'Kabul (numuneye geçildi)', value: data.accepted ?? 0 }, { label: 'Reddedildi', value: data.rejected ?? 0 }, { label: 'Cevap bekleyen', value: data.pending ?? 0 }] },
+        { kind: 'bars', title: 'Red sebepleri', rows: labeledRows(data.by_rejection_reason), empty: 'Bu dönemde red yok.' },
+        { kind: 'notice', variant: 'none', title: 'Geçmiş tekliflerde atıf türetilmiş', text: 'Süreç Takip aktarımındaki teklifler operasyon sahibinden türetilmiştir; teklifi gerçekte kimin oluşturduğu kayıtlı değildir.' },
+      ],
+    })
+    return () => { setCsv(null); setPdf(null) }
+  }, [data, decided, conv, period.key, setCsv, setPdf])
   if (isLoading) return <ReportLoading />
   return (
     <div className="space-y-4">
@@ -149,7 +181,7 @@ export function TeklifRaporu({ period, setCsv }: ReportProps) {
 // metric_pipeline üç sayı verir: ilerleyen (mor) · bekleyen (amber) · düşen (red/iptal).
 // Özdeşlik: reached = advanced + waiting + dead. "Şu an numunede" güncel durumdur
 // (dönemden bağımsız; metric_active_funnel).
-export function DonusumRaporu({ period, setCsv }: ReportProps) {
+export function DonusumRaporu({ period, setCsv, setPdf }: ReportProps) {
   const { data, isLoading } = usePipelineMetric(period)
   const active = useActiveFunnel()
   const steps = useMemo(() => data?.steps ?? [], [data])
@@ -161,15 +193,36 @@ export function DonusumRaporu({ period, setCsv }: ReportProps) {
       ? `${s.advanced} ilerledi · ${s.waiting} bekliyor${s.dead > 0 ? ` · ${s.dead} düştü` : ''}`
       : undefined,
   })), [steps])
+  const activeSamples = active.data?.samples ?? 0
   useEffect(() => {
-    if (!data) { setCsv(null); return }
+    if (!data) { setCsv(null); setPdf(null); return }
     setCsv({
       filename: `donusum-raporu-${period.key}`,
       headers: ['Adım', 'Ulaşan', 'İlerleyen', 'Bekleyen', 'Düşen (red/iptal)'],
       rows: steps.map((s) => [s.label, s.reached, s.advanced, s.waiting, s.dead]),
     })
-    return () => setCsv(null)
-  }, [data, steps, period.key, setCsv])
+    const t = byKey.get('talep'), q = byKey.get('teklif'), n = byKey.get('numune'), o = byKey.get('siparis')
+    const total = data.total ?? 0
+    const toOrders = o?.reached ?? 0
+    const overall = total > 0 ? (100 * toOrders) / total : null
+    const qAlive = (q?.advanced ?? 0) + (q?.waiting ?? 0)
+    const lowData = (n?.reached ?? 0) < 20 || (o?.reached ?? 0) < 20
+    setPdf({
+      kpis: [
+        { label: 'Talep (giriş)', value: String(total), sub: 'bu dönemde açılan toplam talep' },
+        { label: 'Teklife geçen', value: t?.advance_rate == null ? '—' : `%${t.advance_rate.toFixed(0)}`, sub: `${t?.advanced ?? 0} geçti · ${t?.waiting ?? 0} bekliyor` },
+        { label: 'Şu an numunede', value: String(activeSamples), sub: 'anlık durum (dönemden bağımsız)' },
+        { label: 'Uçtan uca dönüşüm', value: overall == null ? '—' : `%${overall.toFixed(1)}`, sub: `${toOrders}/${total} siparişe ulaştı` },
+      ],
+      blocks: [
+        ...(q && q.reached > 0 ? [{ kind: 'sentence' as const, text: `${q.reached} teklifin ${q.dead}'i reddedildi/iptal edildi, ${qAlive}'i canlı — bunların ${q.advanced}'i numuneye geçti, ${q.waiting}'i henüz numuneye geçmedi.` }] : []),
+        { kind: 'funnel', title: 'Dönüşüm hunisi', steps: funnelSteps, caption: 'Her adım notu: ilerleyen · bekleyen · düşen (red/iptal). Mor = ilerleyen, amber = bekleyen/düşen.' },
+        ...(lowData ? [{ kind: 'notice' as const, variant: 'low' as const, title: 'Numune/sipariş verisi henüz sığ', text: `Bu dönemde ${n?.reached ?? 0} numune ve ${o?.reached ?? 0} sipariş var. Anlamlı numune→sipariş→teslimat oranı için adım başına en az ~20 kayıt gerekir; şimdilik yalnızca talep→teklif güvenilir.` }] : []),
+        { kind: 'notice', variant: 'none', title: 'Teslimat termin uyumu bu huniye dahil değil', text: 'Sipariş→teslimat adımında zamanında teslim oranı ayrıca toplanmıyor; huni yalnızca aşamaya ulaşma akışını gösterir.' },
+      ],
+    })
+    return () => { setCsv(null); setPdf(null) }
+  }, [data, steps, byKey, funnelSteps, activeSamples, period.key, setCsv, setPdf])
   if (isLoading) return <ReportLoading />
 
   const talep = byKey.get('talep')
@@ -231,13 +284,26 @@ export function DonusumRaporu({ period, setCsv }: ReportProps) {
 
 // ── 4) FİNANS RAPORU (reports.finance) ─────────────────────────────────
 interface FinanceMetricR { revenue_usd: number; revenue_try: number; collected_usd: number; outstanding_usd: number; overdue_usd: number; by_month: { month: string; revenue_usd: number; revenue_try: number }[] }
-export function FinansRaporu({ period, setCsv }: ReportProps) {
+export function FinansRaporu({ period, setCsv, setPdf }: ReportProps) {
   const { data, isLoading } = useSimpleMetric<FinanceMetricR>('metric_finance', period)
   useEffect(() => {
-    if (!data) { setCsv(null); return }
+    if (!data) { setCsv(null); setPdf(null); return }
     setCsv({ filename: `finans-raporu-${period.key}`, headers: ['Ay', 'Ciro (USD)', 'Ciro (TRY)'], rows: (data.by_month ?? []).map((x) => [x.month, x.revenue_usd, x.revenue_try]) })
-    return () => setCsv(null)
-  }, [data, period.key, setCsv])
+    const collectRate = (data.revenue_usd ?? 0) > 0 ? ` (%${((100 * (data.collected_usd ?? 0)) / (data.revenue_usd ?? 1)).toFixed(0)})` : ''
+    setPdf({
+      kpis: [
+        { label: 'Ciro (USD)', value: formatMoney(data.revenue_usd ?? 0, 'USD'), sub: formatMoney(data.revenue_try ?? 0, 'TRY') },
+        { label: 'Tahsil edilen', value: formatMoney(data.collected_usd ?? 0, 'USD') },
+        { label: 'Açık alacak', value: formatMoney(data.outstanding_usd ?? 0, 'USD') },
+        { label: 'Gecikmiş', value: formatMoney(data.overdue_usd ?? 0, 'USD') },
+      ],
+      blocks: [
+        { kind: 'sentence', text: `Bu dönem ${formatMoney(data.revenue_usd ?? 0, 'USD')} ciro tahakkuk etti; ${formatMoney(data.collected_usd ?? 0, 'USD')} tahsil edildi${collectRate}. Açık alacak ${formatMoney(data.outstanding_usd ?? 0, 'USD')}, bunun ${formatMoney(data.overdue_usd ?? 0, 'USD')}'ı vadesi geçmiş.` },
+        { kind: 'table', title: 'Aya göre ciro', headers: ['Ay', 'USD', 'TRY'], rows: (data.by_month ?? []).map((x) => [x.month, formatMoney(x.revenue_usd, 'USD'), formatMoney(x.revenue_try, 'TRY')]) },
+      ],
+    })
+    return () => { setCsv(null); setPdf(null) }
+  }, [data, period.key, setCsv, setPdf])
   if (isLoading) return <ReportLoading />
   return (
     <div className="space-y-4">
@@ -262,21 +328,37 @@ export function FinansRaporu({ period, setCsv }: ReportProps) {
 }
 
 // ── 5) EKİP & ETKİLEŞİM RAPORU ─────────────────────────────────────────
-export function EkipRaporu({ period, setCsv }: ReportProps) {
+export function EkipRaporu({ period, setCsv, setPdf }: ReportProps) {
   const emp = useEmployeesMetric(period)
   const inter = useInteractionsMetric(period)
   const empData = emp.data
+  const interData = inter.data
   const rows = useMemo(() => (empData ?? []).slice().sort((a, b) => (b.requests_handled ?? 0) - (a.requests_handled ?? 0)), [empData])
   useEffect(() => {
-    if (!empData) { setCsv(null); return }
-    const sorted = (empData ?? []).slice().sort((a, b) => (b.requests_handled ?? 0) - (a.requests_handled ?? 0))
+    if (!empData) { setCsv(null); setPdf(null); return }
     setCsv({
       filename: `ekip-raporu-${period.key}`,
       headers: ['Çalışan', 'E-posta', 'Talep', 'Teklif', 'Kabul', 'Red', 'Bekleyen', 'Dönüşüm %', 'Etkileşim'],
-      rows: sorted.map((e) => [e.name, e.email, e.requests_handled, e.quotes_sent, e.quotes_accepted, e.quotes_rejected, e.quotes_pending, e.conversion_rate ?? '', e.interactions]),
+      rows: rows.map((e) => [e.name, e.email, e.requests_handled, e.quotes_sent, e.quotes_accepted, e.quotes_rejected, e.quotes_pending, e.conversion_rate ?? '', e.interactions]),
     })
-    return () => setCsv(null)
-  }, [empData, period.key, setCsv])
+    const top = rows[0]
+    setPdf({
+      kpis: [
+        { label: 'Toplam etkileşim', value: String(interData?.total ?? 0), sub: `önceki dönem: ${interData?.prev_total ?? 0}` },
+        { label: 'Olumlu oran', value: pct(interData?.positive_rate) },
+        { label: 'Aktif çalışan', value: String(rows.length) },
+        { label: 'Toplam teklif', value: String(rows.reduce((s, e) => s + (e.quotes_sent ?? 0), 0)) },
+      ],
+      blocks: [
+        ...(top ? [{ kind: 'sentence' as const, text: `Bu dönem ${rows.length} çalışan aktifti; en çok talebi ${top.name} yürüttü (${top.requests_handled} talep, ${top.quotes_sent} teklif${top.conversion_rate != null ? `, dönüşüm %${top.conversion_rate.toFixed(0)}` : ''}).` }] : []),
+        { kind: 'table', title: 'Çalışan performansı',
+          headers: ['Çalışan', 'Talep', 'Teklif', 'Bekleyen', 'Dönüşüm', 'Etkileşim'],
+          rows: rows.map((e) => [e.name, e.requests_handled, e.quotes_sent, e.quotes_pending, e.conversion_rate == null ? '—' : `%${e.conversion_rate.toFixed(0)}`, e.interactions]) },
+        { kind: 'notice', variant: 'none', title: 'Dönüşüm = kabul ÷ sonuçlanan', text: 'Cevap bekleyen teklifler paydaya girmez. Geçmiş teklifler Süreç Takip aktarımında operasyon sahibinden türetilmiştir.' },
+      ],
+    })
+    return () => { setCsv(null); setPdf(null) }
+  }, [empData, interData, rows, period.key, setCsv, setPdf])
   if (emp.isLoading) return <ReportLoading />
   return (
     <div className="space-y-4">

@@ -13,6 +13,35 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.15.0] — 2026-08-18
+
+### Eklendi (Raporlar yenileme — Paket C: profesyonel rapor PDF'i)
+- **Belge motoruyla aynı görünümde rapor PDF'i.** `window.print()` yerine PDF servisi
+  (`template: 'rapor'`) — antet/font/sayfa çerçevesi `studio.html` → `window.reportDoc()`
+  içinde; gövde (KPI + açıklayıcı cümle + SVG grafik + tablo) istemcide kurulup
+  `data.rapor.bodyHtml` olarak gönderiliyor.
+- **Paylaşılan tek kaynak `src/lib/reportChartSvg.ts`** (Strateji A): SVG grafik geometrisi
+  (funnel/donut/histogram) saf string üreten fonksiyonlar. **Hem ekran (`ReportKit`,
+  `dangerouslySetInnerHTML`) hem PDF aynı fonksiyonları kullanır** → grafikler tanım gereği
+  birebir aynı, serviste sıfır grafik kodu, kayma yok. Ekran çıktısı değişmedi (aynı SVG).
+- **`src/lib/reportPdf.ts`:** rapor modelini (`ReportPdfModel`: KPI + blok listesi) inline-stilli
+  HTML gövdeye çevirir (`buildReportBodyHtml`) ve servise yollar (`fetchReportPdf`).
+- **`ReportProps.setPdf` sözleşmesi:** 5 rapor (Talep/Teklif/Dönüşüm/Finans/Ekip) yazdırılabilir
+  modelini bildirir; PDF butonu servise gider, **servis kapalı/hatalıysa Excel (CSV) indirmeye düşer**
+  (sonner bildirimi).
+- **Çok sayfa güvenli:** `reportDoc` sabit yükseklikli `.sheet` (overflow:hidden → kırpma)
+  KULLANMAZ; akan kapsayıcı + gömülü `@page{margin:14mm}` (print-root her istekte temizlendiği
+  için stil kendini temizler). Yerel doğrulama: 60 satırlık tablo → 3 sayfa, kırpma yok.
+- **Testler:** `reportChartSvg.test.ts` (13 test) — SVG geometrisi, kaçış, model serileştirme.
+  Tüm suite 214 test geçer.
+- **render.mjs:** `rapor` şablon dispatch'i eklendi.
+- Yan (önceden bekleyen, ilişkisiz): `studio.html` sipariş formu beden listesi künye özeti
+  (5'ten uzunsa "…+N" kısaltma) — izlenmeyen değişikliğin commit'i.
+
+> **Deploy (SENDE):** PDF servisi yeniden dağıtılmalı (studio.html + render.mjs değişti).
+> `cd services/pdf-renderer && fly deploy`. Önyüzde `VITE_PDF_SERVICE_URL` zaten tanımlı;
+> tanımsız ortamda PDF butonu otomatik CSV'ye düşer.
+
 ## [1.14.0] — 2026-08-18
 
 ### Eklendi (Raporlar yenileme — Paket B: dönüşüm hunisi RPC + rapor gövdeleri)
