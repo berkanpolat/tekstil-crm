@@ -5,12 +5,14 @@ import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 
 // ── Dönem (URL'de kalıcı) ──────────────────────────────────────────────
-export type PeriodKey = 'today' | 'last2' | 'week' | 'month' | 'last_month' | 'custom'
+export type PeriodKey = 'today' | 'last2' | 'last7' | 'week' | 'month' | 'quarter' | 'last_month' | 'custom'
+// Rapor ön tanımları. `last2`/`week`/`last_month` geçmiş URL'lerle uyumluluk için
+// PeriodKey + computeRange'de kalır ama ön tanım butonu olarak gösterilmez.
 export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: 'today', label: 'Bugün' },
-  { key: 'week', label: 'Bu hafta' },
+  { key: 'last7', label: 'Son 7 gün' },
   { key: 'month', label: 'Bu ay' },
-  { key: 'last_month', label: 'Geçen ay' },
+  { key: 'quarter', label: 'Bu çeyrek' },
   { key: 'custom', label: 'Özel' },
 ]
 
@@ -24,7 +26,9 @@ export function computeRange(key: PeriodKey, nowMs: number, from?: string | null
   switch (key) {
     case 'today': start = startOfDay(now); break
     case 'last2': { start = startOfDay(now); start.setDate(start.getDate() - 1); return { key, from: start.toISOString(), to: end.toISOString(), label: 'Son 2 gün' } }
+    case 'last7': { start = startOfDay(now); start.setDate(start.getDate() - 6); break }
     case 'week': { start = startOfDay(now); const dow = (start.getDay() + 6) % 7; start.setDate(start.getDate() - dow); break }
+    case 'quarter': start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); break
     case 'last_month': {
       const s = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const e = new Date(now.getFullYear(), now.getMonth(), 1)

@@ -1,11 +1,14 @@
 import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { formatMoney } from '@/lib/money'
-import { Kpi, ReportSection, DataTable, ReportLoading, type ReportProps } from '@/components/reports/ReportKit'
+import {
+  Kpi, Insight, ReportSection, DataTable, ReportLoading,
+  Funnel, HourHistogram, Donut, SwatchLegend, LowDataNotice, type ReportProps,
+} from '@/components/reports/ReportKit'
 import { BarList, TrendLine } from '@/components/dashboard/MiniCharts'
 import {
   useRequestsMetric, useRequestTrend, useQuotesMetric, useEmployeesMetric,
-  useInteractionsMetric, useFilterOptions, type Labeled,
+  useInteractionsMetric, useFilterOptions, useFunnelMetric, useActiveFunnel, type Labeled,
 } from '@/hooks/useMetrics'
 import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
@@ -67,6 +70,10 @@ export function TalepRaporu({ period, setCsv }: ReportProps) {
         <Kpi label="Süresi sürenler" value={String(data?.sla_pending_count ?? 0)} sub="henüz SLA dolmadı" />
       </div>
       <ReportSection title="Talep eğilimi (günlük)"><TrendLine points={trend.data ?? []} /></ReportSection>
+      <ReportSection title="Saate göre talep dağılımı">
+        <HourHistogram data={data?.by_hour ?? []} />
+        <p className="text-text-muted text-xs">Taleplerin günün hangi saatlerinde yoğunlaştığını gösterir (0–23, yerel saat).</p>
+      </ReportSection>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportSection title="Kanala göre"><BarList rows={labeledRows(data?.by_channel)} /></ReportSection>
         <ReportSection title="Kategoriye göre"><BarList rows={labeledRows(data?.by_category)} /></ReportSection>
@@ -99,11 +106,18 @@ export function TeklifRaporu({ period, setCsv }: ReportProps) {
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportSection title="Sonuç dağılımı">
-          <DataTable cols={[{ key: 'k', label: 'Sonuç' }, { key: 'v', label: 'Adet', align: 'right' }]} rows={[
-            { k: 'Kabul (numuneye geçildi)', v: data?.accepted ?? 0 },
-            { k: 'Reddedildi', v: data?.rejected ?? 0 },
-            { k: 'Cevap bekleyen', v: data?.pending ?? 0 },
-          ]} />
+          <div className="flex flex-wrap items-center gap-6">
+            <Donut centerLabel="teklif" segments={[
+              { label: 'Kabul', value: data?.accepted ?? 0 },
+              { label: 'Reddedildi', value: data?.rejected ?? 0 },
+              { label: 'Cevap bekleyen', value: data?.pending ?? 0 },
+            ]} />
+            <SwatchLegend items={[
+              { label: 'Kabul (numuneye geçildi)', value: data?.accepted ?? 0 },
+              { label: 'Reddedildi', value: data?.rejected ?? 0 },
+              { label: 'Cevap bekleyen', value: data?.pending ?? 0 },
+            ]} />
+          </div>
         </ReportSection>
         <ReportSection title="Red sebepleri"><BarList rows={labeledRows(data?.by_rejection_reason)} barClass="bg-danger-foreground" empty="Bu dönemde red yok." /></ReportSection>
       </div>
@@ -112,59 +126,70 @@ export function TeklifRaporu({ period, setCsv }: ReportProps) {
   )
 }
 
-// ── 3) NUMUNE RAPORU ───────────────────────────────────────────────────
-interface SamplesMetric { total: number; by_status: Labeled[]; avg_rounds: number; three_plus_count: number; by_revision_round: { round: number; count: number }[]; avg_days_to_approval: number }
-export function NumuneRaporu({ period, setCsv }: ReportProps) {
-  const { data, isLoading } = useSimpleMetric<SamplesMetric>('metric_samples', period)
+// ── 3) DÖNÜŞÜM HUNİSİ (numune + sipariş birleşik) ──────────────────────
+// Akış: Talep → Teklif → Numune → Sipariş. Her adımda ilerleyen (mor) vs takılıp
+// geçmeyen (amber). "Şu an numunede" güncel durumdur (dönemden bağımsız).
+// NOT (Paket B): adım-adım BEKLEYEN kesinliği için metric_pipeline RPC gelecek;
+// şimdilik bekleyen = değer − sonraki adım değeri (yaklaşık) olarak gösteriliyor.
+export function DonusumRaporu({ period, setCsv }: ReportProps) {
+  const { data, isLoading } = useFunnelMetric(period)
+  const active = useActiveFunnel()
+  const steps = useMemo(() => {
+    if (!data) return []
+    const base = [
+      { label: 'Talep', value: data.requests },
+      { label: 'Teklif', value: data.quotes },
+      { label: 'Numune', value: data.samples },
+      { label: 'Sipariş', value: data.orders },
+    ]
+    return base.map((s, i) => {
+      const next = base[i + 1]
+      const stuck = next ? Math.max(0, s.value - next.value) : 0
+      return { label: s.label, value: s.value, note: next && s.value > 0 ? `${next.value} ilerledi · ${stuck} geçmedi` : undefined }
+    })
+  }, [data])
   useEffect(() => {
     if (!data) { setCsv(null); return }
-    setCsv({ filename: `numune-raporu-${period.key}`, headers: ['Durum', 'Adet'], rows: (data.by_status ?? []).map((x) => [x.label, x.count]) })
+    setCsv({ filename: `donusum-raporu-${period.key}`, headers: ['Adım', 'Adet'], rows: steps.map((s) => [s.label, s.value]) })
     return () => setCsv(null)
-  }, [data, period.key, setCsv])
+  }, [data, steps, period.key, setCsv])
   if (isLoading) return <ReportLoading />
+  const requests = data?.requests ?? 0
+  const quotes = data?.quotes ?? 0
+  const orders = data?.orders ?? 0
+  const overall = requests > 0 ? (100 * orders) / requests : null
+  const lowData = (data?.samples ?? 0) < 20
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Toplam numune" value={String(data?.total ?? 0)} />
-        <Kpi label="Ort. revizyon turu" value={data?.avg_rounds != null ? data.avg_rounds.toFixed(1) : '—'} />
-        <Kpi label="3+ tura ulaşan" value={String(data?.three_plus_count ?? 0)} tone={(data?.three_plus_count ?? 0) > 0 ? 'text-warning-foreground' : undefined} sub="fazla revizyon" />
-        <Kpi label="Ort. onay süresi" value={data?.avg_days_to_approval != null ? `${data.avg_days_to_approval.toFixed(1)} gün` : '—'} />
+        <Insight label="Talep (giriş)" value={String(requests)} sentence="Huninin girişi: bu dönemki toplam talep." />
+        <Insight label="Teklife dönen" value={quotes ? `%${((100 * quotes) / Math.max(1, requests)).toFixed(0)}` : '—'}
+          sentence={`${requests} talebin ${quotes}'ine teklif çıkıldı.`} />
+        <Insight label="Şu an numunede" value={String(active.data?.samples ?? 0)}
+          sentence="Güncelde numune aşamasında bekleyen iş (dönemden bağımsız)." />
+        <Insight label="Uçtan uca dönüşüm" value={overall == null ? '—' : `%${overall.toFixed(1)}`}
+          tone={(overall ?? 0) >= 20 ? 'text-success-foreground' : 'text-warning-foreground'}
+          sentence={`${requests} talebin ${orders}'i siparişe ulaştı.`} />
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ReportSection title="Duruma göre"><BarList rows={labeledRows(data?.by_status)} /></ReportSection>
-        <ReportSection title="Revizyon turuna göre">
-          <DataTable cols={[{ key: 'r', label: 'Tur' }, { key: 'c', label: 'Numune', align: 'right' }]}
-            rows={(data?.by_revision_round ?? []).map((x) => ({ r: `${x.round}. tur`, c: x.count }))} />
-        </ReportSection>
-      </div>
+      <ReportSection title="Dönüşüm hunisi">
+        <Funnel steps={steps} />
+        <p className="text-text-muted text-xs">
+          <span className="inline-block size-2 translate-y-px rounded-sm" style={{ background: '#6e55ff' }} /> mor = sonraki adıma ilerleyen ·{' '}
+          <span className="inline-block size-2 translate-y-px rounded-sm" style={{ background: '#f59e0b' }} /> amber = o adımda takılıp geçmeyen.
+        </p>
+      </ReportSection>
+      {lowData && (
+        <LowDataNotice title="Numune/sipariş verisi henüz sığ">
+          Bu dönemde {data?.samples ?? 0} numune ve {data?.orders ?? 0} sipariş kaydı var. Anlamlı bir
+          numune→sipariş dönüşüm oranı için en az ~20 sipariş gerekiyor; şimdilik alt adımlar yön göstermez,
+          yalnızca giriş (talep→teklif) güvenilirdir.
+        </LowDataNotice>
+      )}
     </div>
   )
 }
 
-// ── 4) SİPARİŞ RAPORU ──────────────────────────────────────────────────
-interface OrdersMetric { total: number; by_status: Labeled[]; late_count: number; on_time_rate: number | null; on_time_count: number; cancelled_count: number; avg_production_days: number | null }
-export function SiparisRaporu({ period, setCsv }: ReportProps) {
-  const { data, isLoading } = useSimpleMetric<OrdersMetric>('metric_orders', period)
-  useEffect(() => {
-    if (!data) { setCsv(null); return }
-    setCsv({ filename: `siparis-raporu-${period.key}`, headers: ['Durum', 'Adet'], rows: (data.by_status ?? []).map((x) => [x.label, x.count]) })
-    return () => setCsv(null)
-  }, [data, period.key, setCsv])
-  if (isLoading) return <ReportLoading />
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Toplam sipariş" value={String(data?.total ?? 0)} />
-        <Kpi label="Zamanında teslim" value={pct(data?.on_time_rate)} tone={(data?.on_time_rate ?? 100) >= 80 ? 'text-success-foreground' : 'text-warning-foreground'} sub={`${data?.on_time_count ?? 0} zamanında`} />
-        <Kpi label="Geciken" value={String(data?.late_count ?? 0)} tone={(data?.late_count ?? 0) > 0 ? 'text-danger-foreground' : undefined} />
-        <Kpi label="Ort. üretim süresi" value={data?.avg_production_days != null ? `${data.avg_production_days.toFixed(0)} gün` : '—'} />
-      </div>
-      <ReportSection title="Duruma göre"><BarList rows={labeledRows(data?.by_status)} /></ReportSection>
-    </div>
-  )
-}
-
-// ── 5) FİNANS RAPORU (reports.finance) ─────────────────────────────────
+// ── 4) FİNANS RAPORU (reports.finance) ─────────────────────────────────
 interface FinanceMetricR { revenue_usd: number; revenue_try: number; collected_usd: number; outstanding_usd: number; overdue_usd: number; by_month: { month: string; revenue_usd: number; revenue_try: number }[] }
 export function FinansRaporu({ period, setCsv }: ReportProps) {
   const { data, isLoading } = useSimpleMetric<FinanceMetricR>('metric_finance', period)
@@ -190,7 +215,7 @@ export function FinansRaporu({ period, setCsv }: ReportProps) {
   )
 }
 
-// ── 6) EKİP & ETKİLEŞİM RAPORU ─────────────────────────────────────────
+// ── 5) EKİP & ETKİLEŞİM RAPORU ─────────────────────────────────────────
 export function EkipRaporu({ period, setCsv }: ReportProps) {
   const emp = useEmployeesMetric(period)
   const inter = useInteractionsMetric(period)

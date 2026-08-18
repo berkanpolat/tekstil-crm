@@ -68,7 +68,7 @@ export function RaporlarPage() {
 
       {/* Filtre çubuğu */}
       <div className="flex flex-wrap items-center gap-3 print:hidden">
-        <PeriodPicker period={period} onPick={(k) => setPeriod(k)} />
+        <PeriodPicker period={period} onPick={(k, range) => setPeriod(k, range)} />
       </div>
 
       {/* Yazdırma başlığı (yalnız print) */}

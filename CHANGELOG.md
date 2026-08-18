@@ -13,6 +13,31 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.13.0] — 2026-08-18
+
+### Eklendi (Raporlar yenileme — Paket A: önyüz iskelet, DB'ye dokunulmadı)
+- **Yeni saf-SVG grafik/bilgi bileşenleri (`ReportKit`):** PDF şablonunda (studio.html)
+  birebir yeniden çizilebilsin diye Tailwind/React'e özel kod gömülmeden, açık hex
+  (ikas paleti) ve SVG `<text>` ile yazıldı:
+  - `Insight` — büyük rakam + altında açıklayıcı cümle (ör. "199 talebin 103'üne 24 saatte yanıt").
+  - `Funnel` — yatay dönüşüm hunisi; her adımda ilerleyen (mor) vs takılıp geçmeyen (amber).
+  - `HourHistogram` — 0–23 saat dağılımı (eksik saatler 0 çizilir).
+  - `Donut` — merkezde toplam; legend ayrı (`SwatchLegend`, ortak palet/sıra).
+  - `LowDataNotice` — az veri (amber) / veri toplanmıyor (nötr) durumları.
+- **Dönem seçici yenilendi:** ön tanımlar **Bugün / Son 7 gün / Bu ay / Bu çeyrek**;
+  **"Özel"** seçilince tarih **ve saat** aralığı girişi (`datetime-local`). `useMetrics`:
+  `last7` + `quarter` PeriodKey + `computeRange` (eski `week`/`last_month`/`last2`
+  anahtarları URL uyumluluğu için korundu, ön tanım butonu olarak gösterilmez).
+- **Raporlar 6 → 5:** Numune + Sipariş raporları tek **"Dönüşüm Hunisi"** raporunda
+  birleştirildi (Talep → Teklif → Numune → Sipariş; şu-an-numunede güncel durumu,
+  sığ veri uyarısı). Talep raporuna saat histogramı, Teklif raporuna sonuç halkası eklendi.
+
+> Not: Yeni RPC/migration yok. Adım-adım BEKLEYEN kesinliği (`metric_pipeline`) ve
+> PDF servis şablonu Paket B/C'ye bırakıldı; Dönüşüm hunisinde bekleyen şimdilik
+> "değer − sonraki adım" ile yaklaşık gösteriliyor.
+
+---
+
 ## [1.12.0] — 2026-08-18
 
 ### Eklendi
