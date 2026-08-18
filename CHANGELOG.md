@@ -13,6 +13,33 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.17.0] — 2026-08-18
+
+### Güvenlik (ui.test hesabı — sabit şifre kaldırıldı + garantili teardown)
+- **Sorun:** ~20 UI test scripti, sabit `TestPass1!` şifreli bir **admin** hesabını
+  (ui.test) canlı DB'ye kuruyor, çoğu silmiyordu → üretimde bilinen admin arka kapısı.
+- **`scripts/lib/ui-test-user.mjs` (yeni, paylaşılan helper):**
+  - Şifre **her koşuda rastgele** (`randomBytes` → base64url, tırnaksız/SQL-güvenli).
+    Kaynakta artık sabit şifre yok.
+  - Import edilince **idempotent kurar** (`ensureUiTestUser`): önce temizler, sonra
+    `auth.users` + `auth.identities` + `public.users` (admin rolü, `must_change_password=false`).
+  - **Teardown process ÇIKIŞINDA garanti:** `process.on('exit'|'SIGINT'|'SIGTERM'|`
+    `'uncaughtException'|'unhandledRejection')` → senkron psql silme. Script çökse,
+    Ctrl-C ile kesilse, exception atsa bile hesap silinir.
+  - Bağlantı kendine yeter: scriptin PG* env'i varsa onu, yoksa `.env` pooler'ını kullanır.
+  - FK notu: `created_by/owner_id … on delete set null` → silme FK bloklamaz; sıra
+    `public.users` → `auth.users` (users.id → auth.users `on delete restrict`).
+- **20 script helper'a geçirildi:** sabit `const TEST = {…TestPass1!…}` → `import { UI_TEST as TEST }`.
+  "Var olduğunu varsayan" ~14 script artık hesabı kendi kurar (import = auto-ensure);
+  kuran 6 setup scripti de artık rastgele şifre kullanır + çökme-anında teardown kazanır.
+  `import-catalog.mjs` yalnız `--images` yolunda dinamik import ile kurar. `e2e-senaryolar.mjs`
+  (senaryo G owner'ı ui.test) yan-etkili import ile kurar/siler.
+- **Doğrulama:** 22 dosya `node --check` geçti. Canlı duman-testi (kur→çıkışta sil) ve
+  ui.test'in üretimde kalıp kalmadığı **Supabase pooler kesintisi bitince** yapılacak (parkta).
+- **Kapsam dışı (takip önerisi):** `ui_security.mjs` / `security_regression.mjs` kendi sabit
+  şifreli test kullanıcılarını (`uisec.*`/`sec.*`, `AdminPass1!` vb.) kuruyor — aynı sınıf risk,
+  ayrı temizlik. Ayrıca parola politikası sertleştirmesi (min 8→12, letters_digits) **onay bekliyor**.
+
 ## [1.16.0] — 2026-08-18
 
 ### Eklendi (Yerel otomatik yedekleme + doğrulama)

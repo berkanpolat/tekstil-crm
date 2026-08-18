@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync } from 'node:fs'
 const BASE = process.env.SHOT_BASE_URL ?? 'http://localhost:5173'
 const OUT = 'docs/assets/faz-3/p3-3-revamp'
 const PGURL = process.env.PGURL ?? readFileSync('/tmp/pgurl.txt', 'utf8').trim()
-const TEST = { email: 'ui.test@tekstilas.com', password: 'TestPass1!', id: '00000000-0000-0000-0000-0000000000f9' }
+import { UI_TEST as TEST } from './lib/ui-test-user.mjs'
 const sql = (s) => execFileSync('psql', [PGURL, '-tAc', s], { encoding: 'utf8' }).trim()
 mkdirSync(OUT, { recursive: true })
 

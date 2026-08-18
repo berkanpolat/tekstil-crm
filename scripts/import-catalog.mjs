@@ -29,7 +29,10 @@ async function loadEnv() {
 async function importImages() {
   const { url, anon } = await loadEnv()
   const supa = createClient(url, anon, { auth: { persistSession: false } })
-  const { error: authErr } = await supa.auth.signInWithPassword({ email: 'ui.test@tekstilas.com', password: 'TestPass1!' })
+  // Rastgele-şifreli geçici admin'i sadece bu yolda kur (dinamik import → auto-ensure);
+  // çıkışta helper otomatik siler. Sabit şifre yok.
+  const { UI_TEST } = await import('./lib/ui-test-user.mjs')
+  const { error: authErr } = await supa.auth.signInWithPassword({ email: UI_TEST.email, password: UI_TEST.password })
   if (authErr) { console.error('Giriş başarısız (görsel yüklemesi için ui.test gerekli):', authErr.message); process.exit(1) }
   const { data: { user } } = await supa.auth.getUser()
   const prods = sql(`select id||'|'||code||'|'||coalesce(sort_order,0) from public.catalog_products where sort_order>0 order by sort_order`).split('\n').filter(Boolean)

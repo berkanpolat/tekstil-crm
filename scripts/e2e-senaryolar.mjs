@@ -9,6 +9,8 @@
 // =====================================================================
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+// Senaryo G owner'ı ui.test'e atar → geçici admin'i (rastgele şifre) kur, çıkışta sil.
+import './lib/ui-test-user.mjs'
 
 const pass = process.env.PGPASSWORD ||
   readFileSync('.env', 'utf8').split('\n').find((l) => l.startsWith('SUPABASE_DB_PASSWORD='))?.split('=').slice(1).join('=').trim()

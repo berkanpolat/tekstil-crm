@@ -8,7 +8,7 @@
 import { chromium } from '@playwright/test'
 
 const BASE = process.env.SHOT_BASE_URL ?? 'http://localhost:5173'
-const TEST = { email: 'ui.test@tekstilas.com', password: 'TestPass1!' }
+import { UI_TEST as TEST } from './lib/ui-test-user.mjs'
 const ROUTES = [
   ['/', 'Gösterge Paneli'], ['/musteriler', 'Müşteriler'], ['/potansiyeller', 'Potansiyeller'],
   ['/talepler', 'Talepler'], ['/teklifler', 'Teklifler'], ['/numuneler', 'Numuneler'],

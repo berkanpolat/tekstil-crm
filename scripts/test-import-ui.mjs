@@ -7,7 +7,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 const URL = process.env.VITE_SUPABASE_URL, ANON = process.env.VITE_SUPABASE_ANON_KEY
 const BASE = process.env.SHOT_BASE_URL ?? 'http://localhost:5173'
 const OUT = 'docs/assets/faz-1'
-const TEST = { email: 'ui.test@tekstilas.com', password: 'TestPass1!', id: '00000000-0000-0000-0000-0000000000f9' }
+import { UI_TEST as TEST } from './lib/ui-test-user.mjs'
 const PG = ['-h', process.env.PGHOST, '-p', process.env.PGPORT ?? '5432', '-U', process.env.PGUSER, '-d', 'postgres', '-tA']
 const sql = (s) => execFileSync('psql', [...PG, '-c', s], { encoding: 'utf8', env: process.env }).trim()
 mkdirSync(OUT, { recursive: true })

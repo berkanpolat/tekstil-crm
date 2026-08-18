@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process'
 
 const URL = process.env.VITE_SUPABASE_URL
 const ANON = process.env.VITE_SUPABASE_ANON_KEY
-const TEST = { email: 'ui.test@tekstilas.com', password: 'TestPass1!', id: '00000000-0000-0000-0000-0000000000f9' }
+import { UI_TEST as TEST } from './lib/ui-test-user.mjs'
 const EMP = { email: 'ui.calisan@tekstilas.com', password: 'EmpPass1!' }
 const PG = ['-h', process.env.PGHOST, '-p', '5432', '-U', process.env.PGUSER, '-d', 'postgres', '-tA']
 const sql = (s) => execFileSync('psql', [...PG, '-c', s], { encoding: 'utf8', env: process.env })
