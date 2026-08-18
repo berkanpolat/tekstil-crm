@@ -13,6 +13,35 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.12.0] — 2026-08-18
+
+### Eklendi
+- **Teklif atıfı — çalışan bazlı teklif raporu artık dolacak.** Yeni tekliflerde
+  `created_by` ve `sent_at`/`sent_by` bugünden itibaren otomatik toplanır:
+  - `quotes_before_insert` trigger'ına `created_by := auth.uid()` eklendi (client
+    insert yolları tek tek düzeltilmeden tek noktadan kapandı).
+  - Yeni `quotes_mark_sent` trigger'ı (BEFORE INSERT OR UPDATE OF `quote_file_id`):
+    teklif dosyası ilk kez atandığında `sent_at=now()`, `sent_by=auth.uid()` yazar
+    (idempotent; `sent_at` doluysa dokunmaz).
+  - `auth.uid()` null ise (RPC/script/servis rolü) ilgili kolon boş bırakılır, trigger patlamaz.
+  - Migration: `20260822000000_quote_attribution.sql` (uygulandı).
+- **Rapor ekranı türetme notu.** Ekip ve Teklif raporlarında görünür açıklama:
+  geçmiş tekliflerin `created_by`'ı operasyon sahibinden türetildiğini belirtir.
+
+### Değiştirildi
+- **Geriye dönük teklif atıfı.** `created_by` NULL olan 202 mevcut teklife
+  `operations.owner_id` yazıldı (12 sahipsiz teklif bilinçli boş bırakıldı).
+  Türetilmiş veridir → rapor notu ile işaretlendi.
+  Migration: `20260822000100_quote_created_by_backfill.sql` (uygulandı).
+
+### Not
+- **Kanal (%17 dolu) ve ilçe (~%0 dolu) için düzeltme YAPILMADI (bilinçli).** Kanal
+  boşluğu geçmiş aktarımdan kaynaklı (manuel form kanalı zorunlu tutuyor, intake
+  otomatik `web_sitesi` atıyor → bugünden dolacak). Uydurma backfill dürüstlüğü bozar.
+  İlçe alanı formda mevcut ve opsiyonel; zorunlu yapılmadı.
+
+---
+
 ## [1.11.1] — 2026-08-17
 
 ### Düzeltildi

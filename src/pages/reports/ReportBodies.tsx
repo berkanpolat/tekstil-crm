@@ -13,6 +13,17 @@ import { useQuery } from '@tanstack/react-query'
 const labeledRows = (arr: Labeled[] | undefined) => (arr ?? []).map((x) => ({ label: x.label, count: x.count }))
 const pct = (n: number | null | undefined) => (n == null ? '—' : `%${n.toFixed(0)}`)
 
+// Geçmiş tekliflerde created_by, Süreç Takip aktarımı sırasında operasyon sahibinden türetildi
+// (gerçek oluşturan kayıtlı değil). Çalışan bazlı teklif metriklerinin altında görünür.
+function TuretilmisAtifNotu() {
+  return (
+    <p className="rounded-md border border-warning-foreground/30 bg-warning/10 px-3 py-2 text-xs text-text-muted">
+      Geçmiş teklifler (Süreç Takip aktarımı) operasyon sahibinden türetilmiştir; teklifi gerçekte
+      kimin oluşturduğu kayıtlı değildir.
+    </p>
+  )
+}
+
 // Basit metrik RPC hook'u (samples/orders/leads/finance — filtre almayan)
 function useSimpleMetric<T>(fn: string, period: ReportProps['period'], on = true) {
   return useQuery({
@@ -96,6 +107,7 @@ export function TeklifRaporu({ period, setCsv }: ReportProps) {
         </ReportSection>
         <ReportSection title="Red sebepleri"><BarList rows={labeledRows(data?.by_rejection_reason)} barClass="bg-danger-foreground" empty="Bu dönemde red yok." /></ReportSection>
       </div>
+      <TuretilmisAtifNotu />
     </div>
   )
 }
@@ -216,6 +228,7 @@ export function EkipRaporu({ period, setCsv }: ReportProps) {
           }))} />
         <p className="text-text-muted text-xs">Dönüşüm = kabul ÷ sonuçlanan (kabul + red). Cevap bekleyen teklifler hariç.</p>
       </ReportSection>
+      <TuretilmisAtifNotu />
     </div>
   )
 }
