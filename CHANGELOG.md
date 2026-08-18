@@ -13,6 +13,36 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.20.0] — 2026-08-18
+
+### Eşleşmeyen web lead'lerinin sisteme alınması (34 potansiyel + 34 talep)
+`data/leads.csv` içindeki, hiçbir mevcut müşteri/potansiyele eşleşmeyen gerçek web
+formu gönderimleri canlı DB'ye aktarıldı. **Migration yok** — tek seferlik veri
+aktarımı (idempotent script, tek transaction, yazma öncesi tam `pg_dump` yedeği).
+
+- **Canlı yeniden doğrulama:** offline 13 Ağu snapshot yerine canlı
+  `customers`+`leads`+`contact_points` ile eşleştirildi. Aradan müşteri eklendiği
+  için eşleşmeyen 69→50 düştü; test/çöp elenince **34 gerçek kişi** kaldı.
+- **Model (mevcut 44 landing kaydıyla birebir):** her kişi **potansiyel (lead)** →
+  `convert_lead_to_customer` ile **müşteriye** dönüştürüldü → her gönderim **talep
+  (operation)**. Kanal `web_sitesi` (id=2), `landing_source='deneme-landing'`,
+  `stage/request_status=9` (Teklif Bekliyor). Sonuç: **+34 lead, +34 müşteri
+  (264→298), +34 talep (268→302)**, +68 iletişim noktası.
+- **Notlar** operasyonun `description` alanına birebir yazıldı. **created_at /
+  requested_at** kaynak form zaman damgasından (Temmuz–Ağustos).
+- **Katalog:** 6 talepteki **32 ST-26SS kodu** ürüne bağlandı
+  (`operation_catalog_items.catalog_product_id` dolu; mevcut 44 kayıtta boştu).
+- **Görseller:** dosyalar elde olmadığı için yalnız **dosya adı** kaydedildi
+  (`files` bucket `intake-pending`, yer tutucu yol) — sonra bağlanacak (28 kayıt).
+- **Sınıflandırıcı düzeltmesi:** test/çöp filtresine `Not`/`Ürünler` alanı junk
+  kontrolü eklendi → çalışan test gönderimi (affan ergül 3 satır) elendi.
+- **İdempotency:** `leads.external_id`=telefon(son10) + `operations.client_reference`
+  = `denemelanding:<tel>:<zaman>`. Tekrar çalıştırma kopya oluşturmaz (kanıtlandı:
+  reuse 34 / skip 34 / +0). Mevcut 264 müşteri / 268 talebe dokunulmadı.
+- **Yeni scriptler:** `scripts/leads-eslesmeyenler-canli-kuru-kosu.mjs` (canlı
+  doğrulama), `scripts/paket-leads-payload.mjs` (payload üretici),
+  `scripts/paket-leads-aktar.sql` (idempotent yazma, `-v do_commit` ile kuru/gerçek).
+
 ## [1.19.0] — 2026-08-18
 
 ### Gösterge paneli tasarım iyileştirmesi (aciliyet sıralı panel)
