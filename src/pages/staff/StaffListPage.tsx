@@ -34,6 +34,7 @@ import {
   type StaffRow,
 } from '@/hooks/useStaff'
 import { StaffFormDialog } from './StaffFormDialog'
+import { passwordError, PASSWORD_HINT } from '@/lib/password'
 
 export function StaffListPage() {
   const { data: me } = useCurrentUser()
@@ -256,8 +257,9 @@ function ResetPasswordDialog({ target, onClose }: { target: StaffRow | null; onC
   const reset = useResetStaffPassword()
 
   async function handle() {
-    if (pw.length < 8) {
-      toast.error('Şifre en az 8 karakter olmalı.')
+    const pwErr = passwordError(pw)
+    if (pwErr) {
+      toast.error(pwErr)
       return
     }
     try {
@@ -276,7 +278,7 @@ function ResetPasswordDialog({ target, onClose }: { target: StaffRow | null; onC
         <DialogHeader>
           <DialogTitle>Şifre sıfırla — {target?.full_name}</DialogTitle>
         </DialogHeader>
-        <FormField label="Yeni geçici şifre" required hint="Çalışan ilk girişte değiştirecek (en az 8 karakter).">
+        <FormField label="Yeni geçici şifre" required hint={`Çalışan ilk girişte değiştirecek. ${PASSWORD_HINT}`}>
           {(p) => <Input {...p} type="text" value={pw} onChange={(e) => setPw(e.target.value)} />}
         </FormField>
         <DialogFooter>

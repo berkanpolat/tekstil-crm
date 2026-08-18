@@ -13,6 +13,7 @@ import { getSoundPref, setSoundPref, playNotificationSound } from '@/lib/notific
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useUploadFile, getSignedUrl, type FileBucket } from '@/hooks/useFiles'
 import { ensureRows, toUserMessage } from '@/lib/errors'
+import { passwordError } from '@/lib/password'
 
 function useAvatarUrl(avatarFileId: number | null) {
   return useQuery({
@@ -174,11 +175,11 @@ function PasswordForm() {
   const [pw2, setPw2] = useState('')
   const [busy, setBusy] = useState(false)
   const mismatch = pw2.length > 0 && pw1 !== pw2
-  const tooShort = pw1.length > 0 && pw1.length < 8
+  const pwErr = pw1.length > 0 ? passwordError(pw1) : null
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (pw1.length < 8 || pw1 !== pw2) return
+    if (passwordError(pw1) || pw1 !== pw2) return
     setBusy(true)
     const { error } = await supabase.auth.updateUser({ password: pw1 })
     setBusy(false)
@@ -192,7 +193,7 @@ function PasswordForm() {
     <form onSubmit={submit} className="bg-card space-y-4 rounded-lg border p-5 shadow-card">
       <h3 className="font-semibold text-foreground">Şifre değiştir</h3>
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Yeni şifre" error={tooShort ? 'En az 8 karakter.' : undefined}>
+        <FormField label="Yeni şifre" error={pwErr ?? undefined}>
           {(p) => <Input {...p} type="password" autoComplete="new-password" value={pw1} onChange={(e) => setPw1(e.target.value)} />}
         </FormField>
         <FormField label="Yeni şifre (tekrar)" error={mismatch ? 'Şifreler eşleşmiyor.' : undefined}>
@@ -200,7 +201,7 @@ function PasswordForm() {
         </FormField>
       </div>
       <div className="flex justify-end">
-        <Button type="submit" disabled={busy || !pw1 || mismatch || tooShort}>
+        <Button type="submit" disabled={busy || !pw1 || mismatch || !!pwErr}>
           {busy && <Loader2 className="size-4 animate-spin" />}
           Şifreyi güncelle
         </Button>

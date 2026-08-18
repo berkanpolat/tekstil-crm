@@ -13,6 +13,23 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.18.0] — 2026-08-18
+
+### Güvenlik (parola politikası sertleştirme — min 12 + harf/rakam)
+- **`supabase/config.toml`:** `minimum_password_length` 6 → **12**,
+  `password_requirements` "" → **`letters_digits`** (en az harf + rakam).
+  ⚠️ **Canlıya YANSITILMADI** (`supabase config push` yapılmadı — proje sahibi
+  Dashboard'dan uygulayacak: Authentication → Sign In / Providers → Password).
+  Config yalnız yeni parolalara etki eder; mevcut parolalar geriye dönük denetlenmez.
+- **`src/lib/password.ts` (yeni):** sunucu politikasıyla HİZALI istemci kontrolü —
+  `MIN_PASSWORD_LENGTH=12`, `passwordError(pw)` (min 12 + harf+rakam → TR hata/null),
+  `PASSWORD_HINT`. Tek kaynak; sunucu-istemci uyuşmazlığı (istemci "tamam" der,
+  sunucu reddeder) önlenir.
+- **5 önyüz noktası 8 → 12 + harf/rakam:** `ChangePasswordPage`, `ProfilePage` (şifre
+  değiştir), `StaffFormDialog` (geçici şifre create), `StaffListPage` (şifre sıfırla) —
+  hepsi `passwordError`/`PASSWORD_HINT` kullanır; sabit "en az 8" metinleri kalmadı.
+- **Doğrulama:** `npm run build` (tsc strict + vite) temiz, 214 birim testi geçer.
+
 ## [1.17.0] — 2026-08-18
 
 ### Güvenlik (ui.test hesabı — sabit şifre kaldırıldı + garantili teardown)

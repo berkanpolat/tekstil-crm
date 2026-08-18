@@ -11,6 +11,7 @@ import { AuthShell } from '@/components/auth/AuthShell'
 import { FormField } from '@/components/shared/FormField'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { passwordError } from '@/lib/password'
 
 /**
  * İlk girişte zorunlu şifre değiştirme (must_change_password) ve sıfırlama
@@ -25,11 +26,11 @@ export function ChangePasswordPage() {
   const [busy, setBusy] = useState(false)
 
   const mismatch = pw2.length > 0 && pw1 !== pw2
-  const tooShort = pw1.length > 0 && pw1.length < 8
+  const pwErr = pw1.length > 0 ? passwordError(pw1) : null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (pw1.length < 8 || pw1 !== pw2) return
+    if (passwordError(pw1) || pw1 !== pw2) return
     setBusy(true)
     const { error: pwError } = await supabase.auth.updateUser({ password: pw1 })
     if (pwError) {
@@ -71,7 +72,7 @@ export function ChangePasswordPage() {
   return (
     <AuthShell title="Şifrenizi belirleyin" description="Devam etmek için yeni bir şifre oluşturun.">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <FormField label="Yeni şifre" required error={tooShort ? 'En az 8 karakter olmalı.' : undefined}>
+        <FormField label="Yeni şifre" required error={pwErr ?? undefined}>
           {(p) => (
             <Input
               {...p}
@@ -95,7 +96,7 @@ export function ChangePasswordPage() {
             />
           )}
         </FormField>
-        <Button type="submit" className="w-full" disabled={busy || mismatch || tooShort || !pw1}>
+        <Button type="submit" className="w-full" disabled={busy || mismatch || !!pwErr || !pw1}>
           {busy && <Loader2 className="size-4 animate-spin" />}
           Şifreyi kaydet
         </Button>

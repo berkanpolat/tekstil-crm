@@ -14,6 +14,7 @@ import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { PhoneInput } from '@/components/shared/PhoneInput'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { passwordError, PASSWORD_HINT } from '@/lib/password'
 import {
   useRoleOptions,
   useDepartmentOptions,
@@ -91,8 +92,9 @@ function StaffForm({ editing, onDone }: { editing: StaffRow | null; onDone: () =
         })
         toast.success('Çalışan güncellendi.')
       } else {
-        if (form.password.length < 8) {
-          toast.error('Şifre en az 8 karakter olmalı.')
+        const pwErr = passwordError(form.password)
+        if (pwErr) {
+          toast.error(pwErr)
           return
         }
         await create.mutateAsync({
@@ -132,7 +134,7 @@ function StaffForm({ editing, onDone }: { editing: StaffRow | null; onDone: () =
       </FormField>
 
       {!isEdit && (
-        <FormField label="Geçici şifre" required hint="Çalışan ilk girişte değiştirecek (en az 8 karakter).">
+        <FormField label="Geçici şifre" required hint={`Çalışan ilk girişte değiştirecek. ${PASSWORD_HINT}`}>
           {(p) => (
             <Input {...p} type="text" value={form.password} onChange={(e) => set('password', e.target.value)} required />
           )}
