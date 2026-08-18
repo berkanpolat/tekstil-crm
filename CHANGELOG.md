@@ -13,6 +13,28 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.14.0] — 2026-08-18
+
+### Eklendi (Raporlar yenileme — Paket B: dönüşüm hunisi RPC + rapor gövdeleri)
+- **`metric_pipeline(p_from, p_to, p_scope_user)` RPC** (migration
+  `20260818120000_p7b_metric_pipeline.sql`, **canlıya uygulandı**): huninin 6 adımı
+  (Talep → Teklif → Numune → Sipariş → Üretim → Teslimat) için her adımda
+  **ilerleyen (advanced) · bekleyen (waiting) · düşen (dead, red/iptal)** sayısı.
+  Özdeşlik: `reached = advanced + waiting + dead`. `metrics.guard` ile yetki, dönem
+  parametresi diğer `metric_*` ile birebir (talep açılış tarihine göre). `metrics.pipeline_step`
+  yardımcı kurucu + `public.metric_pipeline` köprüsü + grant/revoke.
+- **Doğrulama:** son-3-ay için özdeşlik her adımda tuttu; `talep.reached (251)` =
+  `metric_requests.total`; `teklif.reached (199)` = `metric_funnel.quotes`;
+  `dead (151)` ≈ `metric_quotes.rejected (155)` (operasyon-hunisi vs teklif-belgesi merceği).
+- **Rapor gövdeleri:** 5 raporda (Talep/Teklif/Dönüşüm/Finans/Ekip) gerçek sayılarla
+  **açıklayıcı cümleler**. Dönüşüm Hunisi artık `metric_pipeline`'ın **gerçek bekleyen/düşen**
+  sayılarını kullanıyor (eski "değer − sonraki adım" yaklaşımı kaldırıldı); her adım notu
+  "N ilerledi · M bekliyor · K düştü" verir.
+- **Az veri uyarıları (`LowDataNotice`):** numune/sipariş adım başına <~20 kayıtta
+  "anlamlı oran için ~20 kayıt gerekiyor" notu.
+- **Ölçülemeyenler notu (`variant='none'`):** Talep raporunda "ilçe kırılımı toplanmıyor",
+  Dönüşüm Hunisi'nde "teslimat termin uyumu bu huniye dahil değil".
+
 ## [1.13.0] — 2026-08-18
 
 ### Eklendi (Raporlar yenileme — Paket A: önyüz iskelet, DB'ye dokunulmadı)

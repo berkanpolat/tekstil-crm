@@ -3,12 +3,12 @@ import { useSearchParams } from 'react-router-dom'
 import { formatMoney } from '@/lib/money'
 import {
   Kpi, Insight, ReportSection, DataTable, ReportLoading,
-  Funnel, HourHistogram, Donut, SwatchLegend, LowDataNotice, type ReportProps,
+  Funnel, HourHistogram, Donut, SwatchLegend, LowDataNotice, type ReportProps, type FunnelStep,
 } from '@/components/reports/ReportKit'
 import { BarList, TrendLine } from '@/components/dashboard/MiniCharts'
 import {
   useRequestsMetric, useRequestTrend, useQuotesMetric, useEmployeesMetric,
-  useInteractionsMetric, useFilterOptions, useFunnelMetric, useActiveFunnel, type Labeled,
+  useInteractionsMetric, useFilterOptions, usePipelineMetric, useActiveFunnel, type Labeled,
 } from '@/hooks/useMetrics'
 import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
@@ -69,6 +69,14 @@ export function TalepRaporu({ period, setCsv }: ReportProps) {
         <Kpi label="Ort. ilk yanıt" value={data?.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—'} />
         <Kpi label="Süresi sürenler" value={String(data?.sla_pending_count ?? 0)} sub="henüz SLA dolmadı" />
       </div>
+      {(data?.total ?? 0) > 0 && (
+        <p className="text-text-secondary text-sm leading-snug">
+          <strong className="text-foreground">{data?.total ?? 0} talebin</strong>{' '}
+          {data?.sla_met_count ?? 0}'ine söz verilen sürede (24 saat) teklif çıkıldı{' '}
+          ({pct(data?.sla_rate)}); {data?.sla_missed_count ?? 0}'i geç kaldı,{' '}
+          {data?.sla_pending_count ?? 0}'inde süre henüz dolmadı.
+        </p>
+      )}
       <ReportSection title="Talep eğilimi (günlük)"><TrendLine points={trend.data ?? []} /></ReportSection>
       <ReportSection title="Saate göre talep dağılımı">
         <HourHistogram data={data?.by_hour ?? []} />
@@ -77,7 +85,10 @@ export function TalepRaporu({ period, setCsv }: ReportProps) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportSection title="Kanala göre"><BarList rows={labeledRows(data?.by_channel)} /></ReportSection>
         <ReportSection title="Kategoriye göre"><BarList rows={labeledRows(data?.by_category)} /></ReportSection>
-        <ReportSection title="İle göre"><BarList rows={labeledRows(data?.by_province)} empty="İl verisi yok." /></ReportSection>
+        <ReportSection title="İle göre">
+          <BarList rows={labeledRows(data?.by_province)} empty="İl verisi yok." />
+          <p className="text-text-muted text-xs">Yalnızca <strong>il</strong> kırılımı; <strong>ilçe</strong> bazında dağılım bu metrik için toplanmıyor.</p>
+        </ReportSection>
         <ReportSection title="Açılış sayfasına göre"><BarList rows={labeledRows(data?.by_landing)} empty="Henüz veri yok — site entegrasyonu bağlanınca dolacak." /></ReportSection>
       </div>
     </div>
@@ -104,6 +115,13 @@ export function TeklifRaporu({ period, setCsv }: ReportProps) {
         <Kpi label="Cevap bekleyen" value={String(data?.pending ?? 0)} sub="payda dışında" />
         <Kpi label="Ort. yanıt süresi" value={data?.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—'} />
       </div>
+      {(data?.sent ?? 0) > 0 && (
+        <p className="text-text-secondary text-sm leading-snug">
+          <strong className="text-foreground">{data?.sent ?? 0} teklifin</strong> {data?.accepted ?? 0}'i kabul edildi,{' '}
+          {data?.rejected ?? 0}'i reddedildi, {data?.pending ?? 0}'i hâlâ cevap bekliyor.{' '}
+          Sonuçlananlar üzerinden dönüşüm {pct(conv)}.
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportSection title="Sonuç dağılımı">
           <div className="flex flex-wrap items-center gap-6">
@@ -126,65 +144,87 @@ export function TeklifRaporu({ period, setCsv }: ReportProps) {
   )
 }
 
-// ── 3) DÖNÜŞÜM HUNİSİ (numune + sipariş birleşik) ──────────────────────
-// Akış: Talep → Teklif → Numune → Sipariş. Her adımda ilerleyen (mor) vs takılıp
-// geçmeyen (amber). "Şu an numunede" güncel durumdur (dönemden bağımsız).
-// NOT (Paket B): adım-adım BEKLEYEN kesinliği için metric_pipeline RPC gelecek;
-// şimdilik bekleyen = değer − sonraki adım değeri (yaklaşık) olarak gösteriliyor.
+// ── 3) DÖNÜŞÜM HUNİSİ (metric_pipeline — gerçek bekleyen sayıları) ──────
+// Akış: Talep → Teklif → Numune → Sipariş → Üretim → Teslimat. Her adımda
+// metric_pipeline üç sayı verir: ilerleyen (mor) · bekleyen (amber) · düşen (red/iptal).
+// Özdeşlik: reached = advanced + waiting + dead. "Şu an numunede" güncel durumdur
+// (dönemden bağımsız; metric_active_funnel).
 export function DonusumRaporu({ period, setCsv }: ReportProps) {
-  const { data, isLoading } = useFunnelMetric(period)
+  const { data, isLoading } = usePipelineMetric(period)
   const active = useActiveFunnel()
-  const steps = useMemo(() => {
-    if (!data) return []
-    const base = [
-      { label: 'Talep', value: data.requests },
-      { label: 'Teklif', value: data.quotes },
-      { label: 'Numune', value: data.samples },
-      { label: 'Sipariş', value: data.orders },
-    ]
-    return base.map((s, i) => {
-      const next = base[i + 1]
-      const stuck = next ? Math.max(0, s.value - next.value) : 0
-      return { label: s.label, value: s.value, note: next && s.value > 0 ? `${next.value} ilerledi · ${stuck} geçmedi` : undefined }
-    })
-  }, [data])
+  const steps = useMemo(() => data?.steps ?? [], [data])
+  const byKey = useMemo(() => new Map(steps.map((s) => [s.key, s])), [steps])
+  const funnelSteps: FunnelStep[] = useMemo(() => steps.map((s) => ({
+    label: s.label,
+    value: s.reached,
+    note: s.reached > 0 && s.key !== 'teslimat'
+      ? `${s.advanced} ilerledi · ${s.waiting} bekliyor${s.dead > 0 ? ` · ${s.dead} düştü` : ''}`
+      : undefined,
+  })), [steps])
   useEffect(() => {
     if (!data) { setCsv(null); return }
-    setCsv({ filename: `donusum-raporu-${period.key}`, headers: ['Adım', 'Adet'], rows: steps.map((s) => [s.label, s.value]) })
+    setCsv({
+      filename: `donusum-raporu-${period.key}`,
+      headers: ['Adım', 'Ulaşan', 'İlerleyen', 'Bekleyen', 'Düşen (red/iptal)'],
+      rows: steps.map((s) => [s.label, s.reached, s.advanced, s.waiting, s.dead]),
+    })
     return () => setCsv(null)
   }, [data, steps, period.key, setCsv])
   if (isLoading) return <ReportLoading />
-  const requests = data?.requests ?? 0
-  const quotes = data?.quotes ?? 0
-  const orders = data?.orders ?? 0
-  const overall = requests > 0 ? (100 * orders) / requests : null
-  const lowData = (data?.samples ?? 0) < 20
+
+  const talep = byKey.get('talep')
+  const teklif = byKey.get('teklif')
+  const numune = byKey.get('numune')
+  const siparis = byKey.get('siparis')
+  const total = data?.total ?? 0
+  const toOrders = siparis?.reached ?? 0
+  const overall = total > 0 ? (100 * toOrders) / total : null
+  const teklifAlive = (teklif?.advanced ?? 0) + (teklif?.waiting ?? 0)
+  // Alt adımlar (numune ve sonrası) için kayıt derinliği eşiği.
+  const lowData = (numune?.reached ?? 0) < 20 || (siparis?.reached ?? 0) < 20
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Insight label="Talep (giriş)" value={String(requests)} sentence="Huninin girişi: bu dönemki toplam talep." />
-        <Insight label="Teklife dönen" value={quotes ? `%${((100 * quotes) / Math.max(1, requests)).toFixed(0)}` : '—'}
-          sentence={`${requests} talebin ${quotes}'ine teklif çıkıldı.`} />
+        <Insight label="Talep (giriş)" value={String(total)}
+          sentence="Huninin girişi: bu dönemde açılan toplam talep." />
+        <Insight label="Teklife geçen" value={talep?.advance_rate == null ? '—' : `%${talep.advance_rate.toFixed(0)}`}
+          sentence={`${total} talebin ${talep?.advanced ?? 0}'i teklife geçti; ${talep?.waiting ?? 0}'i hâlâ teklif bekliyor.`} />
         <Insight label="Şu an numunede" value={String(active.data?.samples ?? 0)}
-          sentence="Güncelde numune aşamasında bekleyen iş (dönemden bağımsız)." />
+          sentence="Güncelde numune aşamasında süren iş (dönemden bağımsız anlık durum)." />
         <Insight label="Uçtan uca dönüşüm" value={overall == null ? '—' : `%${overall.toFixed(1)}`}
           tone={(overall ?? 0) >= 20 ? 'text-success-foreground' : 'text-warning-foreground'}
-          sentence={`${requests} talebin ${orders}'i siparişe ulaştı.`} />
+          sentence={`${total} talebin ${toOrders}'i siparişe ulaştı.`} />
       </div>
+
+      {teklif && teklif.reached > 0 && (
+        <p className="text-text-secondary text-sm leading-snug">
+          <strong className="text-foreground">{teklif.reached} teklifin</strong> {teklif.dead}'i reddedildi/iptal edildi,{' '}
+          {teklifAlive}'i canlı — bunların {teklif.advanced}'i numuneye geçti, {teklif.waiting}'i henüz numuneye geçmedi.
+        </p>
+      )}
+
       <ReportSection title="Dönüşüm hunisi">
-        <Funnel steps={steps} />
+        <Funnel steps={funnelSteps} />
         <p className="text-text-muted text-xs">
           <span className="inline-block size-2 translate-y-px rounded-sm" style={{ background: '#6e55ff' }} /> mor = sonraki adıma ilerleyen ·{' '}
-          <span className="inline-block size-2 translate-y-px rounded-sm" style={{ background: '#f59e0b' }} /> amber = o adımda takılıp geçmeyen.
+          <span className="inline-block size-2 translate-y-px rounded-sm" style={{ background: '#f59e0b' }} /> amber = o adımda bekleyen/düşen.
+          Sağdaki not her adımda ilerleyen · bekleyen · düşen (red/iptal) sayısını verir.
         </p>
       </ReportSection>
+
       {lowData && (
         <LowDataNotice title="Numune/sipariş verisi henüz sığ">
-          Bu dönemde {data?.samples ?? 0} numune ve {data?.orders ?? 0} sipariş kaydı var. Anlamlı bir
-          numune→sipariş dönüşüm oranı için en az ~20 sipariş gerekiyor; şimdilik alt adımlar yön göstermez,
-          yalnızca giriş (talep→teklif) güvenilirdir.
+          Bu dönemde {numune?.reached ?? 0} numune ve {siparis?.reached ?? 0} sipariş kaydı var. Anlamlı bir
+          numune→sipariş→teslimat dönüşüm oranı için adım başına en az ~20 kayıt gerekiyor; şimdilik alt adımlar
+          yön göstermez, yalnızca giriş (talep→teklif) güvenilirdir.
         </LowDataNotice>
       )}
+
+      <LowDataNotice variant="none" title="Teslimat termin uyumu bu huniye dahil değil">
+        Sipariş→teslimat adımında sözlü/gerçek termin karşılaştırması (zamanında teslim oranı) bu metrik için
+        ayrıca toplanmıyor; huni yalnızca aşamaya <em>ulaşma</em> akışını gösterir.
+      </LowDataNotice>
     </div>
   )
 }
@@ -207,6 +247,12 @@ export function FinansRaporu({ period, setCsv }: ReportProps) {
         <Kpi label="Açık alacak" value={formatMoney(data?.outstanding_usd ?? 0, 'USD')} tone="text-warning-foreground" />
         <Kpi label="Gecikmiş" value={formatMoney(data?.overdue_usd ?? 0, 'USD')} tone={(data?.overdue_usd ?? 0) > 0 ? 'text-danger-foreground' : undefined} />
       </div>
+      <p className="text-text-secondary text-sm leading-snug">
+        Bu dönem <strong className="text-foreground">{formatMoney(data?.revenue_usd ?? 0, 'USD')}</strong> ciro
+        tahakkuk etti; {formatMoney(data?.collected_usd ?? 0, 'USD')} tahsil edildi
+        {(data?.revenue_usd ?? 0) > 0 && ` (%${((100 * (data?.collected_usd ?? 0)) / (data?.revenue_usd ?? 1)).toFixed(0)})`}.
+        Açık alacak {formatMoney(data?.outstanding_usd ?? 0, 'USD')}, bunun {formatMoney(data?.overdue_usd ?? 0, 'USD')}'ı vadesi geçmiş.
+      </p>
       <ReportSection title="Aya göre ciro">
         <DataTable cols={[{ key: 'm', label: 'Ay' }, { key: 'u', label: 'USD', align: 'right' }, { key: 't', label: 'TRY', align: 'right' }]}
           rows={(data?.by_month ?? []).map((x) => ({ m: x.month, u: formatMoney(x.revenue_usd, 'USD'), t: formatMoney(x.revenue_try, 'TRY') }))} />
@@ -240,6 +286,14 @@ export function EkipRaporu({ period, setCsv }: ReportProps) {
         <Kpi label="Aktif çalışan" value={String(rows.length)} />
         <Kpi label="Toplam teklif" value={String(rows.reduce((s, e) => s + (e.quotes_sent ?? 0), 0))} />
       </div>
+      {rows[0] && (
+        <p className="text-text-secondary text-sm leading-snug">
+          Bu dönem <strong className="text-foreground">{rows.length}</strong> çalışan aktifti;{' '}
+          en çok talebi <strong className="text-foreground">{rows[0].name}</strong> yürüttü
+          ({rows[0].requests_handled} talep, {rows[0].quotes_sent} teklif
+          {rows[0].conversion_rate != null && `, dönüşüm %${rows[0].conversion_rate.toFixed(0)}`}).
+        </p>
+      )}
       <ReportSection title="Çalışan performansı">
         <DataTable
           cols={[

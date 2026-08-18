@@ -86,6 +86,13 @@ export interface RequestsMetric extends ChangeBlock {
   by_hour: { hour: number; count: number }[]
 }
 export interface FunnelMetric { requests: number; quotes: number; samples: number; orders: number; conversion_rates: { step: string; rate: number }[] }
+/** Huninin her adımında İLERLEYEN / BEKLEYEN / DÜŞEN (red-iptal). Özdeşlik: reached = advanced + waiting + dead. */
+export interface PipelineStep {
+  key: string; label: string
+  reached: number; advanced: number; waiting: number; dead: number
+  advance_rate: number | null; stuck_rate: number | null
+}
+export interface PipelineMetric { total: number; steps: PipelineStep[] }
 export interface QuotesMetric { sent: number; pending: number; accepted: number; rejected: number; prev_sent: number; change_pct: number | null; avg_response_hours: number; by_rejection_reason: Labeled[] }
 export interface FinanceMetric { revenue_usd: number; revenue_try: number; collected_usd: number; outstanding_usd: number; overdue_usd: number; by_month: { month: string; revenue_usd: number; revenue_try: number }[] }
 export interface EmployeeRow { user_id: string; name: string; email: string; requests_handled: number; interactions: number; quotes_sent: number; quotes_accepted: number; quotes_rejected: number; quotes_pending: number; conversion_rate: number | null; avg_response_hours: number | null; snooze_count: number }
@@ -98,6 +105,7 @@ export const useInteractionsMetric = (period: Period, on = true) => useMetric<In
 export const useRequestsMetric = (period: Period, filters?: RequestFilters, on = true) =>
   useMetric<RequestsMetric>('metric_requests', { ...p2(period), p_channel: filters?.channel ?? null, p_category: filters?.category ?? null, p_province: filters?.province ?? null }, on)
 export const useFunnelMetric = (period: Period, on = true) => useMetric<FunnelMetric>('metric_funnel', p2(period), on)
+export const usePipelineMetric = (period: Period, on = true) => useMetric<PipelineMetric>('metric_pipeline', p2(period), on)
 export const useQuotesMetric = (period: Period, on = true) => useMetric<QuotesMetric>('metric_quotes', p2(period), on)
 export const useFinanceMetric = (period: Period, on = true) => useMetric<FinanceMetric>('metric_finance', p2(period), on)
 export const useEmployeesMetric = (period: Period, on = true) => useMetric<EmployeeRow[]>('metric_employees', p2(period), on)
