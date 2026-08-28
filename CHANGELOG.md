@@ -13,6 +13,36 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.21.0] — 2026-08-28
+
+### Belge motoru: otomatik sayfalama (çok sayfalı PDF) — kırpma sorunu giderildi
+Fiyat teklifi ve diğer `.qsheet` tabanlı belgeler sabit yükseklikli tek sayfa +
+`overflow:hidden` kullanıyordu; 12+ üretim seçeneği olan teklifte tablo taşıyor,
+taşan satırlar **kırpılıp kayboluyordu** (eski `tkFit` içeriği %40'a kadar küçültüp
+yine kırpıyordu). `bulkDoc` parçalama mantığı, satırların iki satırlık olabildiği
+gerçeğine uyarlanarak **yükseklik ölçümlü otomatik sayfalayıcıya** (`qxPages`)
+dönüştürüldü:
+
+- Gizli ölçüm DOM'unda her parçanın (antet, tablo başlığı, her satır, alt bloklar,
+  footer) gerçek yüksekliği okunur; parçalar sabit `.qsheet` sayfalarına sığdırılır.
+- **İlk sayfa tam antet** (logo + künye + meta), **devam sayfalarında kısa antet**
+  (belge no + müşteri + "devam"); tablo başlığı her sayfada tekrarlanır.
+- Her sayfada **"Sayfa X / Y"** rozeti.
+- `tkFit` yerine hafif `qxFitSheet` (taban **0.9**, kırpma yok) — yalnız birkaç
+  piksel taşmaya karşı emniyet.
+- Aynı motor **sipariş onay (`soDoc`)**, **maliyet hesabı (`mlDoc`)** ve **ürün
+  özeti (`ozDoc`)** belgelerine de uygulandı (hepsi aynı kırpma riskini taşıyordu).
+- **Sunucu (`render.mjs`) kritik düzeltmesi:** print-media'da `body>*{display:none}`
+  ölçüm düğümünü gizleyip tüm yükseklikleri 0 yapıyor, sayfa yeniden kullanılınca
+  içerik tek sayfaya biniyordu → ölçüm düğümü `display:block !important` ile
+  güvenceye alındı; ayrıca tüm HTML değişikliklerinden sonra hafif fit geçişi eklendi.
+
+Playwright + `pdfinfo`/`pdftotext` ile doğrulandı: 3 seçenek → 1 sayfa, 15 → 3 sayfa
+(15 satırın tümü görünür), 30 → 4 sayfa; `soDoc` uzun alanlarla → 2 sayfa; taşma yok.
+**Migration yok.** ⚠️ PDF servisi (studio.html + render.mjs) yeniden dağıtılmalı.
+
+---
+
 ## [1.20.0] — 2026-08-18
 
 ### Eşleşmeyen web lead'lerinin sisteme alınması (34 potansiyel + 34 talep)

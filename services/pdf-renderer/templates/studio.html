@@ -139,6 +139,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--paper);color:var(
   #print-root{display:block !important;}
   .qbulk .qsheet{break-after:page;page-break-after:always;}
   .qbulk .qsheet:last-child{break-after:auto;page-break-after:auto;}
+  .qbulk>section{break-after:page;page-break-after:always;}
+  .qbulk>section:last-child{break-after:auto;page-break-after:auto;}
   .sheet{width:210mm;height:297mm;position:relative;overflow:hidden;page-break-after:always;break-after:page;}
   .sheet:last-child{page-break-after:auto;break-after:auto;}
   .pslot{position:absolute;}
@@ -537,6 +539,18 @@ svg.fy-leaders{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:
 .qnotebox .nk{flex:none;font-size:8.5px;letter-spacing:1.6px;text-transform:uppercase;color:#ef7e1d;font-weight:800;padding-top:2px}
 .qnotebox .nv{font-size:11px;line-height:1.55;color:#3c4767;font-weight:500;overflow-wrap:anywhere;white-space:pre-line}
 .qhead .hx{margin-left:auto;text-align:right}
+.qxcont{display:flex;align-items:center;gap:14px;padding-bottom:13px;border-bottom:2px solid #1f2f57}
+.qxcont .lg{height:24px;flex:none;margin:0}
+.qxcont .qxc-mid{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.qxcont .qxc-mid b{font-size:13px;color:#1f2f57;letter-spacing:1px}
+.qxcont .qxc-mid span{font-size:10px;color:#8b94a9;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qxcont .qxc-dev{margin-left:auto;flex:none;font-size:8.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#ef7e1d;border:1px solid #f6dfc8;border-radius:20px;padding:3px 10px}
+.so-cont{display:flex;align-items:center;gap:12px;padding-bottom:11px;border-bottom:2px solid #2c3a5e}
+.so-cont img{height:22px;flex:none}
+.so-cont>div{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.so-cont b{font-size:12px;color:#2c3a5e;letter-spacing:1px}
+.so-cont span{font-size:9.5px;color:#8b94a9;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.so-cont .dev{margin-left:auto;flex:none;font-size:8px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:#ef7e1d;border:1px solid #f6dfc8;border-radius:20px;padding:2px 9px}
 .qhead .kicker{font-size:9px;letter-spacing:3.6px;font-weight:700;color:#aab2c4;text-transform:uppercase}
 .qhead .title{font-size:23px;font-weight:600;letter-spacing:.2px;color:#1f2f57;line-height:1.05;margin-top:8px}
 .qrule{height:1px;background:#e7ebf3;margin-top:22px;position:relative}
@@ -2847,6 +2861,81 @@ function tkLoadTCMB(){
   tryNext();
 }
 
+/* === otomatik sayfalama (gerçek yükseklik ölçümlü) ===
+   İçeriği ölçüp birden fazla sabit .qsheet sayfasına böler. bulkDoc parçalama
+   mantığının, satırlar iki satırlık olabildiği için gerçek yüksekliğe uyarlanmış hâli. */
+function qxFitSheet(sh){
+  var fit=sh.querySelector('.qfit')||sh.querySelector('.so-fit');if(!fit)return;
+  fit.style.transform='';fit.style.width='';
+  var cs=window.getComputedStyle(sh);
+  var avail=sh.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
+  var need=fit.scrollHeight;
+  /* yalnız hafif küçültme (taban 0.9); kırpma/agresif ölçek yok, taşma sayfalamayla çözülür */
+  if(avail>80&&need>avail){var s=Math.max(.9,avail/need);fit.style.transformOrigin='top left';fit.style.width=(100/s)+'%';fit.style.transform='scale('+s+')';}
+}
+function qxSplitRows(s){return s?s.split(/(?=<tr)/):[];}
+function qxPages(cfg){
+  var sheetCls=cfg.sheetClass||'qsheet',fitCls=cfg.fitClass||'qfit',docCls=cfg.docClass||'qdoc qbulk';
+  var avail=cfg.avail||1010;
+  var chromeFirst=cfg.chromeFirst||'',chromeCont=(cfg.chromeCont!=null?cfg.chromeCont:chromeFirst),foot=cfg.foot||'';
+  var spacer=(cfg.spacer!=null?cfg.spacer:'<div class="qspace"></div>');
+  var segs=cfg.segments||[];
+  /* --- gizli ölçüm DOM'u: her parçanın gerçek yüksekliğini oku --- */
+  var wrap=document.createElement('div');
+  wrap.className=(docCls.split(' ')[0]||'qdoc');
+  /* display:block !important — print media'da "body>*{display:none!important}" ölçüm düğümünü
+     gizlerse tüm yükseklikler 0 çıkar ve içerik tek sayfaya biner; bu onu güvenceye alır */
+  wrap.style.cssText='position:fixed;left:-99999px;top:0;width:794px;visibility:hidden;display:block !important';
+  var mh='<section class="'+sheetCls+'" style="height:auto;overflow:visible"><div class="'+fitCls+'" style="min-height:0">';
+  /* flow-root: gerçek .qfit flex olduğundan çocuk margin'leri uygulanır (collapse yok);
+     ölçüm sarmalayıcısında da aynı davranışı sağlayıp yükseklik sapmasını önler */
+  mh+='<div data-m="cf" style="display:flow-root">'+chromeFirst+'</div><div data-m="cc" style="display:flow-root">'+chromeCont+'</div><div data-m="ft" style="display:flow-root">'+foot+'</div>';
+  segs.forEach(function(s,i){
+    if(s.type==='table')mh+='<div data-m="s'+i+'" style="display:flow-root">'+s.open+s.thead+'<tbody>'+s.rows.join('')+'</tbody>'+s.close+'</div>';
+    else mh+='<div data-m="s'+i+'" style="display:flow-root">'+s.html+'</div>';
+  });
+  mh+='</div></section>';
+  wrap.innerHTML=mh;document.body.appendChild(wrap);
+  var gh=function(sel){var e=wrap.querySelector(sel);return e?e.offsetHeight:0;};
+  var chromeFirstH=gh('[data-m="cf"]'),chromeContH=gh('[data-m="cc"]'),footH=gh('[data-m="ft"]');
+  var meas=segs.map(function(s,i){
+    var box=wrap.querySelector('[data-m="s'+i+'"]');
+    if(s.type==='table'){var th=box.querySelector('thead');var trs=box.querySelectorAll('tbody tr');var rh=[];for(var k=0;k<trs.length;k++)rh.push(trs[k].offsetHeight);return {theadH:th?th.offsetHeight:0,rowH:rh};}
+    return {blockH:box.offsetHeight};
+  });
+  document.body.removeChild(wrap);
+  /* --- paketleme: parçaları sayfalara sığdır --- */
+  var usable=avail-footH-28;   /* footer + kenar payı; alt blok margin'i / sub-piksel yuvarlama tamponu */
+  var pages=[[]],cur=0,curH=chromeFirstH;
+  var newPage=function(){pages.push([]);cur++;curH=chromeContH;};
+  segs.forEach(function(s,i){
+    var m=meas[i];
+    if(s.type!=='table'){
+      if(curH+m.blockH>usable&&pages[cur].length>0)newPage();
+      pages[cur].push(s.html);curH+=m.blockH;
+    }else{
+      var r=0,buf=[],theadPlaced=false;
+      var flush=function(){if(buf.length){pages[cur].push(s.open+s.thead+'<tbody>'+buf.join('')+'</tbody>'+s.close);buf=[];}};
+      while(r<m.rowH.length){
+        if(!theadPlaced){
+          if(curH+m.theadH+m.rowH[r]>usable&&pages[cur].length>0)newPage();
+          curH+=m.theadH;theadPlaced=true;
+        }
+        if(curH+m.rowH[r]>usable&&buf.length>0){flush();newPage();theadPlaced=false;continue;}
+        buf.push(s.rows[r]);curH+=m.rowH[r];r++;
+      }
+      flush();
+    }
+  });
+  /* --- çizim --- */
+  var n=pages.length;
+  var out='<div class="'+docCls+'">';
+  pages.forEach(function(items,idx){
+    out+='<section class="'+sheetCls+'"><div class="'+fitCls+'">'+(idx===0?chromeFirst:chromeCont)+items.join('')+spacer+foot+(cfg.noBadge?'':'<div class="qbpg">Sayfa '+(idx+1)+' / '+n+'</div>')+'</div></section>';
+  });
+  return out+'</div>';
+}
+
 /* belge */
 function tkQuoteDoc(){
   var prod=[tkS.grup,tkS.tur].filter(Boolean).map(H).join(' / ');
@@ -2882,34 +2971,37 @@ function tkQuoteDoc(){
   var photoHTML='';
   if(tkS.foto){var _ar=(tkS.fotoAR>0)?tkS.fotoAR:0.75,_W=165,_Hm=205,_w,_h;if(_ar>=1){_w=_W;_h=Math.round(_W/_ar);}else{_h=_Hm;_w=Math.round(_Hm*_ar);if(_w>_W){_w=_W;_h=Math.round(_W/_ar);}}photoHTML='<div class="qphoto"><img src="'+tkS.foto+'" alt="ürün görseli" style="width:'+_w+'px;height:'+_h+'px"></div>';}
   var meta=mr(T.talep,talepNo)+mr(T.tarih,H(today))+mr(T.gecerli,tkMv(tkGecerliL(tkS.gecerli)))+mr(T.teslimat,tesl?H(tesl):'<span class="mut">'+T.notset+'</span>')+mr(T.odeme,tkMv(tkS.odeme))+(ind>0?mr(T.indirim,(EN?(indTxt+'%'):('%'+indTxt))):'');
-  var table;
-  if(!rows.length){table='<div style="border:1px dashed #e7ebf3;border-radius:12px;padding:32px;text-align:center;color:#c2c9d6;font-size:12px;font-weight:600">'+T.empty+'</div>';}
-  else{
-    table='<table class="qtable"><thead><tr><th style="width:30%">'+T.thDetay+'</th><th>'+T.thKumas+'</th><th class="ctr">'+T.thAdet+'</th><th class="num">'+T.thBirim+'</th><th class="num">'+T.thTop+'</th></tr></thead><tbody>'+
-    rows.map(function(o){var adet=parseFloat(o.adet)||0,birim=parseFloat(o.birim)||0,tot=adet*birim;var net=tot*(1-ind/100),disc=tot-net;var tlB=foreign&&rate?birim*rate:null,tlNet=foreign&&rate?net*rate:null;var totCell=ind>0?('<span class="was">'+tkMoneyL(tot,code)+'</span><b>'+tkMoneyL(net,code)+'</b><span class="disc">'+T.discCell(indTxt,tkMoneyL(disc,code))+'</span>'):('<b>'+tkMoneyL(net,code)+'</b>');
-      return '<tr class="'+(o.oner?'oner':'')+'"><td class="det">'+(o.oner?'<span class="qtag">'+T.oner+'</span><br>':'')+tkMv(o.detay)+'</td><td class="kc">'+tkMv(o.kumas)+'</td><td class="ctr">'+(adet||'—')+'</td>'+
-        '<td class="num price"><b>'+tkMoneyL(birim,code)+'</b>'+(tlB!=null?'<span class="tl">≈ '+tkMoneyL(tlB,"TRY")+'</span>':'')+'</td>'+
-        '<td class="num price tot">'+totCell+(tlNet!=null?'<span class="tl">≈ '+tkMoneyL(tlNet,"TRY")+'</span>':'')+'</td></tr>';
-    }).join('')+'</tbody></table>';
-    if(foreign){var _rnote;
-      if(EN){_rnote=rate?('Prices are quoted in <b>'+code+'</b>; TRY equivalents are calculated using the <b>CBRT foreign exchange selling rate</b> (1 '+code+' = '+tkNfmtL(rate)+' ₺'+(tkRATES.date?' · '+tkRATES.date:'')+').'):('Prices are quoted in <b>'+code+'</b>. TRY equivalents are not shown because no exchange rate was entered.');}
-      else{_rnote=rate?('Fiyatlar <b>'+code+'</b> cinsindendir; TL karşılıkları <b>TCMB Döviz Satış</b> kuru ile hesaplanmıştır (1 '+code+' = '+tkNfmtL(rate)+' ₺'+(tkRATES.date?' · '+tkRATES.date:'')+').'):('Fiyatlar <b>'+code+'</b> cinsindendir. TL kuru girilmediği için TL karşılığı gösterilmiyor.');}
-      table+='<div class="qrate">'+_rnote+'</div>';}
-  }
-  return '<div class="qdoc"><section class="qsheet"><div class="qfit">'+
-    '<div class="qhead"><img class="lg tk-lg" src="'+TK_LOGO+'" alt="Tekstil A.Ş."><div class="hx"><div class="kicker">'+T.kicker+'</div><div class="title">'+T.title+'</div></div></div>'+
+  var thead='<thead><tr><th style="width:30%">'+T.thDetay+'</th><th>'+T.thKumas+'</th><th class="ctr">'+T.thAdet+'</th><th class="num">'+T.thBirim+'</th><th class="num">'+T.thTop+'</th></tr></thead>';
+  var rowHTML=rows.map(function(o){var adet=parseFloat(o.adet)||0,birim=parseFloat(o.birim)||0,tot=adet*birim;var net=tot*(1-ind/100),disc=tot-net;var tlB=foreign&&rate?birim*rate:null,tlNet=foreign&&rate?net*rate:null;var totCell=ind>0?('<span class="was">'+tkMoneyL(tot,code)+'</span><b>'+tkMoneyL(net,code)+'</b><span class="disc">'+T.discCell(indTxt,tkMoneyL(disc,code))+'</span>'):('<b>'+tkMoneyL(net,code)+'</b>');
+    return '<tr class="'+(o.oner?'oner':'')+'"><td class="det">'+(o.oner?'<span class="qtag">'+T.oner+'</span><br>':'')+tkMv(o.detay)+'</td><td class="kc">'+tkMv(o.kumas)+'</td><td class="ctr">'+(adet||'—')+'</td>'+
+      '<td class="num price"><b>'+tkMoneyL(birim,code)+'</b>'+(tlB!=null?'<span class="tl">≈ '+tkMoneyL(tlB,"TRY")+'</span>':'')+'</td>'+
+      '<td class="num price tot">'+totCell+(tlNet!=null?'<span class="tl">≈ '+tkMoneyL(tlNet,"TRY")+'</span>':'')+'</td></tr>';
+  });
+  /* ilk sayfa tam antet, devam sayfalarında kısa antet */
+  var chromeFirst='<div class="qhead"><img class="lg tk-lg" src="'+TK_LOGO+'" alt="Tekstil A.Ş."><div class="hx"><div class="kicker">'+T.kicker+'</div><div class="title">'+T.title+'</div></div></div>'+
     '<div class="qrule"></div>'+
     '<div class="qtop'+(tkS.foto?' has-photo':'')+'">'+photoHTML+'<div class="qbill"><div class="lab">'+T.cust+'</div><div class="name">'+(tkS.musteri?H(tkS.musteri):'<span class="mut">'+T.notset+'</span>')+'</div>'+(prod?'<div class="prod">'+prod+'</div>':'')+'</div><div class="qmeta">'+meta+'</div></div>'+
-    '<div class="qsec">'+T.sec+(rows.length?'<em>'+rows.length+' '+T.alt+'</em>':'')+'</div>'+table+
-    '<div class="qnotes">'+(EN
+    '<div class="qsec">'+T.sec+(rows.length?'<em>'+rows.length+' '+T.alt+'</em>':'')+'</div>';
+  var custShort=tkS.musteri?H(tkS.musteri):T.notset;
+  var chromeCont='<div class="qxcont"><img class="lg tk-lg" src="'+TK_LOGO+'" alt="Tekstil A.Ş."><div class="qxc-mid"><b>'+T.title+'</b><span>'+talepNo+' · '+custShort+'</span></div><span class="qxc-dev">'+(EN?'continued':'devam')+'</span></div>'+
+    '<div class="qsec">'+T.sec+'<em>'+(EN?'continued':'devam')+'</em></div>';
+  var foot='<div class="qfoot"><div class="co">Tekstil A.Ş.</div><div class="ci"><span>'+TK_ICPH+'0850 242 5700</span><span>'+TK_ICML+'info@tekstilas.com</span><span>'+TK_ICWB+'tekstilas.com</span></div></div>';
+  /* tablo altı bloklar (son sayfada tablonun altına akar) */
+  var trailers=[];
+  if(rows.length&&foreign){var _rnote;
+    if(EN){_rnote=rate?('Prices are quoted in <b>'+code+'</b>; TRY equivalents are calculated using the <b>CBRT foreign exchange selling rate</b> (1 '+code+' = '+tkNfmtL(rate)+' ₺'+(tkRATES.date?' · '+tkRATES.date:'')+').'):('Prices are quoted in <b>'+code+'</b>. TRY equivalents are not shown because no exchange rate was entered.');}
+    else{_rnote=rate?('Fiyatlar <b>'+code+'</b> cinsindendir; TL karşılıkları <b>TCMB Döviz Satış</b> kuru ile hesaplanmıştır (1 '+code+' = '+tkNfmtL(rate)+' ₺'+(tkRATES.date?' · '+tkRATES.date:'')+').'):('Fiyatlar <b>'+code+'</b> cinsindendir. TL kuru girilmediği için TL karşılığı gösterilmiyor.');}
+    trailers.push('<div class="qrate">'+_rnote+'</div>');}
+  trailers.push('<div class="qnotes">'+(EN
       ?('* Your products are manufactured <b>under your own brand label</b>. &nbsp;&nbsp;|&nbsp;&nbsp; ** Prices <span class="em">exclude</span> <b>'+H(kdv)+'% VAT</b>.'+(ind>0?' &nbsp;&nbsp;|&nbsp;&nbsp; *** A <b>'+indTxt+'% discount</b> has been applied to the totals shown.':''))
-      :('* Ürünleriniz, <b>markanızın etiketiyle</b> hazırlanır. &nbsp;&nbsp;|&nbsp;&nbsp; ** Fiyatlara <b>%'+H(kdv)+' KDV</b> dahil <span class="em">değildir</span>.'+(ind>0?' &nbsp;&nbsp;|&nbsp;&nbsp; *** Gösterilen toplamlara <b>%'+indTxt+' indirim</b> uygulanmıştır.':'')))+'</div>'+
-    ((tkS.not&&String(tkS.not).trim())?('<div class="qnotebox"><span class="nk">'+T.note+'</span><span class="nv">'+H(String(tkS.not).trim())+'</span></div>'):'')+
-    '<div class="qsec">'+T.steps+'</div>'+
-    '<div class="qsteps"><div class="qstep"><span class="n">1</span>'+T.s1+'</div><div class="qstep"><span class="n">2</span>'+T.s2+'</div><div class="qstep"><span class="n">3</span>'+T.s3+'</div></div>'+
-    '<div class="qspace"></div>'+
-    '<div class="qfoot"><div class="co">Tekstil A.Ş.</div><div class="ci"><span>'+TK_ICPH+'0850 242 5700</span><span>'+TK_ICML+'info@tekstilas.com</span><span>'+TK_ICWB+'tekstilas.com</span></div></div>'+
-    '</div></section></div>';
+      :('* Ürünleriniz, <b>markanızın etiketiyle</b> hazırlanır. &nbsp;&nbsp;|&nbsp;&nbsp; ** Fiyatlara <b>%'+H(kdv)+' KDV</b> dahil <span class="em">değildir</span>.'+(ind>0?' &nbsp;&nbsp;|&nbsp;&nbsp; *** Gösterilen toplamlara <b>%'+indTxt+' indirim</b> uygulanmıştır.':'')))+'</div>');
+  if(tkS.not&&String(tkS.not).trim())trailers.push('<div class="qnotebox"><span class="nk">'+T.note+'</span><span class="nv">'+H(String(tkS.not).trim())+'</span></div>');
+  trailers.push('<div class="qsteps-wrap"><div class="qsec">'+T.steps+'</div><div class="qsteps"><div class="qstep"><span class="n">1</span>'+T.s1+'</div><div class="qstep"><span class="n">2</span>'+T.s2+'</div><div class="qstep"><span class="n">3</span>'+T.s3+'</div></div></div>');
+  var segments=[];
+  if(rows.length)segments.push({type:'table',open:'<table class="qtable">',thead:thead,close:'</table>',rows:rowHTML});
+  else segments.push({type:'block',html:'<div style="border:1px dashed #e7ebf3;border-radius:12px;padding:32px;text-align:center;color:#c2c9d6;font-size:12px;font-weight:600">'+T.empty+'</div>'});
+  trailers.forEach(function(b){segments.push({type:'block',html:b});});
+  return qxPages({chromeFirst:chromeFirst,chromeCont:chromeCont,foot:foot,segments:segments,avail:1010});
 }
 function tkStatus(){var miss=[];if(!tkS.talep||tkS.talep.length!==6)miss.push('Talep No');if(!tkS.musteri)miss.push('Müşteri');if(!tkS.grup||!tkS.tur)miss.push('Ürün');if(!tkS.opts.some(function(o){return o.detay&&o.birim;}))miss.push('Seçenek');var p=$('tk-status');if(p)p.textContent=miss.length?('Eksik: '+miss.join(', ')):'✓ Teklif hazır';}
 function tkFit(scope){
@@ -2926,7 +3018,7 @@ function tkRender(){
   var scale=Math.max(.34,Math.min(.9,(window.innerWidth-480)/794));
   el.innerHTML='<div style="transform:scale('+scale+');transform-origin:top center;width:794px;margin:0 auto">'+tkQuoteDoc()+'</div>';
   var sc=el.firstChild;
-  tkFit(sc);
+  [].forEach.call(sc.querySelectorAll('.qsheet'),function(sh){qxFitSheet(sh);});
   tkLastDoc=sc.innerHTML;
   el.style.height=((sc.firstChild?sc.firstChild.offsetHeight:1122)*scale)+'px';
   tkStatus();
@@ -2972,50 +3064,44 @@ function soFill(){
 function soRow(lab,val,fx){return '<div class="so-row"><div class="lab">'+lab+'</div><div class="val'+(fx?' fx':'')+'">'+(val||'')+'</div></div>';}
 function soDoc(){
   var termin=soS.termin&&soS.termin.trim()?('<b>'+H(soS.termin)+'</b>'):'<span style="color:#aab2c4">_______</span>';
-  return '<div class="sodoc"><section class="so-sheet"><div class="so-fit">'+
-    '<div class="so-mast"><img src="'+LOGO+'" alt="Tekstil A.Ş."></div>'+
+  var belgeNo=soS.kod?('STD-'+H(soS.kod)):'';
+  var chromeFirst='<div class="so-mast"><img src="'+LOGO+'" alt="Tekstil A.Ş."></div>'+
     '<div class="so-rule"></div>'+
     '<div class="so-title">SİPARİŞ ONAY FORMU</div>'+
-    '<div class="so-meta"><div>Belge / Form No: <span class="u">'+(soS.kod?('STD-'+H(soS.kod)):'')+'</span></div><div>Düzenleme Tarihi: <span class="u">'+soDate(soS.dtarih)+'</span></div></div>'+
-    '<div class="so-band">Firma Bilgileri</div>'+
-    '<div class="so-rows">'+
-      soRow('Üretici','Tekstil A.Ş.',true)+
-      soRow('Müşteri / Marka',soBlank2(soS.musteri))+
-      soRow('Yetkili Kişi',soBlank2(soS.yetkili))+
-      soRow('Tarih',soDate(soS.ftarih))+
-    '</div>'+
-    '<div class="so-band">Üretim Detayları</div>'+
-    '<div class="so-rows">'+
+    '<div class="so-meta"><div>Belge / Form No: <span class="u">'+belgeNo+'</span></div><div>Düzenleme Tarihi: <span class="u">'+soDate(soS.dtarih)+'</span></div></div>';
+  var chromeCont='<div class="so-cont"><img src="'+LOGO+'" alt="Tekstil A.Ş."><div><b>SİPARİŞ ONAY FORMU</b><span>'+(belgeNo||'—')+' · '+soBlank2(soS.musteri)+'</span></div><span class="dev">devam</span></div>';
+  var foot='<div class="so-foot"><div class="co">TEKSTİL A.Ş.</div><div class="ct"><b>Tel:</b> 0850 242 5700 &nbsp;·&nbsp; <b>WhatsApp:</b> 0530 765 3238 &nbsp;·&nbsp; <b>E-posta:</b> info@tekstilas.com &nbsp;·&nbsp; <b>Web:</b> www.tekstilas.com</div></div>';
+  /* her bant + satırları birlikte kalsın diye tek blok */
+  var segments=[
+    {type:'block',html:'<div class="so-band">Firma Bilgileri</div><div class="so-rows">'+
+      soRow('Üretici','Tekstil A.Ş.',true)+soRow('Müşteri / Marka',soBlank2(soS.musteri))+
+      soRow('Yetkili Kişi',soBlank2(soS.yetkili))+soRow('Tarih',soDate(soS.ftarih))+'</div>'},
+    {type:'block',html:'<div class="so-band">Üretim Detayları</div><div class="so-rows">'+
       soRow('Ürün Cinsi / Modeli',soBlank2([soS.grup,soS.tur].filter(Boolean).join(' / ')))+
-      soRow('Kumaş Detayı',soBlank2(soS.kumas))+
-      soRow('Renk / Kod',soBlank2(soS.renk))+
-      soRow('Beden Seti (Dağılımı)',soBlank2(soS.beden))+
-      soRow('Toplam Sipariş Adedi',soBlank2(soS.adet))+
-    '</div>'+
-    '<div class="so-band">Fiyat ve Termin</div>'+
-    '<div class="so-rows">'+
-      soRow('Birim Fiyat',soBlank2(soS.birim))+
-      soRow('Öngörülen Toplam Tutar',soToplam())+
-      soRow('Öngörülen Teslimat Süresi','Numune onayından itibaren '+termin+' iş günü.')+
-    '</div>'+
-    '<div class="so-band">Üretim ve Onay İş Akışı (Lütfen Okuyunuz)</div>'+
-    '<div class="so-flow"><div class="intro">Değerli müşterimiz, üretim sürecinizi en hızlı ve kaliteli şekilde tamamlayabilmemiz için aşağıdaki standart iş akışımızı bilgilerinize sunarız:</div><ol>'+
+      soRow('Kumaş Detayı',soBlank2(soS.kumas))+soRow('Renk / Kod',soBlank2(soS.renk))+
+      soRow('Beden Seti (Dağılımı)',soBlank2(soS.beden))+soRow('Toplam Sipariş Adedi',soBlank2(soS.adet))+'</div>'},
+    {type:'block',html:'<div class="so-band">Fiyat ve Termin</div><div class="so-rows">'+
+      soRow('Birim Fiyat',soBlank2(soS.birim))+soRow('Öngörülen Toplam Tutar',soToplam())+
+      soRow('Öngörülen Teslimat Süresi','Numune onayından itibaren '+termin+' iş günü.')+'</div>'},
+    {type:'block',html:'<div class="so-band">Üretim ve Onay İş Akışı (Lütfen Okuyunuz)</div>'+
+      '<div class="so-flow"><div class="intro">Değerli müşterimiz, üretim sürecinizi en hızlı ve kaliteli şekilde tamamlayabilmemiz için aşağıdaki standart iş akışımızı bilgilerinize sunarız:</div><ol>'+
       '<li><b>Teklif Geçerlilik Süresi:</b> Yukarıda belirtilen birim fiyat ve üretim termin süresi, formun düzenlendiği tarihten itibaren 7 gün boyunca geçerlidir.</li>'+
       '<li><b>Numune Değerlendirme:</b> Tarafınıza iletilen numunelerin değerlendirme ve revize dönüş süresi 3 iş günüdür. Zamanında ve eksiksiz üretim yapabilmemiz için bu süre zarfında geri dönüşünüzü rica ederiz.</li>'+
       '<li><b>Revize Standartları:</b> Üretim takviminde sarkma olmaması ve istediğiniz sonuca en hızlı şekilde ulaşabilmemiz için ilk 2 numune revizesi standart akışımıza dahildir.</li>'+
       '<li><b>Teslimat Tarihinin Güncellenmesi:</b> Numune onay sürecinde (revize talepleri, kargo süreleri veya geç dönüşler sebebiyle) yaşanabilecek uzamalar, yukarıda belirtilen teslimat tarihini doğrudan güncelleyecektir.</li>'+
-      '<li><b>Seri Üretime Geçiş:</b> Tüm detaylar içinize sindiğinde, tarafınıza iletilen son numune üzerindeki “Üretim Onay Kartı”nın onaylanması (imza/kaşe veya yazılı teyit) ile birlikte seri üretim sürecimiz resmen başlayacaktır. Onay kartı teyit edilmeden seri üretime başlanamamaktadır.</li>'+'<li><b>İptal Durumu:</b> Sipariş sürecinde iptal edilen ürünler için hazırlanan numunelerin bedeli tahsil edilir.</li>'+
-    '</ol></div>'+
-    '<div class="so-sign">'+
+      '<li><b>Seri Üretime Geçiş:</b> Tüm detaylar içinize sindiğinde, tarafınıza iletilen son numune üzerindeki “Üretim Onay Kartı”nın onaylanması (imza/kaşe veya yazılı teyit) ile birlikte seri üretim sürecimiz resmen başlayacaktır. Onay kartı teyit edilmeden seri üretime başlanamamaktadır.</li>'+
+      '<li><b>İptal Durumu:</b> Sipariş sürecinde iptal edilen ürünler için hazırlanan numunelerin bedeli tahsil edilir.</li>'+
+      '</ol></div>'},
+    {type:'block',html:'<div class="so-sign">'+
       '<div class="so-box"><div class="h">Tekstil A.Ş.</div><div class="sb">Kaşe / İmza</div><div class="sl"><b>Ad / Soyad:</b> '+soBlank2(soS.sgAd)+(soS.sgUnvan?'<br><b>Unvan:</b> '+H(soS.sgUnvan):'')+'<br>Tarih: '+soDate(soS.sgTarih)+'</div></div>'+
       '<div class="so-box"><div class="h">Müşteri / Marka Onayı</div><div class="sb">Üretim detaylarını ve iş akışını onaylıyorum.</div><div class="sl"><b>Ad / Soyad:</b> '+soBlank2(soS.mgAd)+(soS.mgUnvan?'<br><b>Unvan:</b> '+H(soS.mgUnvan):'')+'<br>İmza / Marka Kaşesi · Tarih: '+soDate(soS.mgTarih)+'</div></div>'+
-    '</div>'+
-    '<div class="so-foot"><div class="co">TEKSTİL A.Ş.</div><div class="ct"><b>Tel:</b> 0850 242 5700 &nbsp;·&nbsp; <b>WhatsApp:</b> 0530 765 3238 &nbsp;·&nbsp; <b>E-posta:</b> info@tekstilas.com &nbsp;·&nbsp; <b>Web:</b> www.tekstilas.com</div></div>'+
-    '</div></section></div>';
+      '</div>'}
+  ];
+  return qxPages({docClass:'sodoc qbulk',sheetClass:'so-sheet',fitClass:'so-fit',avail:1056,spacer:'',chromeFirst:chromeFirst,chromeCont:chromeCont,foot:foot,segments:segments});
 }
 function soStatus(){var miss=[];if(!soS.musteri)miss.push('Müşteri');if(!soS.grup||!soS.tur)miss.push('Ürün');if(!soS.adet)miss.push('Adet');var p=$('so-status');if(p)p.textContent=miss.length?('Eksik: '+miss.join(', ')):'✓ Form hazır';}
 function soFit(scope){var sh=scope.querySelector('.so-sheet');if(!sh)return;var fit=sh.querySelector('.so-fit');if(!fit)return;fit.style.transform='';fit.style.width='';var cs=window.getComputedStyle(sh);var avail=sh.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);var need=fit.scrollHeight;if(avail>80&&need>avail){var s=Math.max(.4,avail/need);fit.style.transformOrigin='top left';fit.style.width=(100/s)+'%';fit.style.transform='scale('+s+')';}}
-function soRender(){if(!soS)return;var el=$('so-preview');if(!el)return;var scale=Math.max(.34,Math.min(.9,(window.innerWidth-480)/794));el.innerHTML='<div style="transform:scale('+scale+');transform-origin:top center;width:794px;margin:0 auto">'+soDoc()+'</div>';var sc=el.firstChild;soFit(sc);soLastDoc=sc.innerHTML;el.style.height=((sc.firstChild?sc.firstChild.offsetHeight:1122)*scale)+'px';soStatus();}
+function soRender(){if(!soS)return;var el=$('so-preview');if(!el)return;var scale=Math.max(.34,Math.min(.9,(window.innerWidth-480)/794));el.innerHTML='<div style="transform:scale('+scale+');transform-origin:top center;width:794px;margin:0 auto">'+soDoc()+'</div>';var sc=el.firstChild;[].forEach.call(sc.querySelectorAll('.so-sheet'),function(sh){qxFitSheet(sh);});soLastDoc=sc.innerHTML;el.style.height=((sc.firstChild?sc.firstChild.offsetHeight:1122)*scale)+'px';soStatus();}
 function soMakePDF(){if(!soS){toast('Önce bir onay formu oluşturun');return;}try{setPageOrient('portrait');if(!soLastDoc)soRender();var root=$('print-root');root.innerHTML=soLastDoc||soDoc();toast('PDF hazırlanıyor, yazdırma penceresi açılıyor…');setTimeout(function(){try{window.print();}catch(e){toast('Yazdırma penceresi açılamadı: '+e.message);}},160);}catch(e){toast('Onay PDF hatası: '+e.message);}}
 function soSave(){if(!soS)return;var t=(soS.kod?('STD-'+soS.kod):'Onay')+' · '+(soS.musteri||'-');var data=JSON.parse(JSON.stringify(soS));if(currentJobId&&jobs.find(function(x){return x.id===currentJobId;})){var j=jobs.find(function(x){return x.id===currentJobId;});j.onay=data;j.title=t;j.updated=Date.now();}else{currentJobId='j'+Date.now();jobs.unshift({id:currentJobId,type:'onay',title:t,updated:Date.now(),onay:data});}persist();toast('Kaydedildi ✓');showHome();}
 function soOpenJob(j){currentJobId=j.id;soS=Object.assign(soBlank(),JSON.parse(JSON.stringify(j.onay||{})));soFill();showView('onay');soRender();}
@@ -3239,31 +3325,32 @@ function ozDoc(){
   var c=ozCompute(); if(!c)return ''; var p=c.p;
   var photoHTML='';
   if(p.foto){ var ar=(p.ar>0)?p.ar:0.75,W=132,Hm=168,w,h; if(ar>=1){w=W;h=Math.round(W/ar);}else{h=Hm;w=Math.round(Hm*ar);if(w>W){w=W;h=Math.round(W/ar);}} photoHTML='<div class="qphoto"><img src="'+p.foto+'" alt="" style="width:'+w+'px;height:'+h+'px"></div>'; }
-  var body;
-  if(c.noRate) body='<div class="oz-docwarn">'+c.sym+' kuru girilmedi; kârlılık hesaplanamadı.</div>';
-  else if(!c.hasCost) body='<div class="oz-docwarn">Birim maliyet girilmedi; kârlılık hesaplanamadı.</div>';
-  else {
-    var prof = c.rows.length
-      ? '<table class="oz-tbl"><thead><tr><th>Seçenek</th><th class="num">Adet</th><th class="num">Birim Satış</th><th class="num">Birim Kâr</th><th class="num">Marj</th><th class="num">Toplam Kazanç</th></tr></thead><tbody>'+ozProfRows(c,true)+'</tbody></table>'
-      : '<div class="oz-docwarn">Birim fiyatı girilmiş teklif seçeneği yok.</div>';
-    body='<div class="qsec">Maliyet Dökümü</div>'+
-      '<table class="oz-mtbl"><thead><tr><th>Kalem</th><th>Detay</th><th class="num">Tutar</th></tr></thead><tbody>'+ozMtblRows(c,true)+'</tbody></table>'+
-      '<div class="qsec">Fiyat Seçenekleri &amp; Kârlılık</div>'+prof;
-  }
-  return '<div class="qdoc"><section class="qsheet"><div class="qfit">'+
-    '<div class="qhead"><img class="lg" src="'+LOGO+'" alt="Tekstil A.Ş."><div class="hx"><div class="kicker">İç Belge · Kârlılık Özeti</div><div class="title">ÜRÜN ÖZETİ</div></div></div>'+
+  var specsHTML=(function(){var sp=function(k,v){return v?'<div class="r"><span class="k">'+k+'</span><span class="v">'+H(v)+'</span></div>':'';};return sp('Ürün Kodu',p.kod)+sp('Grup',p.grup)+sp('Tür',p.tur)+sp('Kompozisyon',p.komp)+sp('Min. Sipariş',p.moq);})();
+  var chromeFirst='<div class="qhead"><img class="lg" src="'+LOGO+'" alt="Tekstil A.Ş."><div class="hx"><div class="kicker">İç Belge · Kârlılık Özeti</div><div class="title">ÜRÜN ÖZETİ</div></div></div>'+
     '<div class="qrule"></div>'+
-    '<div class="ml-top">'+photoHTML+'<div class="ml-id"><div class="name">'+(p.ad?H(p.ad):'Ürün')+'</div><div class="kod">'+H(p.kod||'')+'</div><div class="specs">'+(function(){var sp=function(k,v){return v?'<div class="r"><span class="k">'+k+'</span><span class="v">'+H(v)+'</span></div>':'';};return sp('Ürün Kodu',p.kod)+sp('Grup',p.grup)+sp('Tür',p.tur)+sp('Kompozisyon',p.komp)+sp('Min. Sipariş',p.moq);})()+'</div></div></div>'+
-    body+
-    '<div class="ml-note" style="margin-top:14px"><b>İç kullanım belgesidir.</b> &nbsp;·&nbsp; '+ozNote(c).join(' &nbsp;·&nbsp; ')+'</div>'+
-    '<div class="qspace"></div>'+
-    '<div class="qfoot"><div class="co">Tekstil A.Ş.</div><div class="ci"><span>'+TK_ICPH+'0850 242 5700</span><span>'+TK_ICML+'info@tekstilas.com</span><span>'+TK_ICWB+'tekstilas.com</span></div></div>'+
-    '</div></section></div>';
+    '<div class="ml-top">'+photoHTML+'<div class="ml-id"><div class="name">'+(p.ad?H(p.ad):'Ürün')+'</div><div class="kod">'+H(p.kod||'')+'</div><div class="specs">'+specsHTML+'</div></div></div>';
+  var chromeCont='<div class="qxcont"><img class="lg" src="'+LOGO+'" alt="Tekstil A.Ş."><div class="qxc-mid"><b>ÜRÜN ÖZETİ</b><span>'+H(p.kod||p.ad||'')+'</span></div><span class="qxc-dev">devam</span></div>';
+  var foot='<div class="qfoot"><div class="co">Tekstil A.Ş.</div><div class="ci"><span>'+TK_ICPH+'0850 242 5700</span><span>'+TK_ICML+'info@tekstilas.com</span><span>'+TK_ICWB+'tekstilas.com</span></div></div>';
+  var note='<div class="ml-note" style="margin-top:14px"><b>İç kullanım belgesidir.</b> &nbsp;·&nbsp; '+ozNote(c).join(' &nbsp;·&nbsp; ')+'</div>';
+  var segments;
+  if(c.noRate) segments=[{type:'block',html:'<div class="oz-docwarn">'+c.sym+' kuru girilmedi; kârlılık hesaplanamadı.</div>'},{type:'block',html:note}];
+  else if(!c.hasCost) segments=[{type:'block',html:'<div class="oz-docwarn">Birim maliyet girilmedi; kârlılık hesaplanamadı.</div>'},{type:'block',html:note}];
+  else {
+    segments=[
+      {type:'block',html:'<div class="qsec">Maliyet Dökümü</div>'},
+      {type:'table',open:'<table class="oz-mtbl">',thead:'<thead><tr><th>Kalem</th><th>Detay</th><th class="num">Tutar</th></tr></thead>',close:'</table>',rows:qxSplitRows(ozMtblRows(c,true))},
+      {type:'block',html:'<div class="qsec">Fiyat Seçenekleri &amp; Kârlılık</div>'}
+    ];
+    if(c.rows.length) segments.push({type:'table',open:'<table class="oz-tbl">',thead:'<thead><tr><th>Seçenek</th><th class="num">Adet</th><th class="num">Birim Satış</th><th class="num">Birim Kâr</th><th class="num">Marj</th><th class="num">Toplam Kazanç</th></tr></thead>',close:'</table>',rows:qxSplitRows(ozProfRows(c,true))});
+    else segments.push({type:'block',html:'<div class="oz-docwarn">Birim fiyatı girilmiş teklif seçeneği yok.</div>'});
+    segments.push({type:'block',html:note});
+  }
+  return qxPages({chromeFirst:chromeFirst,chromeCont:chromeCont,foot:foot,avail:1010,segments:segments});
 }
 function ozMakePDF(){
   var c=ozCompute(); if(!c){toast('Önce bir ürün açın');return;}
   try{ setPageOrient('portrait');
-    var tmp=document.createElement('div'); tmp.style.cssText='position:fixed;left:-99999px;top:0;width:794px'; tmp.innerHTML=ozDoc(); document.body.appendChild(tmp); tkFit(tmp); var html=tmp.innerHTML; document.body.removeChild(tmp);
+    var tmp=document.createElement('div'); tmp.style.cssText='position:fixed;left:-99999px;top:0;width:794px'; tmp.innerHTML=ozDoc(); document.body.appendChild(tmp); [].forEach.call(tmp.querySelectorAll('.qsheet'),function(sh){qxFitSheet(sh);}); var html=tmp.innerHTML; document.body.removeChild(tmp);
     $('print-root').innerHTML=html;
     toast('PDF hazırlanıyor, yazdırma penceresi açılıyor…');
     setTimeout(function(){ try{window.print();}catch(e){toast('Yazdırma açılamadı: '+e.message);} },160);
@@ -3373,14 +3460,14 @@ function mlDoc(){
   if(p.foto){ var ar=(p.ar>0)?p.ar:0.75,W=150,Hm=190,w,h; if(ar>=1){w=W;h=Math.round(W/ar);}else{h=Hm;w=Math.round(Hm*ar);if(w>W){w=W;h=Math.round(W/ar);}} photoHTML='<div class="qphoto"><img src="'+p.foto+'" alt="" style="width:'+w+'px;height:'+h+'px"></div>'; }
   var sp=function(k,v){ return v?('<div class="r"><span class="k">'+k+'</span><span class="v">'+H(v)+'</span></div>'):''; };
   var specs=sp('Ürün Kodu',p.kod)+sp('Grup',p.grup)+sp('Tür',p.tur)+sp('Kompozisyon',p.komp)+sp('Min. Sipariş',p.moq);
-  var rows=mlS.items.filter(function(it){ return (it.ad||'')||mlItemTutar(it); }).map(function(it){
+  var rowHTML=mlS.items.filter(function(it){ return (it.ad||'')||mlItemTutar(it); }).map(function(it){
     var tot=mlItemTutar(it);
     var det = it.mode==='metre' ? (H((it.metre||'0'))+' m × '+mlMoney(parseFloat(it.birim)||0,it.cur)+'/m') : '—';
     var tl = it.cur==='USD'&&rate ? '<span class="tl">≈ '+mlMoney(tot*rate,'TRY')+'</span>' : '';
     return '<tr><td class="kalem">'+(it.ad?H(it.ad):'<span style="color:#c2c9d6">—</span>')+'</td><td class="det">'+det+'</td>'+
       '<td class="num"><b>'+mlMoney(tot,it.cur)+'</b>'+tl+'</td></tr>';
-  }).join('');
-  if(!rows) rows='<tr><td colspan="3" style="padding:26px;text-align:center;color:#c2c9d6;font-weight:600">Henüz kalem eklenmedi.</td></tr>';
+  });
+  if(!rowHTML.length) rowHTML=['<tr><td colspan="3" style="padding:26px;text-align:center;color:#c2c9d6;font-weight:600">Henüz kalem eklenmedi.</td></tr>'];
   var sumU=function(tl){ return rate?('<div class="usd">≈ '+mlMoney(tl/rate,'USD')+'</div>'):''; };
   var sum='<div class="ml-sum">'+
     '<div class="r"><span class="k">Toplam Maliyet</span><span class="v">'+mlMoney(c.sub,'TRY')+'</span></div>'+
@@ -3391,23 +3478,24 @@ function mlDoc(){
     '</div>';
   var note='<div class="ml-note"><b>İç kullanım belgesidir.</b> Tutarlar adet başına maliyettir.'+
     (rate?(' &nbsp;·&nbsp; USD karşılıkları 1 USD = '+mlNf(rate)+' ₺ ile hesaplanmıştır.'):(c.hasUSD?' &nbsp;·&nbsp; <b style="color:#c0392b">Dolar kuru girilmedi.</b>':''))+'</div>';
-  return '<div class="qdoc"><section class="qsheet"><div class="qfit">'+
-    '<div class="qhead"><img class="lg" src="'+LOGO+'" alt="Tekstil A.Ş."><div class="hx"><div class="kicker">İç Belge · Cost Sheet</div><div class="title">MALİYET HESABI</div></div></div>'+
+  var chromeFirst='<div class="qhead"><img class="lg" src="'+LOGO+'" alt="Tekstil A.Ş."><div class="hx"><div class="kicker">İç Belge · Cost Sheet</div><div class="title">MALİYET HESABI</div></div></div>'+
     '<div class="qrule"></div>'+
     '<div class="ml-top">'+photoHTML+'<div class="ml-id"><div class="name">'+(p.ad?H(p.ad):'Ürün')+'</div><div class="kod">'+H(p.kod||'')+'</div><div class="specs">'+specs+'</div></div></div>'+
-    '<div class="qsec">Maliyet Kalemleri'+(rate?'<em>1 USD = '+mlNf(rate)+' ₺</em>':'')+'</div>'+
-    '<table class="ml-table"><thead><tr><th style="width:34%">Kalem</th><th>Detay</th><th class="num">Tutar</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div class="ml-sumwrap">'+sum+'</div>'+
-    note+
-    '<div class="qspace"></div>'+
-    '<div class="qfoot"><div class="co">Tekstil A.Ş.</div><div class="ci"><span>'+TK_ICPH+'0850 242 5700</span><span>'+TK_ICML+'info@tekstilas.com</span><span>'+TK_ICWB+'tekstilas.com</span></div></div>'+
-    '</div></section></div>';
+    '<div class="qsec">Maliyet Kalemleri'+(rate?'<em>1 USD = '+mlNf(rate)+' ₺</em>':'')+'</div>';
+  var chromeCont='<div class="qxcont"><img class="lg" src="'+LOGO+'" alt="Tekstil A.Ş."><div class="qxc-mid"><b>MALİYET HESABI</b><span>'+H(p.kod||p.ad||'')+'</span></div><span class="qxc-dev">devam</span></div>'+
+    '<div class="qsec">Maliyet Kalemleri<em>devam</em></div>';
+  var foot='<div class="qfoot"><div class="co">Tekstil A.Ş.</div><div class="ci"><span>'+TK_ICPH+'0850 242 5700</span><span>'+TK_ICML+'info@tekstilas.com</span><span>'+TK_ICWB+'tekstilas.com</span></div></div>';
+  return qxPages({chromeFirst:chromeFirst,chromeCont:chromeCont,foot:foot,avail:1010,segments:[
+    {type:'table',open:'<table class="ml-table">',thead:'<thead><tr><th style="width:34%">Kalem</th><th>Detay</th><th class="num">Tutar</th></tr></thead>',close:'</table>',rows:rowHTML},
+    {type:'block',html:'<div class="ml-sumwrap">'+sum+'</div>'},
+    {type:'block',html:note}
+  ]});
 }
 function mlRender(){
   if(!mlS)return; var el=$('ml-preview'); if(!el)return;
   var scale=Math.max(.34,Math.min(.9,(window.innerWidth-480)/794));
   el.innerHTML='<div style="transform:scale('+scale+');transform-origin:top center;width:794px;margin:0 auto">'+mlDoc()+'</div>';
-  var sc=el.firstChild; tkFit(sc); mlLastDoc=sc.innerHTML;
+  var sc=el.firstChild; [].forEach.call(sc.querySelectorAll('.qsheet'),function(sh){qxFitSheet(sh);}); mlLastDoc=sc.innerHTML;
   el.style.height=((sc.firstChild?sc.firstChild.offsetHeight:1122)*scale)+'px';
   mlStatus();
 }

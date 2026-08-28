@@ -180,6 +180,12 @@ async function buildDoc(page, { template, data, language }) {
       pairs.forEach(([, to], i) => { h = h.split(' U' + i + ' ').join(to) })
       root.innerHTML = h
     }
+    // Sayfalanmış belgelerde (fiyat_teklifi/siparis_onay) son bir güvenlik: print-media
+    // font farkından doğabilecek birkaç piksel taşmayı hafifçe küçültür (taban 0.9, kırpma yok).
+    // Tüm innerHTML değişikliklerinden SONRA çalışır ki inline transform silinmesin.
+    if (typeof window.qxFitSheet === 'function') {
+      root.querySelectorAll('.qsheet, .so-sheet').forEach((s) => window.qxFitSheet(s))
+    }
     if (typeof window.renderBarcodes === 'function') window.renderBarcodes(root)
     root.style.display = 'block'
   }, { template, data, language, enPairs: EN_PAIRS })
