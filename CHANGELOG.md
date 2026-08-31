@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.30.0] — 2026-08-31
+
+### M3.3 — Mesaj geçmişi CRM'e taşındı (654 konuşma, 4.420 mesaj)
+M3.2'de aktarılan 651 kişinin WhatsApp yazışmaları CRM'e alındı. Artık müşteri
+kartından konuşma geçmişi görülebilir; daha önce yalnız teklead'in gelen kutusundaydı.
+
+- **133 şablon + 186 değişken**, **654 konuşma**, **4.420 mesaj**
+  (849 medyalı, 1.281 şablona bağlı). Kaynak sayılarla **birebir**, yetim konuşma **0**.
+- **Değer eşlemesi** (teklead enum → CRM check kısıtı): `read`→`okundu` ·
+  `delivered`→`iletildi` · `sent`→`gonderildi` · `queued`→`kuyrukta` ·
+  `failed`→`basarisiz` · `received`→`alindi`. Kanal: `whatsapp`→`whatsapp`, `email`→`eposta`.
+- **Bağlantı** teklead `contact_id` → `leads.external_id` üzerinden kuruldu (M3.2'nin
+  eşlemesi). Mesajlaşma kendi kimliğini taşımıyor — M3.1 tasarımı.
+- **Tetikleyici göç sırasında devre dışı bırakıldı.** `messages_touch_conversation`
+  her mesaj için `last_message_at`/`unread_count` güncelliyor; geçmiş aktarımında bu,
+  kaynaktaki doğru değerleri bozardı (4.420 gelen mesaj `unread_count`'u şişirirdi).
+  Aktarım sonrası yeniden etkinleştirildi.
+- **Partili gönderim:** 4.420 mesajın tek SQL'i ~2 MB olurdu; 800'erlik 6 partiye
+  bölündü. Her parti kendi transaction'ı ve idempotent — yarıda kalırsa yeniden
+  çalıştırmak yeterli.
+- **İdempotency kanıtlandı:** bir parti ikinci kez uygulandı, mesaj sayısı 4.420'de kaldı.
+
+### Medya notu
+`media_url` teklead'deki haliyle taşındı (sağlayıcı bağlantısı). Bu bağlantılar zamanla
+geçersizleşebilir; 849 medyanın Storage'a indirilmesi ayrı bir iş olarak duruyor.
+
 ## [1.29.0] — 2026-08-31
 
 ### M3.2 — teklead kişileri CRM lead'lerine aktarıldı (651 kişi)
