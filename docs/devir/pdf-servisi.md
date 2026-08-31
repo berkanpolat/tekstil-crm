@@ -14,7 +14,34 @@ sarmalayıp birebir PDF üretir. Tek Chromium örneği sıcak tutulur (2 sn hede
 - Fly hesabı + `flyctl` CLI (`brew install flyctl`), `fly auth login`.
 - Bellek: Chromium ~350–450 MB (yerel ölçüm). **1 GB** ayrıldı (512 MB dar kalır).
 
-## İlk dağıtım
+## Durum (31 Ağustos 2026)
+
+Servis bir noktada **kapandı** — `tekstil-pdf-renderer.fly.dev` DNS'te çözülmüyordu,
+uygulama silinmişti. Sonuç: belge/teklif PDF üretimi çalışmıyor. `VITE_PDF_SERVICE_URL`
+bilerek boş bırakıldı; ölü adrese istek atıp hata vermek yerine arayüz özelliği
+kapalı gösteriyor (`hasPdfService=false`).
+
+**Kod sağlam.** Yerelde doğrulandı: Chromium sıcak kalkıyor, örnek fiyat teklifi
+**421 KB'lık gerçek PDF** olarak üretiliyor, Türkçe içerik doğru. Eksik olan yalnız barındırma.
+
+**Maliyet düzeltmesi:** eskiden `min_machines_running = 1` (sürekli açık 1 GB makine)
+idi; kapanmasının muhtemel sebebi bu. Artık `auto_stop_machines = "suspend"` +
+`min_machines_running = 0` — makine askıya alınıyor, ilk istekte ~1 sn'de dönüyor
+(Chromium yeniden kurulmuyor). Günde birkaç belge için sürekli açık tutmak gereksizdi.
+
+## Kurulum (tek komut)
+
+```bash
+flyctl auth login            # tek etkileşimli adım
+bash scripts/pdf-servisi-kur.sh
+```
+
+Script: uygulamayı oluşturur, `PDF_SECRET` üretip **hem Fly'a hem Supabase'e** yazar
+(ikisi aynı olmalı), dağıtır, `/health` ile doğrular, `VITE_PDF_SERVICE_URL`'i `.env`'e
+koyar. Ardından `bash scripts/release.sh` — Vite değişkeni **derleme anında** gömülür,
+yeniden build etmeden arayüz servisi görmez.
+
+## İlk dağıtım (elle)
 
 ```bash
 cd services/pdf-renderer

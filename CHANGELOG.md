@@ -13,6 +13,31 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.34.0] — 2026-08-31
+
+### Belge motoru: PDF servisi kurtarma hazırlığı
+Servis 31 Ağustos'ta ölü bulunmuştu (`tekstil-pdf-renderer.fly.dev` DNS'te yok,
+Fly uygulaması silinmiş) — belge ve teklif PDF üretimi bu yüzden çalışmıyor.
+
+- **Kodun sağlam olduğu kanıtlandı.** Servis yerelde ayağa kaldırıldı: Chromium sıcak
+  kalktı (`{"ok":true,"warm":true}`), örnek fiyat teklifi **421 KB'lık gerçek PDF**
+  olarak üretildi, metin doğru çıktı ("FİYAT TEKLİFİ", "TAS-588892", müşteri adı).
+  Eksik olan yalnız barındırma.
+- **Maliyet düzeltmesi — kapanma sebebi muhtemelen buydu.** `fly.toml` sürekli açık
+  1 GB makine istiyordu (`min_machines_running = 1`). Belge üretimi günde birkaç kez
+  kullanılıyor; sürekli açık tutmak parayı boşa harcıyordu. Artık
+  `auto_stop_machines = "suspend"` + `min_machines_running = 0`: makine askıya alınıyor,
+  ilk istekte ~1 sn'de dönüyor (Chromium yeniden kurulmuyor, tam soğuk başlatma değil).
+- **CORS adresi düzeltildi:** `app.tekstilas.com` → `crm.tekstilas.com` (yayın adresi
+  31 Ağustos'ta değişmişti; eski değerle tarayıcı istekleri reddedilirdi).
+- **`scripts/pdf-servisi-kur.sh`** — kurulumu tek komuta indiriyor: uygulamayı oluşturur,
+  `PDF_SECRET` üretip **hem Fly'a hem Supabase'e** yazar (ikisi aynı olmalı, yoksa
+  imza doğrulaması düşer), dağıtır, `/health` ile doğrular, `VITE_PDF_SERVICE_URL`'i
+  `.env`'e koyar ve build gerektiğini hatırlatır.
+
+> **Kalan tek etkileşimli adım: `flyctl auth login`.** Fly hesabına erişim bende yok;
+> giriş yapıldıktan sonra kurulum ve doğrulama otomatik.
+
 ## [1.33.0] — 2026-08-31
 
 ### M3.6 — Paralel çalışma başladı: gelen WhatsApp mesajları CRM'e de düşüyor
