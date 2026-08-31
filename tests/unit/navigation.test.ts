@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { NAV_ITEMS, activeNavItem, canViewFinance, canManageUsers } from '@/lib/navigation'
 
 describe('navigation', () => {
-  it('menü modülleri (Faz 6: +Hedefler = 14)', () => {
-    expect(NAV_ITEMS).toHaveLength(14)
+  it('menü modülleri (M3: +Mesajlar = 15)', () => {
+    expect(NAV_ITEMS).toHaveLength(15)
     expect(NAV_ITEMS[0]?.path).toBe('/')
   })
 

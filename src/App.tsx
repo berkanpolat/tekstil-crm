@@ -32,6 +32,7 @@ import { StatusTransitionsPage } from '@/pages/settings/StatusTransitionsPage'
 import { REFERENCE_CONFIGS } from '@/pages/settings/referenceConfigs'
 import { LeadsListPage } from '@/pages/leads/LeadsListPage'
 import { LeadCardPage } from '@/pages/leads/LeadCardPage'
+import { InboxPage } from '@/pages/messages/InboxPage'
 import { CustomersListPage } from '@/pages/customers/CustomersListPage'
 import { CustomerCardPage } from '@/pages/customers/CustomerCardPage'
 import { OperationsListPage } from '@/pages/operations/OperationsListPage'
@@ -85,6 +86,7 @@ export default function App() {
 
             <Route path="/potansiyeller" element={<LeadsListPage />} />
             <Route path="/potansiyeller/:id" element={<LeadCardPage />} />
+            <Route path="/mesajlar" element={<InboxPage />} />
             <Route path="/musteriler" element={<CustomersListPage />} />
             <Route path="/musteriler/:id" element={<CustomerCardPage />} />
             <Route path="/talepler" element={<OperationsListPage />} />

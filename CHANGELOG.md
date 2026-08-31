@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.32.0] — 2026-08-31
+
+### M3.5 — Gelen kutusu arayüzü
+4.420 mesaj CRM'deydi ama görecek ekran yoktu. **Mesajlar** modülü eklendi
+(`/mesajlar`) — menüde Potansiyeller ile Müşteriler arasında.
+
+- **Solda konuşma listesi:** son mesaja göre sıralı, okunmamış rozeti, son mesaj
+  önizlemesi, ada göre arama, "yalnız okunmamışlar" süzgeci.
+- **Sağda akış:** gelen/giden balonları, ek bağlantıları, teslim durumu, başarısız
+  mesajlarda hata ipucu. Başlıktaki ad ilgili **potansiyel ya da müşteri kartına**
+  bağlanıyor — konuşmadan kaydın kendisine geçilebiliyor.
+- **Gönderim** `whatsapp-send` üzerinden. `messages.send` izni yoksa kutu yerine
+  açıklama görünüyor.
+- **24 saatlik pencere uyarısı:** müşteri son 24 saatte yazmadıysa serbest metin
+  Twilio tarafından reddedilir. Kullanıcı denemeden önce uyarılıyor — hata mesajıyla
+  karşılaşmak yerine neden gitmeyeceğini önceden görüyor.
+- Konuşma açılınca okunmuş sayılıyor; sayaç gelen kutusunda şişip kalmıyor.
+- **N+1 sorgudan kaçınıldı:** konuşma listesi kimlik taşımadığı için ad çözümü gerekiyor;
+  lead ve müşteri adları ile son mesajlar üç toplu sorguda çekilip istemcide birleşiyor.
+
+### İki düzeltme
+- **React saflık ihlali** (CLAUDE.md kuralı): 24 saat hesabı `Date.now()`'u render'da
+  okuyordu. `useState(() => Date.now())` kalıbına çevrildi — pencere sınırı saatler
+  mertebesinde olduğu için bu hassasiyet fazlasıyla yeterli.
+- Menü testi 14 modül bekliyordu; Mesajlar ile 15 oldu, beklenti güncellendi.
+
 ## [1.31.0] — 2026-08-31
 
 ### M3.4 — CRM'de WhatsApp gönderim ve alım yeteneği

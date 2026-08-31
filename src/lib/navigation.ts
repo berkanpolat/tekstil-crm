@@ -12,6 +12,7 @@ import {
   ListTodo,
   Target,
   BarChart3,
+  MessageSquare,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -46,6 +47,7 @@ export function canViewFinance(roleKey: string | null | undefined): boolean {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Gösterge Paneli', path: '/', icon: LayoutDashboard, description: 'Özet metrikler, bekleyen işler ve günlük akış.' },
   { label: 'Potansiyeller', path: '/potansiyeller', icon: Sparkles, description: 'Gelen potansiyel müşteriler ve mesajlaşma.' },
+  { label: 'Mesajlar', path: '/mesajlar', icon: MessageSquare, description: 'WhatsApp gelen kutusu; potansiyel ve müşteri konuşmaları.' },
   { label: 'Müşteriler', path: '/musteriler', icon: Building2, description: 'Müşteri kartları, iletişim geçmişi ve zaman çizelgesi.' },
   { label: 'Talepler', path: '/talepler', icon: Inbox, description: 'Üretim talepleri; her talep bir operasyon koduyla doğar.' },
   { label: 'Teklifler', path: '/teklifler', icon: FileText, description: 'Fiyat teklifleri, sürümler ve sonuç takibi.' },
