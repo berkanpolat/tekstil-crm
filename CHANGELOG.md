@@ -13,14 +13,51 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.23.1] — 2026-08-31
+
+### M1.1 migration'ı canlıya uygulandı + katalog envanteri
+`20260831000000_m1_1_katalog_ozellikleri.sql` Supabase Management API üzerinden
+**tek transaction** içinde canlıya (`kkxvoxeqfsaqzklrtgrw`) uygulandı. Migration ayrıca
+`supabase_migrations.schema_migrations` **defterine işlendi**.
+
+- **Uygulama öncesi:** ön koşullar denetlendi (hedef tablo/kolon yok, yardımcı fonksiyonlar
+  yerinde), durum kaydedildi, günlük fiziksel yedek doğrulandı (31 Ağu 04:37, COMPLETED).
+- **Doğrulama:** 4 tablo (tohum 9/0/6/5) · 8 kolon (`has_print` NOT NULL, kalanı nullable) ·
+  RLS açık, tablo başına 2 politika · `anon`'a hiç yetki yok · `catalog_slugify` canlıda
+  sitenin slug'ını birebir üretti.
+- **Veri bütünlüğü:** 672 ürün / 672 aktif / 2 katalog / 432 müşteri — uygulama öncesiyle
+  **birebir aynı**, hiçbir mevcut kayda dokunulmadı.
+
+### Katalog envanteri — M1.2'nin kapsamını küçültüyor
+Canlı veri incelendi: **672 ürünün tamamı zaten yeniCrm'de.** M1.2 ürün taşımayacak,
+yalnızca alan doldurup kod eşleştirecek.
+
+| | CRM | Site (`products.json`) |
+|---|---|---|
+| Katalog 2 | 197 ürün, `ST-26SS…` kodlu | `cat` boş olan 197 |
+| Katalog 4 | 475 ürün, `YS-…` kodlu | `cat` dolu olan 475, `ST-26SS3…` kodlu |
+
+- **Eşleştirme kanıtlandı:** katalog 2 → kod ile **197/197**; katalog 4 → ad ile **475/475**.
+- `source_code` sitenin `ST` kodlarını taşımıyor (CSV kodları: `004_takimi-kirmizi`),
+  bu yüzden katalog 4 köprüsü **ad** üzerinden kurulacak.
+- Katalog 2'de `composition` ve `source_code` tamamen boş (197/197) — kumaş bilgisi
+  yalnız katalog 4'te var.
+
+### Not
+- **Migration defteri kayması ölçüldü:** diskte 124 dosya, defterde 56 (+bu paket).
+  Temmuz sonundan beri uygulananlar deftere yazılmamış. `supabase db push` hâlâ
+  dikkatli kullanılmalı; ayrı bir temizlik paketi gerekiyor.
+- **5 Supabase projesi var, 3 değil:** CRM, Studio, lead'e ek olarak `tekstilascom`
+  (`qtyqnozxvaheftlylybi`) ve `kzcehftnppgljaqxmoad` (ayrı organizasyon).
+
 ## [1.23.0] — 2026-08-31
 
 ### M1.1 — Katalog özellik şeması (birleştirme programı: ürün master)
 Studio'daki (uretimCrm) ürün sözlüklerini ve yapısal alanları yeniCrm'e taşıyabilmek için
 **şema** hazırlandı. Bu paket veri taşımaz — 672 ürünün alan doldurması M1.2'dedir.
 
-- **Migration `20260831000000_m1_1_katalog_ozellikleri.sql` — CANLIYA UYGULANMADI.**
-  Yerel PostgreSQL 17'de gerçek veritabanında sınandı; canlıya uygulama ayrı onay + yedek ister.
+- **Migration `20260831000000_m1_1_katalog_ozellikleri.sql`** — önce yerel PostgreSQL 17'de
+  sınandı, ardından **canlıya uygulandı** (bkz. 1.23.1).
 - **4 sözlük tablosu:** `fabric_groups` (9, tohumlandı), `fabric_types` (grubuna bağlı,
   169 kayıt M1.2'de gelecek), `fit_types` (6, tohumlandı), `print_types` (5, tohumlandı).
   Studio'nun şeması **kopyalanmadı**, yeniCrm ev kalıbına uyarlandı: uuid yerine
