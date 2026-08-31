@@ -13,6 +13,41 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.22.0] — 2026-08-31
+
+### Kendi sunucumuzda yayına alma: crm.tekstilas.com (cPanel + Cloudflare)
+CRM ilk kez yayında. Netlify **kullanılmıyor** — dağıtım hedefi baştan cPanel'di
+(`docs/devir/uygulama-dagitimi.md`), uygulama kendi sunucumuzda alt alan adında duruyor.
+
+- **Teşhis:** `panel.tekstilas.com` ile Netlify projesi *aynı* içeriği veriyordu; ikisi de
+  yanlış uygulamayı (Koli Etiket Oluşturucu) gösteriyordu. Hesaptaki 4 Netlify projesinin
+  hiçbirinde CRM yoktu — DNS/SSL sorunu sanılan durum aslında **CRM'in hiç deploy edilmemiş
+  olmasıydı**. Netlify'a dokunulmadı.
+- **Altyapı:** cPanel alt alan adı `crm.tekstilas.com` → `/home/tekstila/crm`
+  (`public_html` DIŞINDA, site dosyalarıyla karışmaz). Cloudflare `A crm → 91.151.95.70`,
+  proxy açık — `studio` ve `lead` kayıtlarıyla aynı desen.
+- **`public/.htaccess`:** Netlify `_redirects` karşılığı. SPA yönlendirmesi (alt sayfa
+  yenilemede 404 yok), hash'li varlıklara `immutable` 1 yıl önbellek, `index.html` +
+  `version.json` için `no-store`, `nosniff`/`SAMEORIGIN`/`Referrer-Policy` başlıkları,
+  dizin listeleme kapalı. cPanel'in ürettiği PHP günlük bloğu korundu.
+- **`scripts/release.sh`:** 6 adımlı sürümlü dağıtım — yayındaki sürümü
+  `~/tekstil-crm-yedekler/crm-web/` altına yedekle → build + çıktı doğrulaması →
+  `/crm/_versions/vX.Y.Z/` kalıcı arşiv → canlıya `lftp mirror` → **yayın doğrulaması**
+  (HTTP 200 + `version.json` eşleşmesi + SPA alt sayfa testi) → `git tag`.
+  `KURU=1` ile kuru koşu, `--geri-al vX.Y.Z` ile tek komutta geri alma.
+  cPanel'in `.user.ini`/`php.ini` dosyaları `--delete`'ten korunuyor.
+- **Doğrulandı:** `/`, `/musteriler`, `/teklifler`, `/raporlar` → HTTP 200;
+  `/assets/` dizin listeleme → 403; `index.html` `no-store`, `assets` `immutable`;
+  JS paketinde doğru Supabase projesi (`kkxvoxeqfsaqzklrtgrw`) gömülü.
+
+### Bilinen eksik
+- **PDF servisi kapalı.** `tekstil-pdf-renderer.fly.dev` DNS'te çözülmüyor (Fly.io
+  uygulaması silinmiş/askıda). `VITE_PDF_SERVICE_URL` bilerek **boş** bırakıldı: ölü adres
+  yerine `hasPdfService=false` → arayüz özelliği düzgünce kapalı gösterir, istek hatası
+  vermez. Kaynak `services/pdf-renderer/` altında duruyor, ayrı pakette geri alınacak.
+
+### Not
+- Birim test sayısı **214** (CLAUDE.md'de 161 yazıyordu — düzeltildi).
 ## [1.21.0] — 2026-08-28
 
 ### Belge motoru: otomatik sayfalama (çok sayfalı PDF) — kırpma sorunu giderildi

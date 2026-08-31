@@ -61,7 +61,7 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
   Storage (özel bucket'lar), Realtime. Migrasyonlar `supabase/migrations/`.
 - **Belge/PDF:** ayrı bir PDF servisi (`VITE_PDF_SERVICE_URL`); yoksa belge üretimi
   kapanır (bkz. `src/lib/env.ts` → `hasPdfService`).
-- **Test/araçlar:** Vitest (161 birim testi), Playwright (arayüz e2e), çok sayıda
+- **Test/araçlar:** Vitest (214 birim testi), Playwright (arayüz e2e), çok sayıda
   `scripts/e2e-*.mjs` (psql tabanlı DB regresyonu), ESLint + Prettier + TypeScript.
 - **Dağıtım:** önyüz statik SPA (Netlify — `docs/devir/netlify-test-dagitimi.md`);
   edge fn + secret kullanıcı tarafında deploy edilir.
@@ -143,8 +143,11 @@ v1.3.2, v1.3.3, v1.3.4, v1.4.0, v1.5.0 — arayüzde doğrulanmadı.
 
 ## Bilinen teknik notlar (kritik)
 
-- ⚠️ **Git geçmişi P1.2'de donmuş** — P1.3'ten bugüne (~100 paket) commit edilmemiş
-  (27 değişmiş + 250 izlenmeyen dosya). Migrasyonlar DB'ye uygulandı ama kod versiyonlanmadı.
+- **Yayın: `https://crm.tekstilas.com`** — kendi sunucumuz (cPanel `/home/tekstila/crm`),
+  Cloudflare proxy'li. Dağıtım: `bash scripts/release.sh` (kuru koşu `KURU=1`, geri alma
+  `--geri-al vX.Y.Z`). **Netlify kullanılmıyor.**
+- ⚠️ **PDF servisi kapalı** — `tekstil-pdf-renderer.fly.dev` yok; belge/teklif PDF üretimi
+  çalışmaz. Kaynak `services/pdf-renderer/` altında, yeniden yayınlanabilir.
 - ⚠️ **Migration defter kayması:** 106 dosya diskte; CLI ledger'da 56. Son migrasyonlar
   `psql -f` ile uygulandı (DB'de var, ledger'da yok). `supabase db push` dikkatli kullanılmalı.
 - **Gizli anahtarlar sohbete yazılmaz** → `.secrets/` (gitignore) veya terminal.
@@ -157,6 +160,6 @@ v1.3.2, v1.3.3, v1.3.4, v1.4.0, v1.5.0 — arayüzde doğrulanmadı.
 
 ```
 npm run build           # tsc + vite build
-npx vitest run          # 161 birim testi
+npx vitest run          # 214 birim testi
 node scripts/e2e-*.mjs  # DB regresyonları (durum-cascade, senaryolar, p7-raporlar, madde5, test-intake …)
 ```

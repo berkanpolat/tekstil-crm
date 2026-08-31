@@ -1,24 +1,62 @@
-# SPA yönlendirmesi (cPanel/Apache) — React Router istemci tarafı.
-# Bilinmeyen yollar index.html'e döner; yoksa yenilemede 404 olur.
+# BEGIN cPanel-generated php ini directives, do not edit
+# Manual editing of this file may result in unexpected behavior.
+# To make changes to this file, use the cPanel MultiPHP INI Editor.
+<IfModule php8_module>
+   php_value error_log "/home/tekstila/logs/php.error.log"
+   php_flag log_errors On
+</IfModule>
+<IfModule lsapi_module>
+   php_value error_log "/home/tekstila/logs/php.error.log"
+   php_flag log_errors On
+</IfModule>
+# END cPanel-generated php ini directives, do not edit
+
+# ============================================================================
+# Tekstil A.Ş. CRM — Apache/LiteSpeed yapılandırması
+# Netlify'daki `_redirects` dosyasının sunucu karşılığı.
+# ============================================================================
+
+# --- SPA yönlendirmesi -------------------------------------------------------
+# React Router istemci tarafında çalışır. /musteriler/123 gibi bir adres
+# doğrudan açıldığında ya da yenilendiğinde sunucuda o dosya yoktur; 404 yerine
+# index.html dönmeli ki router devreye girsin.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Gerçek dosya veya klasör varsa dokunma (assets, favicon, sounds ...)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
+
+  # Kalan her şey uygulamaya
   RewriteRule ^ index.html [L]
 </IfModule>
 
-# Hash'li varlıkları uzun önbellekle; index.html'i önbelleğe alma.
+# --- Önbellek ---------------------------------------------------------------
+# assets/ altındaki dosya adları içerik hash'i taşır (index-C5W3Eszq.js).
+# İçerik değişince ad değişir → sonsuza kadar önbelleğe alınabilir.
 <IfModule mod_headers.c>
-  <FilesMatch "\.(js|css|woff2|png|jpg|jpeg|svg|webp|ico)$">
+  <FilesMatch "\.(js|css|woff2|svg|wav|png|jpg|jpeg|ico|webp)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
-  <FilesMatch "index\.html$">
-    Header set Cache-Control "no-cache"
+
+  # index.html ASLA önbelleğe alınmamalı — yeni sürüm çıktığında
+  # tarayıcı eski asset adlarına bakmaya devam eder ve beyaz ekran gelir.
+  <FilesMatch "^(index\.html|version\.json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
   </FilesMatch>
+
+  # --- Güvenlik başlıkları ---
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
+# --- Sıkıştırma -------------------------------------------------------------
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
 </IfModule>
+
+# --- Dizin listelemesini kapat ---------------------------------------------
+Options -Indexes
