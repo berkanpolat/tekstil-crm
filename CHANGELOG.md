@@ -13,6 +13,55 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.26.0] — 2026-08-31
+
+### M1.4 — Site ürün verisi artık CRM'den üretiliyor (M1 TAMAMLANDI)
+`products.json` bugüne kadar **elle bakılan** bir dosyaydı — onu üreten hiçbir script yoktu,
+10 script yalnız okuyordu. Artık CRM'den üretiliyor: **"ürünler tek yerden yönetilir" hedefi kapandı.**
+
+- **`scripts/site-products-export.mjs`** — CRM'in sahiplendiği alanları yeniden yazar
+  (`name`, `code`←`site_code`, `cat`←koleksiyon kodu, `type`←kategori etiketi,
+  `fabric`←kumaş tipi); siteye ait olanları **aynen korur** (`id`, `catalog_product_images`).
+  Kuru koşu varsayılan, yazmak için `--yaz`. **Güvenlik freni:** ürünlerin %5'inden
+  fazlası listeden düşerse durur (`--zorla` ile geçilir).
+- **Sonuç:** 672 ürün · **672 id korundu** · 672 slug · **1275 görsel kaydı korundu** ·
+  **hiçbir ürün kodu değişmedi** · şema birebir aynı.
+- **İyileşen:** `type` 101 ürün (70'i sitede boştu → CRM doldurdu; 31'i isim düzeltmesi:
+  `T-Shirt`→`Tişört`, `Bluz & Büstiyer`→`Bluz`), `fabric` 54 ürün
+  (`Crep`→`Krep`, `Cupra`→`Kupra`, `Diğer`→gerçek kumaş adı).
+
+> `uretim/products.json` **yerelde** güncellendi. Siteye yayınlamak ayrı bir adımdır.
+
+### M1.4a — Canlı veri boşluğu kapandı: `site_code`
+**58 müşteri talebi hiçbir ürüne bağlanamıyordu.** Sitedeki 475 ürün müşteriye
+`ST-26SS3xxxxx` kodlarıyla görünüyor, CRM kodları ise `YS-xxxxxx`; müşteri sitede
+gördüğü kodu yazınca CRM tanımıyordu.
+
+- `catalog_products.site_code` eklendi (`20260831020000`), **672/672** dolduruldu
+  (slug üzerinden, çakışma yok; katalog 2'de `site_code == code` — 197/197 tutarlı).
+- **Bağsız talep satırı 60 → 2.** 58 satır (56 farklı kod) doğru ürünlere bağlandı.
+- Karar: **site kodları esas.** Sitedeki kodlar değişmez (SEO + müşteri yazışmaları
+  korunur); `code` (`YS-…`) iç kod olarak kalır — 12 operasyon ona bağlı.
+
+### M1.4b — Eşleştirme iki koda birden bakıyor
+`20260831030000`: `intake_process`, `suggest_catalog_products`, `resolve_catalog_item`
+artık `code` **ve** `site_code` üzerinden eşleştiriyor; çakışmada `site_code` öncelikli
+ve kaydedilen kod **müşteriye görünen kod** oluyor (yazışmada aynı kodu konuşmak için).
+
+- Ölçüldü — `ST-26SS300008`: **0 öneri → 1 (tam isabet)**; gevşek yazım `ST26SS300008`:
+  0 → 1; iç kod `YS-8ULK8Z` bozulmadı; saçma kod hâlâ 0 (yanlış pozitif yok).
+- Davranış korundu: birebir önce, tolerant sonra; iç ayraç farkı **yalnız öneri**,
+  asla otomatik bağlamaz.
+
+### M1.4c — Düzeltme: sözlükte "Viscon" yazım hatası
+M1.2'de `composition` metnindeki yanlış yazım sözlüğe yeni kayıt olarak girmişti; doğru
+yazımlı `Viskon` Dokuma grubunda zaten vardı. 12 ürün doğru kayda taşındı, yanlış kayıt
+silindi (`20260831040000`). Bileşik ad da `Viskon + Terikoton` olarak düzeltildi.
+
+### Veri kalitesi notu
+32 üründe `category_id` bir **tür** yerine üst grup (`Kadın Giyim / Tesettür`) gösteriyor;
+export'ta `type` olarak bu görünüyor. Panelden düzeltilebilir.
+
 ## [1.25.0] — 2026-08-31
 
 ### M1.3 — Panelde ürün özellik yönetimi
