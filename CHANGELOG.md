@@ -13,6 +13,41 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.27.0] — 2026-08-31
+
+### M2 — Talep girişi: çift gönderim durduruldu, kayıp talep kurtarıldı
+Site → CRM boru hattının **zaten çalıştığı** görüldü (18 Ağu notu eskimiş): `intake-request`
+v8 ACTIVE, `INTAKE_SECRET` tanımlı, `lead.php` iletiyor — **290 talep HTTP 201 ile düşmüş.**
+Kalan iş çift gönderimi kesmek ve kaybı kapatmaktı.
+
+- **Studio iletimi kapatıldı** (`$STUDIO_FORWARD = false`). `lead.php` hem Studio'ya hem
+  yeniCrm'e gönderiyordu; aynı talep iki CRM'e düşünce iki kişi ayrı ayrı arıyor, iki
+  teklif çıkıyordu. Studio **kapatılmadı**, yalnız yeni talep almıyor; geçmiş verisi yerinde.
+  Bayrakla geri açılabilir. Yükleme öncesi sunucu yedeği alındı
+  (`~/tekstil-crm-yedekler/lead-php/`), PHP sözdizimi denetlendi, yükleme sonrası dosya
+  bütünlüğü ve `HTTP 405` (500 değil) doğrulandı.
+- **Kayıp talep kurtarıldı.** `crm_failed.log`'daki 2 hatadan biri (26 Ağu zaman aşımı)
+  aslında **başarılıymış** — istemci 6 sn'de vazgeçmiş, sunucu 13 sn sonra kaydı oluşturmuş
+  (`TAS-5HKJKP`). Diğeri (18 Ağu, DNS hatası) gerçekten kayıptı: İzmir'den bir numune talebi.
+  `leads.jsonl` emniyet ağından bulunup aynı `client_reference` ile sisteme alındı
+  (`TAS-5FP6QV`, operasyon 5000). **Emniyet ağı tasarlandığı gibi çalıştı.**
+- **İdempotency canlıda kanıtlandı:** aynı istek ikinci kez gönderildiğinde
+  `idempotent: true` + aynı kod döndü, kopya oluşmadı; yanlış anahtar `401` aldı.
+
+### Yeni araçlar
+- **`scripts/m2-intake-saglik.mjs`** — boru hattı sağlık kontrolü: CRM'e düşen talep
+  sayısı (24s/7g/toplam), bağsız ürün kalemi, ve `--sunucu` ile FTP üzerinden iletim
+  logları. Studio logunun büyümediğini de gösterir. Şu anki durum: **son 24 saatte 13,
+  son 7 günde 102 talep** · ürün kalemi 141/143 bağlı.
+- **`services/site-intake/`** — `lead.php` artık sürüm kontrolünde (anahtarlar
+  maskeli; gerçek değerler yalnız sunucuda) + entegrasyon README'si. Dosya bugüne
+  kadar hiçbir yerde versiyonlanmamıştı.
+
+### Doğrulama sayacı
+Değişiklik anındaki log boyutları: `crm_response.log` 46 980 B · `supabase_response.log`
+213 483 B (ikisi de 31 Ağu 18:15). İlk gerçek talepten sonra **CRM logu büyümeli,
+Studio logu büyümemeli** — `scripts/m2-intake-saglik.mjs --sunucu` ile bakılır.
+
 ## [1.26.0] — 2026-08-31
 
 ### M1.4 — Site ürün verisi artık CRM'den üretiliyor (M1 TAMAMLANDI)
