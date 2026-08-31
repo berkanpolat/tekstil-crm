@@ -60,3 +60,4 @@ scripts/.maliyet-*.generated.sql
 scripts/.*.generated.sql
 scripts/.katalog-*
 scripts/.leads-*
+deno.lock

@@ -13,6 +13,46 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.31.0] — 2026-08-31
+
+### M3.4 — CRM'de WhatsApp gönderim ve alım yeteneği
+teklead'in Twilio entegrasyonunun CRM karşılığı kuruldu. **teklead'e dokunulmadı** —
+bugün de mesaj gönderiyor; bu paket CRM'i paralel olarak yetenekli hale getiriyor.
+Geçiş (Twilio webhook'unun buraya çevrilmesi) ayrı bir adım.
+
+- **`whatsapp-send`** (verify_jwt açık) — şablonlu veya serbest metin gönderimi.
+  teklead'in `twilio-send-wa`'sından farkı: orası yalnız Twilio'ya iletiyordu, kayıt
+  başka yerdeydi. Burada **gönderim ve kayıt tek işlem**: konuşma bulunur/açılır, mesaj
+  önce `kuyrukta` yazılır, Twilio çağrılır, sonuç aynı satıra işlenir. Twilio'nun
+  başarılı olup kaydın düşmesi (ya da tersi) mümkün değil.
+- **Yetki service_role ile baypas edilmiyor:** fonksiyon **çağıranın oturumuyla**
+  çalışıyor, `has_permission('messages.send')` ve RLS doğal olarak işliyor.
+- **`whatsapp-inbound`** (verify_jwt kapalı, `X-Inbound-Secret` ile korunuyor) —
+  gelen mesajı doğru lead/müşteriye bağlar. **Eşleşme bulunamazsa mesaj kaybolmaz:**
+  numaraya bağlı bekleyen bir lead açılır ve mesaj oraya kaydedilir.
+- **`find_entity_by_phone` RPC** (`20260831060000`) — telefonun son 10 hanesiyle
+  eşleştirme, ifade indeksi üzerinden. Öncesinde edge function 2.278 kaydı çekip
+  bellekte süzüyordu. **Müşteri lead'e üstün** gelir. Doğrulandı: `+90…`, `0…`, `90…`,
+  `0090…` biçimlerinin dördü de aynı kişiyi buluyor, saçma girdi 0 döndürüyor.
+
+### Doğrulama (canlıda, izi tamamen silinerek)
+Eşleşen numara mevcut konuşmaya düştü · aynı `provider_message_id` ikinci kez
+gönderildiğinde **idempotent** davrandı (kopya yok) · eşleşmeyen numara için lead+konuşma
+açıldı ve mesaj kaydedildi · geçersiz telefon reddedildi · anahtarsız/yanlış anahtarlı
+istek 401 · `whatsapp-send` oturumsuz 401.
+**Sınama sonrası:** 2 mesaj, 1 konuşma, 1 iletişim noktası, 1 lead silindi; sayımlar
+sınama öncesine döndü (4.420 / 654 / 864) ve `unread_count` kaynaktaki değerine geri alındı.
+
+> Ara düzeltme: temizlik sırasında `unread_count`'u `read_at`'ten yeniden hesaplamıştım —
+> yanlıştı. `read_at` giden mesajın okundu bilgisidir, gelende dolmaz; o hesap tüm gelen
+> mesajları sayıyordu. Kaynaktaki gerçek değere döndürüldü, toplam 28'de kaldı.
+
+### Sıradaki adım (henüz yapılmadı)
+Twilio webhook'u hâlâ teklead'e gidiyor. Geçiş, talep girişindeki kalıbın aynısı olacak:
+önce teklead gelen mesajın bir **kopyasını** `whatsapp-inbound`'a iletsin (teklead
+bozulmaz, CRM gerçek zamanlı almaya başlar), doğrulandıktan sonra Twilio konsolundaki
+adres CRM'e çevrilsin. Bu sıra bozulursa mesaj kaybı olur.
+
 ## [1.30.0] — 2026-08-31
 
 ### M3.3 — Mesaj geçmişi CRM'e taşındı (654 konuşma, 4.420 mesaj)
