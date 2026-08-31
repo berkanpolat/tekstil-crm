@@ -13,6 +13,49 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.24.0] — 2026-08-31
+
+### M1.2 — Katalog özellik aktarımı: slug + kumaş sözlüğü canlıya işlendi
+672 ürünün tamamı siteyle eşleştirildi ve kumaş sınıflandırması tamamlandı.
+**Ürün taşınmadı** — hepsi zaten yeniCrm'deydi (bkz. 1.23.1); bu paket alanları doldurdu.
+
+- **`slug` — 672/672 dolu, 672 benzersiz, 0 boş.** Katalog 2 **kod** ile (197/197),
+  katalog 4 **ad** ile (475/475) eşleştirildi. Doğrulandı: **CRM slug kümesi ile sitenin
+  slug kümesi birebir aynı** (672 ortak, 0 sapma). Site ↔ CRM bağı kuruldu.
+- **Kumaş sözlüğü 196 kayıt** — Studio'dan 169 + `composition`'dan türetilen 27 konfeksiyon
+  kumaşı. Katalog 4'ün **475 ürününün tamamı** kumaş tipine bağlandı (bağsız 0):
+  Pamuk Keten 128 · Medine İpeği 52 · Modal 40 · Compact Penye 31 · İki İplik 29 …
+- **Fit ataması 40 ürün** (Studio'da dolu olan tek öznitelik).
+- Üretici: `scripts/m1-2-katalog-ozellik-aktar.py` (idempotent; eşleşme eksikse durur).
+
+### Düzeltme — M1.1'de bırakılan şema kusuru
+`20260831010000_m1_2a_fabric_key_grup_bazli.sql`: `fabric_types.key` M1.1'de **küresel**
+benzersiz tanımlanmıştı. Yanlış — aynı kumaş adı birden çok gruba meşru biçimde ait
+oluyor (`Polyester` 4 grupta, `Kanvas`/`Keten` 3'er grupta; toplam 21 ad çakışıyor).
+Bu kısıt 169 kumaş tipinden 27'sinin girmesini engelliyordu. Kaynak sistemdeki
+`UNIQUE(group_id, name)` kuralına dönüldü. Tablo boş olduğu için veri kaybı olmadı.
+
+### Uygulama ve doğrulama
+- Önce **canlıda `rollback`'li kuru koşu** yapıldı; sayımlar doğrulandıktan sonra
+  `commit`'li gerçek uygulama. İkisi de tek transaction.
+- **Veri bütünlüğü:** ürün 672 (değişmedi), müşteri 432→433 (oturum sırasında sisteme
+  düşen gerçek kayıt — müşteri tablosuna dokunulmadı).
+- Migration'lar `schema_migrations` defterine işlendi.
+
+### Sınıflandırma notu
+Konfeksiyon kumaşları Dokuma/Örme/Denim gruplarına elle sınıflandırıldı. Eşleştirme
+**yalnız bu üç grupta** yapılıyor — konfeksiyon ürünü döşemelik kumaşa bağlanmasın diye.
+`Süet` ve `Dantel` kaynak sözlükte yalnız döşemelik/perdelik gruplarındaydı, konfeksiyon
+karşılıkları eklendi. **Üç ad belirsiz** (`Oysho`, `Sandy`, `Gübür`) — panelden düzeltilebilir.
+
+### Bulgu
+- **Studio'nun ürün öznitelikleri neredeyse boş:** 197 üründe gramaj 0, kumaş tipi 1,
+  baskı 0, fit 40. Zengin olan yalnızca sözlükler. 18 Ağu matrisindeki "katalog master
+  Studio'da" varsayımı ürün verisi için geçersiz.
+- **Gramaj hiçbir kaynakta yok.** Katalog 4'ün `composition` alanı yalnız kumaş adı
+  taşıyor (`Pamuk Keten`, `Compact Penye (%100 Pamuk)`) — gr/m² bilgisi yok. Gramaj
+  kolonu boş kalıyor, elle girilecek.
+
 ## [1.23.1] — 2026-08-31
 
 ### M1.1 migration'ı canlıya uygulandı + katalog envanteri
