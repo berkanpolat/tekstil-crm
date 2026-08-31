@@ -413,6 +413,7 @@ export type Database = {
           name_normalized: string | null
           print_details: string | null
           print_type_id: number | null
+          site_code: string | null
           size_system: string | null
           sizes: string[]
           slug: string | null
@@ -446,6 +447,7 @@ export type Database = {
           name_normalized?: string | null
           print_details?: string | null
           print_type_id?: number | null
+          site_code?: string | null
           size_system?: string | null
           sizes?: string[]
           slug?: string | null
@@ -479,6 +481,7 @@ export type Database = {
           name_normalized?: string | null
           print_details?: string | null
           print_type_id?: number | null
+          site_code?: string | null
           size_system?: string | null
           sizes?: string[]
           slug?: string | null
@@ -699,6 +702,59 @@ export type Database = {
           value_normalized?: string | null
         }
         Relationships: []
+      }
+      conversations: {
+        Row: {
+          channel_id: number
+          created_at: string
+          entity_id: number
+          entity_type: string
+          external_id: string | null
+          external_source: string | null
+          id: number
+          is_archived: boolean
+          last_message_at: string | null
+          peer_identifier: string | null
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          channel_id: number
+          created_at?: string
+          entity_id: number
+          entity_type: string
+          external_id?: string | null
+          external_source?: string | null
+          id?: never
+          is_archived?: boolean
+          last_message_at?: string | null
+          peer_identifier?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: number
+          created_at?: string
+          entity_id?: number
+          entity_type?: string
+          external_id?: string | null
+          external_source?: string | null
+          id?: never
+          is_archived?: boolean
+          last_message_at?: string | null
+          peer_identifier?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "interaction_channels"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_statuses: {
         Row: {
@@ -1967,6 +2023,235 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      message_template_variables: {
+        Row: {
+          default_value: string | null
+          description: string | null
+          external_name: string | null
+          id: number
+          name: string
+          position: number
+          source: string
+          source_field: string | null
+          template_id: number
+        }
+        Insert: {
+          default_value?: string | null
+          description?: string | null
+          external_name?: string | null
+          id?: never
+          name: string
+          position: number
+          source?: string
+          source_field?: string | null
+          template_id: number
+        }
+        Update: {
+          default_value?: string | null
+          description?: string | null
+          external_name?: string | null
+          id?: never
+          name?: string
+          position?: number
+          source?: string
+          source_field?: string | null
+          template_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_template_variables_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_templates: {
+        Row: {
+          ai_generated: boolean
+          ai_prompt: string | null
+          approval_external_id: string | null
+          approval_status: string
+          approved_at: string | null
+          body: string
+          channel_id: number | null
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          external_id: string | null
+          external_source: string | null
+          group_name: string | null
+          id: number
+          is_active: boolean
+          is_followup: boolean
+          key: string
+          name: string
+          rejected_at: string | null
+          rejection_reason: string | null
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_generated?: boolean
+          ai_prompt?: string | null
+          approval_external_id?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          body: string
+          channel_id?: number | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          group_name?: string | null
+          id?: never
+          is_active?: boolean
+          is_followup?: boolean
+          key: string
+          name: string
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_generated?: boolean
+          ai_prompt?: string | null
+          approval_external_id?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          body?: string
+          channel_id?: number | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          group_name?: string | null
+          id?: never
+          is_active?: boolean
+          is_followup?: boolean
+          key?: string
+          name?: string
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_templates_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "interaction_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string | null
+          conversation_id: number
+          created_at: string
+          delivered_at: string | null
+          direction: string
+          error_code: string | null
+          error_message: string | null
+          external_id: string | null
+          external_source: string | null
+          failed_at: string | null
+          id: number
+          media_name: string | null
+          media_size_bytes: number | null
+          media_type: string | null
+          media_url: string | null
+          provider: string | null
+          provider_message_id: string | null
+          provider_response: Json | null
+          read_at: string | null
+          rendered_body: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          template_id: number | null
+          template_variables: Json | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          conversation_id: number
+          created_at?: string
+          delivered_at?: string | null
+          direction: string
+          error_code?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          failed_at?: string | null
+          id?: never
+          media_name?: string | null
+          media_size_bytes?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          provider?: string | null
+          provider_message_id?: string | null
+          provider_response?: Json | null
+          read_at?: string | null
+          rendered_body?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          template_id?: number | null
+          template_variables?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          conversation_id?: number
+          created_at?: string
+          delivered_at?: string | null
+          direction?: string
+          error_code?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          failed_at?: string | null
+          id?: never
+          media_name?: string | null
+          media_size_bytes?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          provider?: string | null
+          provider_message_id?: string | null
+          provider_response?: Json | null
+          read_at?: string | null
+          rendered_body?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          template_id?: number | null
+          template_variables?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notes: {
         Row: {

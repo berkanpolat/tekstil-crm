@@ -13,6 +13,45 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.28.0] — 2026-08-31
+
+### M3.1 — Mesajlaşma şeması (teklead → CRM)
+teklead'in WhatsApp erişim katmanı için CRM tarafındaki şema kuruldu. Bu paket
+**yalnızca şema**; kişi göçü M3.2, mesaj geçmişi M3.3.
+
+- **4 tablo:** `conversations`, `messages`, `message_templates`,
+  `message_template_variables` (`20260831050000`).
+- **Kimlik taşımıyor.** teklead'de ayrı bir `contacts` tablosu vardı; burada yok.
+  Konuşma doğrudan `lead` ya da `customer`a bağlanıyor (`entity_type`/`entity_id`) —
+  `interactions`/`contact_points`/`entity_tags` ile aynı ev kalıbı. 18 Ağu'da onaylanan
+  kimlik modelinin gereği: mesajlaşma kendi kimliğini üretmez.
+- **`interactions` ile karışmıyor:** o, insanın elle yazdığı temas günlüğü (özet metin);
+  `messages` gerçek gövde + teslim durumu + medya + sağlayıcı kimliği. İkisi ayrı amaç.
+- **Yetkiler:** `messages.view` (admin, manager, sales, operations, finance),
+  `messages.send` (admin, manager, sales), `templates.manage` (admin, manager).
+  RLS bunlara bağlı; `anon`'a hiçbir yetki yok.
+- **Tetikleyici:** mesaj eklenince `last_message_at` güncelleniyor ve **yalnız gelen**
+  mesajda `unread_count` artıyor — gelen kutusu sıralaması uygulamanın hatırlamasına
+  bırakılmadı.
+- **Kısıtlar:** bir kişi+kanalda tek AÇIK konuşma (gelen mesaj hangi konuşmaya düşeceğini
+  bilsin); arşivlenmiş konuşmalar bu kısıtın dışında. `external_source`+`external_id`
+  benzersiz → göç tekrarlanabilir, kopya üretmez.
+
+### Doğrulama (yerel PostgreSQL 17, 10 sınav)
+Yetki/rol atamaları · giden mesaj `unread` artırmıyor, iki gelen mesaj 2 yapıyor ·
+ikinci açık konuşma reddedildi, arşivden sonra açılabildi · geçersiz `direction`/`status`/
+`entity_type` reddedildi · `external_id` kopyası engellendi ama `NULL` olanlar serbestçe
+çoğalabildi · konuşma silinince mesajlar cascade ile gitti.
+
+### teklead ölçümü (M3 kapsamını belirledi)
+Canlı sayım: **21.378 mesaj** (17.980 giden / 3.370 gelen WhatsApp), 10.144 konuşma,
+11.066 kişi, 38.489 kanal kaydı, 133 şablon. E-posta 28 mesajda kalmış (Haziran'da
+durmuş), SMS/Telegram trafiği yok, satış hunisi kanban (`deals`/`pipelines`) birer
+satırla fiilen boş.
+
+> Düzeltme: ilk okumada `pg_stat_user_tables` tahminlerine bakıp "18 tablo boş" demiştim;
+> kesin sayımda **27 tablonun hepsinde veri var**. Şablonlar ve toplu gönderim kullanılmış.
+
 ## [1.27.0] — 2026-08-31
 
 ### M2 — Talep girişi: çift gönderim durduruldu, kayıp talep kurtarıldı
