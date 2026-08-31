@@ -13,6 +13,46 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.29.0] — 2026-08-31
+
+### M3.2 — teklead kişileri CRM lead'lerine aktarıldı (651 kişi)
+teklead'in 11.066 kişisinden **2+ cevap veren 651'i** CRM'e alındı. Bu, CRM'in ilk
+canlı lead havuzu — mevcut 213 lead'in tamamı zaten `donusturuldu` durumundaydı.
+
+**Eşik neden 2+ cevap (kanıta dayalı):** teklead'den CRM'e daha önce kendiliğinden
+ulaşmış 26 kişinin **22'si (%85) 2+ cevaplıydı**. Kademe dönüşümleri:
+**2+ cevap %3,4 · tek cevap %0,28 → 12 kat fark.** Tek cevapların 540'ı 15 karakterden
+kısa ("kim?", "hayır", emoji) — diyalog değil. Eşiği 1'e indirmek 1.403 kayıt daha
+eklerdi ve beklenen getirisi ~4 müşteriydi.
+
+**Eşiği geçemeyenler teklead'de kalır, silinmez.** Yeniden cevap verip eşiği geçerlerse
+sonraki çalıştırmada gelirler — `external_id` sayesinde kopya oluşmaz.
+
+### Nasıl işaretlendi
+- **Durum:** 650 `temas_kuruldu` · 1 `olumsuz` (teklead'de `ilgilenmiyor` olan tek kişi).
+  `yeni` denmedi — dokunulmamış demek olurdu; `ilgileniyor` da denmedi — teklead'de
+  kimse bu değerlendirmeyi yapmamıştı, sistemin bilmediğini iddia etmek satışı yanıltır.
+  Sonraki adım satışçının kararı.
+- **Kaynak:** `butik-crawler`→`web_scraper` (604) · `import`→`diger` (42) · `manual`→`manuel` (5)
+- **Etiket:** hepsine `teklead` — mevcut 213 web lead'iyle karışmasın, süzülebilsin.
+- **`full_name` bilerek BOŞ.** `contacts.name` işletme adı (butikler) → `company_name`.
+  Kişi adını bilmiyoruz; uydurmak yanlış olurdu.
+- **1.528 iletişim noktası:** 670 telefon (651 + telefondan farklı olan 19 WhatsApp
+  numarası), 570 Instagram, 241 website, 47 e-posta. 632 kişide telefon ve WhatsApp
+  aynı numara olduğu için kopya yazılmadı.
+- **42 not** — yalnız gerçek serbest metin. Kategori nota yazılmadı: 651 kişinin hepsi
+  butik giyim, 610 tane aynı not gürültüden ibaret olurdu; `teklead` etiketi bunu taşıyor.
+- `first_contact_date` ilk mesaj, `last_interaction_at` **son gelen mesaj** —
+  panelde "en son ne zaman konuştuk" doğru görünsün diye.
+
+### Doğrulama
+- **İdempotency kanıtlandı:** aynı göç tek transaction içinde iki kez çalıştırıldı,
+  sayılar birebir aynı kaldı (651 / 2278 / 42 / 651).
+- Önce `rollback`'li kuru koşu, sayımlar doğrulanınca `commit`.
+- **Dokunulmayanlar:** müşteri 435, ürün 672, mevcut 213 web lead'i — hepsi değişmedi.
+- `scripts/m3-2-teklead-kisi-aktar.py` — küme tabanlı (geçici tablo + tek tarama).
+  İlk biçim satır-satır `insert` üretiyordu ve 1,3 MB'tı; 218 KB'a indi.
+
 ## [1.28.0] — 2026-08-31
 
 ### M3.1 — Mesajlaşma şeması (teklead → CRM)
