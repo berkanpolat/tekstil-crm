@@ -13,6 +13,30 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.33.0] — 2026-08-31
+
+### M3.6 — Paralel çalışma başladı: gelen WhatsApp mesajları CRM'e de düşüyor
+Geçişin **birinci adımı** tamamlandı. teklead alıcı olmaya devam ediyor; CRM de artık
+gerçek zamanlı alıyor. Böylece Twilio konsolundaki adres değiştirilmeden **önce**
+CRM tarafı sahada doğrulanacak.
+
+- teklead'in `twilio-webhook`'una (v29) best-effort iletim bloğu eklendi. Mesaj
+  teklead'e kaydedildikten **sonra** iletiliyor; `try/catch` + 3 sn zaman aşımı ile
+  teklead'in akışını bloke etmiyor. `CRM_INBOUND_URL`/`CRM_INBOUND_SECRET` tanımlı
+  değilse blok hiç çalışmıyor. (Değişiklik teklead deposunda `023c3c2`.)
+- **Uçtan uca doğrulandı:** sahte bir Twilio gönderimi teklead'e gitti, oradan CRM'e
+  iletildi, doğru konuşmaya düştü. teklead'in kendi ucu bozulmadı (boş POST → 200, 500 değil).
+- **Sınama izi her iki sistemden de silindi:** CRM 4.420/654/864 ve toplam okunmamış 28
+  değerlerine, teklead kendi sayısına döndü.
+
+> Bu, `lead.php`'de işe yarayan kalıbın aynısı: önce alıcı taraf çalışır olsun, sonra
+> kaynak çevrilsin. Ters sıra mesaj kaybı demek.
+
+### Kalan tek adım
+Twilio konsolundaki webhook adresinin `whatsapp-inbound`'a çevrilmesi ve teklead'in
+iletiminin kapatılması. Birkaç gün paralel çalıştırıp CRM'in her mesajı aldığı
+doğrulandıktan sonra yapılmalı.
+
 ## [1.32.0] — 2026-08-31
 
 ### M3.5 — Gelen kutusu arayüzü
