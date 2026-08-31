@@ -126,10 +126,17 @@ function Gallery({ product }: { product: CatalogProductDetail }) {
 function TechInfo({ product }: { product: CatalogProductDetail }) {
   const rows: [string, string | null][] = [
     ['Ürün Kodu', product.code], ['Kategori', product.category?.label ?? null], ['Tür', product.type?.label ?? null],
+    ['Kumaş Grubu', product.fabric_group?.label ?? null], ['Kumaş Tipi', product.fabric_type?.label ?? null],
+    ['Kalıp (Fit)', product.fit_type?.label ?? null], ['Gramaj', product.gramaj != null ? `${product.gramaj} gr/m²` : null],
     ['Kompozisyon', product.composition], ['MOQ', String(product.moq)], ['Beden Sistemi', product.size_system],
     ['Bedenler', (product.sizes ?? []).join(', ') || null],
     ['Renkler', ((product.colors as string[] | null) ?? []).join(', ') || null],
     ['Koleksiyon', product.collection?.name ?? null],
+    // Baskı yoksa tekniği hiç gösterme — boş satır gürültüsü olmasın.
+    ...(product.has_print
+      ? ([['Baskı Tekniği', product.print_type?.label ?? null], ['Baskı Ayrıntısı', product.print_details]] as [string, string | null][])
+      : []),
+    ['Site adresi', product.slug],
   ]
   return (
     <div className="space-y-4">

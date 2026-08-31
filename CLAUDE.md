@@ -151,7 +151,13 @@ v1.3.2, v1.3.3, v1.3.4, v1.4.0, v1.5.0 — arayüzde doğrulanmadı.
 - ⚠️ **Migration defter kayması:** 106 dosya diskte; CLI ledger'da 56. Son migrasyonlar
   `psql -f` ile uygulandı (DB'de var, ledger'da yok). `supabase db push` dikkatli kullanılmalı.
 - **Gizli anahtarlar sohbete yazılmaz** → `.secrets/` (gitignore) veya terminal.
-- Yeni RPC/kolon `database.types.ts`'te yoksa `as never` / `as unknown as` ile cast et.
+- `database.types.ts` **31 Ağu 2026'da yeniden üretildi** (`supabase gen types typescript
+  --project-id kkxvoxeqfsaqzklrtgrw --schema public`); canlı şemayla uyumlu. Şema
+  değiştirdikten sonra tekrar üret — `as never` cast'i son çare olsun.
+- ⚠️ Tip üreteci **RPC argümanlarını zorunlu (non-null) sayar**; Postgres'te argümanlar
+  her zaman NULL kabul eder. Null geçen RPC çağrılarında `as never` gerekli ve doğrudur.
+- Şema değişikliğinden sonra **PostgREST önbelleğini yenile**: `notify pgrst, 'reload schema'`
+  — yoksa yeni ilişkiler `PGRST200` verir.
 - React purity: render'da `Date.now()`/`new Date()` yasak → `useState(() => Date.now())`.
 - Para kur-donmuş: `account_transactions.amount_usd/try`. Zaman gruplama `app_timezone()`
   = Europe/Istanbul.

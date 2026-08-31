@@ -182,7 +182,8 @@ export function useAcceptSuggestion() {
       const dueAt = new Date(Date.now() + a.s.due_offset_hours * 3600_000).toISOString()
       const { data, error } = await supabase.rpc('accept_task_suggestion', {
         p_operation_id: a.operationId, p_kind: a.s.kind, p_ref_id: a.s.ref_id,
-        p_title: a.title, p_description: a.s.description, p_priority_id: a.priority_id, p_assigned_to: a.assigned_to, p_due_at: dueAt,
+        // Bkz. useCatalog.ts — tip ureteci RPC argumanlarini zorunlu sayiyor, Postgres null kabul eder.
+        p_title: a.title, p_description: a.s.description as never, p_priority_id: a.priority_id as never, p_assigned_to: a.assigned_to as never, p_due_at: dueAt as never,
       })
       if (error) throw error
       return data
@@ -194,7 +195,7 @@ export function useDismissSuggestion() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (a: { operationId: number; s: Suggestion; reason?: string }) => {
-      const { error } = await supabase.rpc('dismiss_task_suggestion', { p_operation_id: a.operationId, p_kind: a.s.kind, p_ref_id: a.s.ref_id, p_reason: a.reason ?? null })
+      const { error } = await supabase.rpc('dismiss_task_suggestion', { p_operation_id: a.operationId, p_kind: a.s.kind, p_ref_id: a.s.ref_id, p_reason: (a.reason ?? null) as never })
       if (error) throw error
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['op-suggestions', v.operationId] }),

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { useFabricOptions } from '@/hooks/useFabricDictionaries'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { DataTable, type DataTableColumn, type SortState } from '@/components/shared/DataTable'
 import { Pagination } from '@/components/shared/Pagination'
@@ -28,6 +29,8 @@ export function CatalogListPage() {
   const [collectionId, setCollectionId] = useState<string | null>(null)
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [hasCost, setHasCost] = useState<string | null>(null)
+  const [fabricGroupId, setFabricGroupId] = useState<string | null>(null)
+  const fabrics = useFabricOptions()
   const [active, setActive] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(24)
@@ -44,11 +47,12 @@ export function CatalogListPage() {
   const filters = {
     search: search || undefined, catalogId: catalogId ? Number(catalogId) : null, collectionId: collectionId ? Number(collectionId) : null,
     categoryId: categoryId ? Number(categoryId) : null, hasCost: (hasCost as 'yes' | 'no' | null) || null,
+    fabricGroupId: fabricGroupId ? Number(fabricGroupId) : null,
     active: active == null ? null : active === 'true', page, pageSize, sort,
   }
   const { data, isLoading, isFetching } = useCatalogProducts(filters)
   const selectedCatalog = (catalogs.data ?? []).find((c) => String(c.id) === catalogId)
-  const hasFilters = !!search || !!catalogId || !!collectionId || !!categoryId || !!hasCost || active != null
+  const hasFilters = !!search || !!catalogId || !!collectionId || !!categoryId || !!hasCost || !!fabricGroupId || active != null
   const clearAll = () => { setSearch(''); setCatalogId(null); setCollectionId(null); setCategoryId(null); setHasCost(null); setActive(null); resetPage() }
 
   const columns: DataTableColumn<CatalogRow>[] = [
@@ -79,6 +83,7 @@ export function CatalogListPage() {
         {selectedCatalog && <Button variant="ghost" size="icon" className="text-destructive" title="Seçili kataloğu sil" onClick={() => setCatDelOpen(true)}><Trash2 className="size-4" /></Button>}
         <SearchableSelect options={(collections.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))} value={collectionId} onChange={(v) => { setCollectionId(v); resetPage() }} placeholder="Koleksiyon" clearable className="w-40" />
         <SearchableSelect options={(cats.data?.groups ?? []).map((g) => ({ value: String(g.id), label: g.label }))} value={categoryId} onChange={(v) => { setCategoryId(v); resetPage() }} placeholder="Kategori" clearable className="w-48" />
+        <SearchableSelect options={(fabrics.data?.groups ?? []).map((g) => ({ value: String(g.id), label: g.label }))} value={fabricGroupId} onChange={(v) => { setFabricGroupId(v); resetPage() }} placeholder="Kumaş" clearable className="w-44" />
         <SearchableSelect options={[{ value: 'yes', label: 'Maliyet girilmiş' }, { value: 'no', label: 'Maliyet yok' }]} value={hasCost} onChange={(v) => { setHasCost(v); resetPage() }} placeholder="Maliyet" clearable className="w-40" />
         <SearchableSelect options={[{ value: 'true', label: 'Aktif' }, { value: 'false', label: 'Pasif' }]} value={active} onChange={(v) => { setActive(v); resetPage() }} placeholder="Durum" clearable className="w-32" />
       </FilterBar>

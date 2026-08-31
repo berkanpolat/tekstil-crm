@@ -73,7 +73,7 @@ export function useCollections(catalogId: number | null) {
 }
 
 // ── Ürün listesi ────────────────────────────────────────────────────────────
-export interface CatalogFilters { search?: string; catalogId?: number | null; collectionId?: number | null; categoryId?: number | null; hasCost?: 'yes' | 'no' | null; active?: boolean | null; page: number; pageSize: number; sort?: SortState | null }
+export interface CatalogFilters { search?: string; catalogId?: number | null; collectionId?: number | null; categoryId?: number | null; fabricGroupId?: number | null; hasCost?: 'yes' | 'no' | null; active?: boolean | null; page: number; pageSize: number; sort?: SortState | null }
 export interface CatalogRow { id: number; code: string; name: string; category_label: string | null; type_label: string | null; collection_name: string | null; moq: number; is_active: boolean; image_path: string | null }
 
 const LIST_SELECT = 'id, code, name, moq, is_active, category:product_categories!catalog_products_category_id_fkey(label), type:product_categories!catalog_products_type_id_fkey(label), collection:catalog_collections(name), images:catalog_product_images(sort_order, files(storage_path))'
@@ -102,6 +102,9 @@ export function useCatalogProducts(f: CatalogFilters) {
       if (f.catalogId != null) q = q.eq('catalog_id', f.catalogId)
       if (f.collectionId != null) q = q.eq('collection_id', f.collectionId)
       if (f.categoryId != null) q = q.or(`category_id.eq.${f.categoryId},type_id.eq.${f.categoryId}`)
+      // Kumaş grubu: ürün doğrudan gruba bağlı olabilir ya da yalnız tipi seçilmiş olabilir;
+      // tip zaten grubunu taşıdığı için fabric_group_id dolduruluyor (M1.2) → tek koşul yeter.
+      if (f.fabricGroupId != null) q = q.eq('fabric_group_id', f.fabricGroupId)
       if (f.active != null) q = q.eq('is_active', f.active)
       if (f.search) { const n = normalizeTr(f.search); const up = f.search.replace(/[^A-Za-z0-9-]/g, '').toUpperCase()
         q = q.or([n && `name_normalized.ilike.%${n}%`, n && `composition.ilike.%${f.search}%`, up && `code.ilike.%${up}%`].filter(Boolean).join(',')) }
@@ -133,14 +136,14 @@ export function useCatalogProduct(id: number | null) {
     queryKey: ['catalog-product', id], enabled: id != null,
     queryFn: async () => {
       const { data, error } = await supabase.from('catalog_products')
-        .select('*, category:product_categories!catalog_products_category_id_fkey(label), type:product_categories!catalog_products_type_id_fkey(label), collection:catalog_collections(name), catalog:catalogs(name), images:catalog_product_images(id, image_type, sort_order, files(storage_path))')
+        .select('*, category:product_categories!catalog_products_category_id_fkey(label), type:product_categories!catalog_products_type_id_fkey(label), collection:catalog_collections(name), catalog:catalogs(name), fabric_group:fabric_groups(label), fabric_type:fabric_types(label), fit_type:fit_types(label), print_type:print_types(label), images:catalog_product_images(id, image_type, sort_order, files(storage_path))')
         .eq('id', id as number).single()
       if (error) throw error
       return data as unknown as CatalogProductDetail
     },
   })
 }
-export interface CatalogProductDetail { id: number; code: string; name: string; composition: string | null; description: string | null; moq: number; size_system: string | null; sizes: string[]; colors: unknown; custom_margin_percent: number | null; is_active: boolean; catalog_id: number; collection_id: number | null; category_id: number | null; type_id: number | null; category: { label: string } | null; type: { label: string } | null; collection: { name: string } | null; catalog: { name: string } | null; images: { id: number; image_type: string; sort_order: number; files: { storage_path: string } | null }[] }
+export interface CatalogProductDetail { id: number; code: string; name: string; composition: string | null; description: string | null; moq: number; size_system: string | null; sizes: string[]; colors: unknown; custom_margin_percent: number | null; is_active: boolean; catalog_id: number; collection_id: number | null; category_id: number | null; type_id: number | null; category: { label: string } | null; type: { label: string } | null; collection: { name: string } | null; catalog: { name: string } | null; slug: string | null; gramaj: number | null; has_print: boolean; print_details: string | null; fabric_group_id: number | null; fabric_type_id: number | null; fit_type_id: number | null; print_type_id: number | null; fabric_group: { label: string } | null; fabric_type: { label: string } | null; fit_type: { label: string } | null; print_type: { label: string } | null; images: { id: number; image_type: string; sort_order: number; files: { storage_path: string } | null }[] }
 
 // ── Maliyet reçetesi (P4B.4) ────────────────────────────────────────────────
 export interface CostRow { id: number; version: number; total_cost_try: number; total_cost_usd: number; rate_snapshot: unknown; notes: string | null; created_at: string; items: CostItemRow[] }
@@ -167,7 +170,10 @@ export function useSaveProductCost() {
   return useMutation({
     mutationFn: async ({ productId, items, totalTry, totalUsd, rates, notes }:
       { productId: number; items: unknown[]; totalTry: number; totalUsd: number; rates: unknown; notes: string | null }) => {
-      const { error } = await supabase.rpc('save_product_cost', { p_product_id: productId, p_items: items as never, p_total_try: totalTry, p_total_usd: totalUsd, p_rates: rates as never, p_notes: notes })
+      // NOT: Supabase tip ureteci RPC argumanlarini zorunlu (non-null) sayar; Postgres'te
+      // argumanlar her zaman NULL kabul eder ve bu fonksiyonlar null'i isler. Cast bu
+      // ureteC sinirini asmak icin — calisma zamaninda dogru.
+      const { error } = await supabase.rpc('save_product_cost', { p_product_id: productId, p_items: items as never, p_total_try: totalTry, p_total_usd: totalUsd, p_rates: rates as never, p_notes: notes as never })
       if (error) throw error
     },
     onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['product-cost', v.productId] }); qc.invalidateQueries({ queryKey: ['catalog-products'] }) },

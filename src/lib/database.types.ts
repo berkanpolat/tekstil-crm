@@ -12,176 +12,177 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
-      notifications: {
-        Row: { id: number; user_id: string; type: string; severity: string; title: string; body: string | null; entity_type: string | null; entity_id: string | null; action_url: string | null; read_at: string | null; dismissed_at: string | null; silent: boolean; created_at: string }
-        Insert: { id?: never; user_id: string; type: string; severity?: string; title: string; body?: string | null; entity_type?: string | null; entity_id?: string | null; action_url?: string | null; read_at?: string | null; dismissed_at?: string | null; silent?: boolean; created_at?: string }
-        Update: { user_id?: string; type?: string; severity?: string; title?: string; body?: string | null; entity_type?: string | null; entity_id?: string | null; action_url?: string | null; read_at?: string | null; dismissed_at?: string | null; silent?: boolean }
-        Relationships: []
-      }
-      open_files: {
-        Row: { id: number; operation_id: number; file_type: string; opened_at: string; due_at: string; closed_at: string | null; closed_by: string | null; close_reason: string | null; assigned_to: string | null; snooze_until: string | null; snooze_count: number; last_notified_at: string | null; last_level: number; created_at: string; updated_at: string }
-        Insert: { id?: never; operation_id: number; file_type: string; opened_at?: string; due_at: string; closed_at?: string | null; closed_by?: string | null; close_reason?: string | null; assigned_to?: string | null; snooze_until?: string | null; snooze_count?: number; last_notified_at?: string | null; last_level?: number; created_at?: string; updated_at?: string }
-        Update: { closed_at?: string | null; assigned_to?: string | null; snooze_until?: string | null; snooze_count?: number; last_notified_at?: string | null; last_level?: number }
-        Relationships: []
-      }
-      open_file_snoozes: {
-        Row: { id: number; open_file_id: number; reason: string; snoozed_until: string; snoozed_by: string | null; created_at: string }
-        Insert: { id?: never; open_file_id: number; reason: string; snoozed_until: string; snoozed_by?: string | null; created_at?: string }
-        Update: { reason?: string; snoozed_until?: string }
-        Relationships: []
-      }
-      notification_rules: {
-        Row: { id: number; file_type: string; level: number; scope: string; recipient_type: string; recipient_ref: string | null; is_active: boolean; created_at: string; updated_at: string }
-        Insert: { id?: never; file_type: string; level: number; scope?: string; recipient_type: string; recipient_ref?: string | null; is_active?: boolean; created_at?: string; updated_at?: string }
-        Update: { file_type?: string; level?: number; scope?: string; recipient_type?: string; recipient_ref?: string | null; is_active?: boolean }
-        Relationships: []
-      }
-      catalogs: {
-        Row: { id: number; name: string; season: string | null; year: number | null; currency: string; is_active: boolean; published_at: string | null; cover_file_id: number | null; description: string | null; created_by: string | null; created_at: string; updated_at: string; deleted_at: string | null; deleted_by: string | null }
-        Insert: { id?: never; name: string; season?: string | null; year?: number | null; currency?: string; is_active?: boolean; published_at?: string | null; cover_file_id?: number | null; description?: string | null; created_by?: string | null }
-        Update: { name?: string; season?: string | null; year?: number | null; currency?: string; is_active?: boolean; description?: string | null; deleted_at?: string | null; deleted_by?: string | null }
-        Relationships: []
-      }
-      catalog_collections: {
-        Row: { id: number; catalog_id: number; name: string; code: string | null; sort_order: number; is_active: boolean; created_at: string; updated_at: string }
-        Insert: { id?: never; catalog_id: number; name: string; code?: string | null; sort_order?: number; is_active?: boolean }
-        Update: { name?: string; code?: string | null; sort_order?: number; is_active?: boolean }
-        Relationships: []
-      }
-      catalog_products: {
-        Row: { id: number; catalog_id: number; collection_id: number | null; code: string; name: string; name_normalized: string; category_id: number | null; type_id: number | null; composition: string | null; description: string | null; moq: number; size_system: string | null; sizes: string[]; colors: Json; custom_margin_percent: number | null; sort_order: number; is_active: boolean; deleted_at: string | null; deleted_by: string | null; created_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: never; catalog_id: number; collection_id?: number | null; code: string; name: string; category_id?: number | null; type_id?: number | null; composition?: string | null; description?: string | null; moq?: number; size_system?: string | null; sizes?: string[]; colors?: Json; custom_margin_percent?: number | null; sort_order?: number; is_active?: boolean; created_by?: string | null }
-        Update: { collection_id?: number | null; code?: string; name?: string; category_id?: number | null; type_id?: number | null; composition?: string | null; description?: string | null; moq?: number; size_system?: string | null; sizes?: string[]; colors?: Json; custom_margin_percent?: number | null; sort_order?: number; is_active?: boolean; deleted_at?: string | null; deleted_by?: string | null }
-        Relationships: []
-      }
-      catalog_product_images: {
-        Row: { id: number; product_id: number; file_id: number; image_type: string; sort_order: number; created_at: string }
-        Insert: { id?: never; product_id: number; file_id: number; image_type?: string; sort_order?: number }
-        Update: { image_type?: string; sort_order?: number }
-        Relationships: []
-      }
-      exchange_rates: {
-        Row: { id: number; currency: string; rate_try: number; source: string; fetched_at: string; is_current: boolean }
-        Insert: { id?: never; currency: string; rate_try: number; source?: string; is_current?: boolean }
-        Update: { is_current?: boolean }
-        Relationships: []
-      }
-      margin_tiers: {
-        Row: { id: number; min_quantity: number; margin_percent: number; is_active: boolean; sort_order: number; created_at: string; updated_at: string }
-        Insert: { id?: never; min_quantity: number; margin_percent: number; is_active?: boolean; sort_order?: number }
-        Update: { min_quantity?: number; margin_percent?: number; is_active?: boolean; sort_order?: number }
-        Relationships: []
-      }
-      product_costs: {
-        Row: { id: number; product_id: number; version: number; is_current: boolean; currency_display: string; total_cost_try: number; total_cost_usd: number; rate_snapshot: Json; notes: string | null; created_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: never; product_id: number; version?: number; is_current?: boolean; total_cost_try?: number; total_cost_usd?: number; rate_snapshot?: Json; notes?: string | null; created_by?: string | null }
-        Update: { is_current?: boolean; notes?: string | null }
-        Relationships: []
-      }
-      product_cost_items: {
-        Row: { id: number; cost_id: number; item_type: string; name: string; calculation_type: string; quantity: number | null; unit_price: number | null; amount: number | null; currency: string; fabric_name: string | null; sort_order: number }
-        Insert: { id?: never; cost_id: number; item_type?: string; name: string; calculation_type?: string; quantity?: number | null; unit_price?: number | null; amount?: number | null; currency?: string; fabric_name?: string | null; sort_order?: number }
-        Update: { name?: string; item_type?: string; calculation_type?: string; quantity?: number | null; unit_price?: number | null; amount?: number | null; currency?: string; fabric_name?: string | null; sort_order?: number }
-        Relationships: []
-      }
       account_transactions: {
-        Row: { id: number; customer_id: number; direction: string; source_type: string; source_id: number | null; operation_id: number | null; amount: number; currency: string; exchange_rate: number; usd_rate: number; amount_try: number; amount_usd: number; occurred_at: string; description: string | null; reverses_id: number | null; deleted_at: string | null; deleted_by: string | null; created_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: never; customer_id: number; direction: string; source_type: string; source_id?: number | null; operation_id?: number | null; amount: number; currency: string; exchange_rate: number; usd_rate: number; amount_try: number; amount_usd: number; occurred_at?: string; description?: string | null; reverses_id?: number | null; created_by?: string | null }
-        Update: { description?: string | null; deleted_at?: string | null; deleted_by?: string | null }
-        Relationships: []
-      }
-      payment_methods: {
-        Row: { id: number; key: string; label: string; sort_order: number; is_active: boolean; is_system: boolean; created_at: string; updated_at: string }
-        Insert: { id?: never; key: string; label: string; sort_order?: number; is_active?: boolean; is_system?: boolean }
-        Update: { key?: string; label?: string; sort_order?: number; is_active?: boolean }
-        Relationships: []
-      }
-      bank_accounts: {
-        Row: { id: number; bank_name: string; account_name: string | null; iban: string | null; currency: string; is_active: boolean; sort_order: number; created_at: string; updated_at: string }
-        Insert: { id?: never; bank_name: string; account_name?: string | null; iban?: string | null; currency?: string; is_active?: boolean; sort_order?: number }
-        Update: { bank_name?: string; account_name?: string | null; iban?: string | null; currency?: string; is_active?: boolean; sort_order?: number }
-        Relationships: []
-      }
-      teams: {
-        Row: { id: number; name: string; code: string | null; department_id: number | null; lead_user_id: string | null; is_active: boolean; created_at: string; updated_at: string }
-        Insert: { id?: never; name: string; code?: string | null; department_id?: number | null; lead_user_id?: string | null; is_active?: boolean }
-        Update: { name?: string; code?: string | null; department_id?: number | null; lead_user_id?: string | null; is_active?: boolean }
-        Relationships: []
-      }
-      team_members: {
-        Row: { id: number; team_id: number; user_id: string; joined_at: string }
-        Insert: { id?: never; team_id: number; user_id: string; joined_at?: string }
-        Update: { team_id?: number; user_id?: string }
-        Relationships: []
-      }
-      task_statuses: {
-        Row: { id: number; key: string; label: string; sort_order: number; color: string | null; is_default: boolean; is_closed: boolean; is_active: boolean; is_system: boolean; created_at: string; updated_at: string }
-        Insert: { id?: never; key: string; label: string; sort_order?: number; color?: string | null; is_default?: boolean; is_closed?: boolean; is_active?: boolean; is_system?: boolean }
-        Update: { key?: string; label?: string; sort_order?: number; color?: string | null; is_default?: boolean; is_closed?: boolean; is_active?: boolean }
-        Relationships: []
-      }
-      task_priorities: {
-        Row: { id: number; key: string; label: string; sort_order: number; color: string | null; weight: number; is_default: boolean; is_active: boolean; is_system: boolean; created_at: string; updated_at: string }
-        Insert: { id?: never; key: string; label: string; sort_order?: number; color?: string | null; weight?: number; is_default?: boolean; is_active?: boolean; is_system?: boolean }
-        Update: { key?: string; label?: string; sort_order?: number; color?: string | null; weight?: number; is_default?: boolean; is_active?: boolean }
-        Relationships: []
-      }
-      tasks: {
-        Row: { id: number; title: string; description: string | null; status_id: number | null; priority_id: number | null; assigned_to: string | null; assigned_team_id: number | null; created_by: string | null; parent_task_id: number | null; entity_type: string | null; entity_id: number | null; started_at: string | null; due_at: string | null; completed_at: string | null; estimated_hours: number | null; source: string; sort_order: number; deleted_at: string | null; deleted_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: never; title: string; description?: string | null; status_id?: number | null; priority_id?: number | null; assigned_to?: string | null; assigned_team_id?: number | null; created_by?: string | null; parent_task_id?: number | null; entity_type?: string | null; entity_id?: number | null; started_at?: string | null; due_at?: string | null; completed_at?: string | null; estimated_hours?: number | null; source?: string; sort_order?: number }
-        Update: { title?: string; description?: string | null; status_id?: number | null; priority_id?: number | null; assigned_to?: string | null; assigned_team_id?: number | null; parent_task_id?: number | null; entity_type?: string | null; entity_id?: number | null; started_at?: string | null; due_at?: string | null; completed_at?: string | null; estimated_hours?: number | null; source?: string; sort_order?: number; deleted_at?: string | null; deleted_by?: string | null }
-        Relationships: []
-      }
-      task_dependencies: {
-        Row: { id: number; task_id: number; depends_on_task_id: number; dependency_type: string; created_at: string }
-        Insert: { id?: never; task_id: number; depends_on_task_id: number; dependency_type?: string }
-        Update: { dependency_type?: string }
-        Relationships: []
-      }
-      task_assignments: {
-        Row: { id: number; task_id: number; assigned_to: string | null; assigned_by: string | null; assigned_at: string; unassigned_at: string | null; reason: string | null }
-        Insert: { id?: never; task_id: number; assigned_to?: string | null; assigned_by?: string | null; assigned_at?: string; unassigned_at?: string | null; reason?: string | null }
-        Update: { unassigned_at?: string | null; reason?: string | null }
-        Relationships: []
-      }
-      goals: {
-        Row: { id: number; name: string; goal_type: string; scope: string; scope_user_id: string | null; scope_department_id: number | null; scope_team_id: number | null; period_type: string; period_start: string; period_end: string; target_value: number; currency: string | null; is_active: boolean; created_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: never; name: string; goal_type: string; scope: string; scope_user_id?: string | null; scope_department_id?: number | null; scope_team_id?: number | null; period_type: string; period_start: string; period_end: string; target_value: number; currency?: string | null; is_active?: boolean; created_by?: string | null }
-        Update: { name?: string; goal_type?: string; scope?: string; scope_user_id?: string | null; scope_department_id?: number | null; scope_team_id?: number | null; period_type?: string; period_start?: string; period_end?: string; target_value?: number; currency?: string | null; is_active?: boolean }
-        Relationships: []
+        Row: {
+          amount: number
+          amount_try: number
+          amount_usd: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: number
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          direction: string
+          exchange_rate: number
+          id: number
+          occurred_at: string
+          operation_id: number | null
+          reverses_id: number | null
+          source_id: number | null
+          source_type: string
+          updated_at: string
+          usd_rate: number
+        }
+        Insert: {
+          amount: number
+          amount_try: number
+          amount_usd: number
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          customer_id: number
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          direction: string
+          exchange_rate: number
+          id?: never
+          occurred_at?: string
+          operation_id?: number | null
+          reverses_id?: number | null
+          source_id?: number | null
+          source_type: string
+          updated_at?: string
+          usd_rate: number
+        }
+        Update: {
+          amount?: number
+          amount_try?: number
+          amount_usd?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_id?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          direction?: string
+          exchange_rate?: number
+          id?: never
+          occurred_at?: string
+          operation_id?: number | null
+          reverses_id?: number | null
+          source_id?: number | null
+          source_type?: string
+          updated_at?: string
+          usd_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_transactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_transactions_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_transactions_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_transactions_reverses_id_fkey"
+            columns: ["reverses_id"]
+            isOneToOne: false
+            referencedRelation: "account_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_requests: {
-        Row: { id: number; user_id: string | null; feature: string; input_summary: Json; payload_hash: string | null; model: string | null; tokens_in: number | null; tokens_out: number | null; response_summary: string | null; status: string; accepted: boolean | null; rejected_reason: string | null; corrected_fields: string[] | null; duration_ms: number | null; created_at: string }
-        Insert: { id?: never; user_id?: string | null; feature: string; input_summary?: Json; payload_hash?: string | null; model?: string | null; tokens_in?: number | null; tokens_out?: number | null; response_summary?: string | null; status?: string; accepted?: boolean | null; rejected_reason?: string | null; corrected_fields?: string[] | null; duration_ms?: number | null }
-        Update: { accepted?: boolean | null; rejected_reason?: string | null; corrected_fields?: string[] | null }
-        Relationships: []
+        Row: {
+          accepted: boolean | null
+          corrected_fields: string[] | null
+          created_at: string
+          duration_ms: number | null
+          estimated_cost_usd: number | null
+          feature: string
+          id: number
+          input_summary: Json
+          model: string | null
+          payload_hash: string | null
+          rejected_reason: string | null
+          response_summary: string | null
+          status: string
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string | null
+        }
+        Insert: {
+          accepted?: boolean | null
+          corrected_fields?: string[] | null
+          created_at?: string
+          duration_ms?: number | null
+          estimated_cost_usd?: number | null
+          feature: string
+          id?: never
+          input_summary?: Json
+          model?: string | null
+          payload_hash?: string | null
+          rejected_reason?: string | null
+          response_summary?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          accepted?: boolean | null
+          corrected_fields?: string[] | null
+          created_at?: string
+          duration_ms?: number | null
+          estimated_cost_usd?: number | null
+          feature?: string
+          id?: never
+          input_summary?: Json
+          model?: string | null
+          payload_hash?: string | null
+          rejected_reason?: string | null
+          response_summary?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audit_log: {
         Row: {
@@ -231,6 +232,42 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_accounts: {
+        Row: {
+          account_name: string | null
+          bank_name: string
+          created_at: string
+          currency: string
+          iban: string | null
+          id: number
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          account_name?: string | null
+          bank_name: string
+          created_at?: string
+          currency?: string
+          iban?: string | null
+          id?: never
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string | null
+          bank_name?: string
+          created_at?: string
+          currency?: string
+          iban?: string | null
+          id?: never
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cancellation_reasons: {
         Row: {
           color: string | null
@@ -266,6 +303,339 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      catalog_collections: {
+        Row: {
+          catalog_id: number
+          code: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          catalog_id: number
+          code?: string | null
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          catalog_id?: number
+          code?: string | null
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_collections_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "catalogs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_product_images: {
+        Row: {
+          created_at: string
+          file_id: number
+          id: number
+          image_type: string
+          product_id: number
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          file_id: number
+          id?: number
+          image_type?: string
+          product_id: number
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          file_id?: number
+          id?: number
+          image_type?: string
+          product_id?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_images_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_products: {
+        Row: {
+          catalog_id: number
+          category_id: number | null
+          code: string
+          collection_id: number | null
+          colors: Json
+          composition: string | null
+          created_at: string
+          created_by: string | null
+          custom_margin_percent: number | null
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          fabric_group_id: number | null
+          fabric_type_id: number | null
+          fit_type_id: number | null
+          gramaj: number | null
+          has_print: boolean
+          id: number
+          is_active: boolean
+          moq: number
+          name: string
+          name_normalized: string | null
+          print_details: string | null
+          print_type_id: number | null
+          size_system: string | null
+          sizes: string[]
+          slug: string | null
+          sort_order: number
+          source_code: string | null
+          type_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          catalog_id: number
+          category_id?: number | null
+          code: string
+          collection_id?: number | null
+          colors?: Json
+          composition?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_margin_percent?: number | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          fabric_group_id?: number | null
+          fabric_type_id?: number | null
+          fit_type_id?: number | null
+          gramaj?: number | null
+          has_print?: boolean
+          id?: number
+          is_active?: boolean
+          moq?: number
+          name: string
+          name_normalized?: string | null
+          print_details?: string | null
+          print_type_id?: number | null
+          size_system?: string | null
+          sizes?: string[]
+          slug?: string | null
+          sort_order?: number
+          source_code?: string | null
+          type_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          catalog_id?: number
+          category_id?: number | null
+          code?: string
+          collection_id?: number | null
+          colors?: Json
+          composition?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_margin_percent?: number | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          fabric_group_id?: number | null
+          fabric_type_id?: number | null
+          fit_type_id?: number | null
+          gramaj?: number | null
+          has_print?: boolean
+          id?: number
+          is_active?: boolean
+          moq?: number
+          name?: string
+          name_normalized?: string | null
+          print_details?: string | null
+          print_type_id?: number | null
+          size_system?: string | null
+          sizes?: string[]
+          slug?: string | null
+          sort_order?: number
+          source_code?: string | null
+          type_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_products_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "catalogs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_fabric_group_id_fkey"
+            columns: ["fabric_group_id"]
+            isOneToOne: false
+            referencedRelation: "fabric_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_fabric_type_id_fkey"
+            columns: ["fabric_type_id"]
+            isOneToOne: false
+            referencedRelation: "fabric_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_fit_type_id_fkey"
+            columns: ["fit_type_id"]
+            isOneToOne: false
+            referencedRelation: "fit_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_print_type_id_fkey"
+            columns: ["print_type_id"]
+            isOneToOne: false
+            referencedRelation: "print_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_products_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_yscode_migration: {
+        Row: {
+          catalog_product_id: number
+          migrated_at: string
+          new_code: string
+          old_code: string
+          source_code: string | null
+        }
+        Insert: {
+          catalog_product_id: number
+          migrated_at?: string
+          new_code: string
+          old_code: string
+          source_code?: string | null
+        }
+        Update: {
+          catalog_product_id?: number
+          migrated_at?: string
+          new_code?: string
+          old_code?: string
+          source_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_yscode_migration_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: true
+            referencedRelation: "catalog_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalogs: {
+        Row: {
+          cover_file_id: number | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          id: number
+          is_active: boolean
+          name: string
+          published_at: string | null
+          season: string | null
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          cover_file_id?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean
+          name: string
+          published_at?: string | null
+          season?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          cover_file_id?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean
+          name?: string
+          published_at?: string | null
+          season?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogs_cover_file_id_fkey"
+            columns: ["cover_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       code_registry: {
         Row: {
@@ -560,6 +930,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "customers_first_contact_channel_id_fkey"
+            columns: ["first_contact_channel_id"]
+            isOneToOne: false
+            referencedRelation: "interaction_channels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "customers_import_batch_id_fkey"
             columns: ["import_batch_id"]
             isOneToOne: false
@@ -670,6 +1047,7 @@ export type Database = {
           generated_at: string | null
           generated_by: string | null
           id: number
+          is_draft: boolean
           language: string
           operation_id: number | null
           supersedes_id: number | null
@@ -688,6 +1066,7 @@ export type Database = {
           generated_at?: string | null
           generated_by?: string | null
           id?: never
+          is_draft?: boolean
           language?: string
           operation_id?: number | null
           supersedes_id?: number | null
@@ -706,6 +1085,7 @@ export type Database = {
           generated_at?: string | null
           generated_by?: string | null
           id?: never
+          is_draft?: boolean
           language?: string
           operation_id?: number | null
           supersedes_id?: number | null
@@ -818,6 +1198,116 @@ export type Database = {
         }
         Relationships: []
       }
+      exchange_rates: {
+        Row: {
+          currency: string
+          fetched_at: string
+          id: number
+          is_current: boolean
+          rate_date: string | null
+          rate_try: number
+          source: string
+        }
+        Insert: {
+          currency: string
+          fetched_at?: string
+          id?: number
+          is_current?: boolean
+          rate_date?: string | null
+          rate_try: number
+          source?: string
+        }
+        Update: {
+          currency?: string
+          fetched_at?: string
+          id?: number
+          is_current?: boolean
+          rate_date?: string | null
+          rate_try?: number
+          source?: string
+        }
+        Relationships: []
+      }
+      fabric_groups: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fabric_types: {
+        Row: {
+          created_at: string
+          group_id: number
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: number
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: number
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fabric_types_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "fabric_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       files: {
         Row: {
           bucket: string
@@ -887,6 +1377,128 @@ export type Database = {
           {
             foreignKeyName: "files_uploaded_by_fkey"
             columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fit_types: {
+        Row: {
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      goals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          goal_type: string
+          id: number
+          is_active: boolean
+          name: string
+          period_end: string
+          period_start: string
+          period_type: string
+          risk_notified_at: string | null
+          scope: string
+          scope_department_id: number | null
+          scope_team_id: number | null
+          scope_user_id: string | null
+          target_value: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          goal_type: string
+          id?: never
+          is_active?: boolean
+          name: string
+          period_end: string
+          period_start: string
+          period_type: string
+          risk_notified_at?: string | null
+          scope: string
+          scope_department_id?: number | null
+          scope_team_id?: number | null
+          scope_user_id?: string | null
+          target_value: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          goal_type?: string
+          id?: never
+          is_active?: boolean
+          name?: string
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          risk_notified_at?: string | null
+          scope?: string
+          scope_department_id?: number | null
+          scope_team_id?: number | null
+          scope_user_id?: string | null
+          target_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_scope_department_id_fkey"
+            columns: ["scope_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_scope_team_id_fkey"
+            columns: ["scope_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_scope_user_id_fkey"
+            columns: ["scope_user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -1297,6 +1909,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leads_first_contact_channel_id_fkey"
+            columns: ["first_contact_channel_id"]
+            isOneToOne: false
+            referencedRelation: "interaction_channels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "leads_import_batch_id_fkey"
             columns: ["import_batch_id"]
             isOneToOne: false
@@ -1318,6 +1937,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      margin_tiers: {
+        Row: {
+          created_at: string
+          id: number
+          is_active: boolean
+          margin_percent: number
+          min_quantity: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          margin_percent: number
+          min_quantity: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          is_active?: boolean
+          margin_percent?: number
+          min_quantity?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       notes: {
         Row: {
@@ -1366,9 +2015,194 @@ export type Database = {
           },
         ]
       }
+      notification_rules: {
+        Row: {
+          created_at: string
+          file_type: string
+          id: number
+          is_active: boolean
+          level: number
+          recipient_ref: string | null
+          recipient_type: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_type: string
+          id?: number
+          is_active?: boolean
+          level: number
+          recipient_ref?: string | null
+          recipient_type: string
+          scope?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string
+          id?: number
+          is_active?: boolean
+          level?: number
+          recipient_ref?: string | null
+          recipient_type?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          body: string | null
+          created_at: string
+          dismissed_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: number
+          read_at: string | null
+          severity: string
+          silent: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          body?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: number
+          read_at?: string | null
+          severity?: string
+          silent?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          body?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: number
+          read_at?: string | null
+          severity?: string
+          silent?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      open_file_snoozes: {
+        Row: {
+          created_at: string
+          id: number
+          open_file_id: number
+          reason: string
+          snoozed_by: string | null
+          snoozed_until: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          open_file_id: number
+          reason: string
+          snoozed_by?: string | null
+          snoozed_until: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          open_file_id?: number
+          reason?: string
+          snoozed_by?: string | null
+          snoozed_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_file_snoozes_open_file_id_fkey"
+            columns: ["open_file_id"]
+            isOneToOne: false
+            referencedRelation: "open_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      open_files: {
+        Row: {
+          assigned_to: string | null
+          close_reason: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          due_at: string
+          file_type: string
+          final_hour_notified_at: string | null
+          id: number
+          last_level: number
+          last_notified_at: string | null
+          opened_at: string
+          operation_id: number
+          snooze_count: number
+          snooze_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          due_at: string
+          file_type: string
+          final_hour_notified_at?: string | null
+          id?: number
+          last_level?: number
+          last_notified_at?: string | null
+          opened_at?: string
+          operation_id: number
+          snooze_count?: number
+          snooze_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          close_reason?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          due_at?: string
+          file_type?: string
+          final_hour_notified_at?: string | null
+          id?: number
+          last_level?: number
+          last_notified_at?: string | null
+          opened_at?: string
+          operation_id?: number
+          snooze_count?: number
+          snooze_until?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_files_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operation_catalog_items: {
         Row: {
           catalog_product_code: string
+          catalog_product_id: number | null
           created_at: string
           created_by: string | null
           id: number
@@ -1379,6 +2213,7 @@ export type Database = {
         }
         Insert: {
           catalog_product_code: string
+          catalog_product_id?: number | null
           created_at?: string
           created_by?: string | null
           id?: never
@@ -1389,6 +2224,7 @@ export type Database = {
         }
         Update: {
           catalog_product_code?: string
+          catalog_product_id?: number | null
           created_at?: string
           created_by?: string | null
           id?: never
@@ -1398,6 +2234,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "operation_catalog_items_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operation_catalog_items_created_by_fkey"
             columns: ["created_by"]
@@ -1526,6 +2369,7 @@ export type Database = {
       }
       operations: {
         Row: {
+          archived_with_customer: boolean
           cancellation_note: string | null
           cancellation_reason_id: number | null
           cancelled_at: string | null
@@ -1544,8 +2388,11 @@ export type Database = {
           district_normalized: string | null
           expected_delivery: string | null
           id: number
+          landing_source: string | null
           legacy_code: string | null
+          merged_into: number | null
           owner_id: string | null
+          possible_merge_with: number | null
           product_source: string | null
           province_id: number | null
           request_status_id: number | null
@@ -1561,6 +2408,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_with_customer?: boolean
           cancellation_note?: string | null
           cancellation_reason_id?: number | null
           cancelled_at?: string | null
@@ -1579,8 +2427,11 @@ export type Database = {
           district_normalized?: string | null
           expected_delivery?: string | null
           id?: never
+          landing_source?: string | null
           legacy_code?: string | null
+          merged_into?: number | null
           owner_id?: string | null
+          possible_merge_with?: number | null
           product_source?: string | null
           province_id?: number | null
           request_status_id?: number | null
@@ -1596,6 +2447,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_with_customer?: boolean
           cancellation_note?: string | null
           cancellation_reason_id?: number | null
           cancelled_at?: string | null
@@ -1614,8 +2466,11 @@ export type Database = {
           district_normalized?: string | null
           expected_delivery?: string | null
           id?: never
+          landing_source?: string | null
           legacy_code?: string | null
+          merged_into?: number | null
           owner_id?: string | null
+          possible_merge_with?: number | null
           product_source?: string | null
           province_id?: number | null
           request_status_id?: number | null
@@ -1667,10 +2522,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "operations_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "operations_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operations_possible_merge_with_fkey"
+            columns: ["possible_merge_with"]
+            isOneToOne: false
+            referencedRelation: "operations"
             referencedColumns: ["id"]
           },
           {
@@ -1831,7 +2700,11 @@ export type Database = {
         Row: {
           actual_delivery: string | null
           advance_due_date: string | null
+          advance_due_warned_at: string | null
+          advance_overdue_at: string | null
           balance_due_date: string | null
+          balance_due_warned_at: string | null
+          balance_overdue_at: string | null
           carrier: string | null
           created_at: string
           created_by: string | null
@@ -1840,6 +2713,8 @@ export type Database = {
           deleted_by: string | null
           delivery_address: string | null
           delivery_notes: string | null
+          delivery_overdue_at: string | null
+          delivery_warned_at: string | null
           extracted_data: Json | null
           extraction_source: string
           held_at: string | null
@@ -1866,7 +2741,11 @@ export type Database = {
         Insert: {
           actual_delivery?: string | null
           advance_due_date?: string | null
+          advance_due_warned_at?: string | null
+          advance_overdue_at?: string | null
           balance_due_date?: string | null
+          balance_due_warned_at?: string | null
+          balance_overdue_at?: string | null
           carrier?: string | null
           created_at?: string
           created_by?: string | null
@@ -1875,6 +2754,8 @@ export type Database = {
           deleted_by?: string | null
           delivery_address?: string | null
           delivery_notes?: string | null
+          delivery_overdue_at?: string | null
+          delivery_warned_at?: string | null
           extracted_data?: Json | null
           extraction_source?: string
           held_at?: string | null
@@ -1901,7 +2782,11 @@ export type Database = {
         Update: {
           actual_delivery?: string | null
           advance_due_date?: string | null
+          advance_due_warned_at?: string | null
+          advance_overdue_at?: string | null
           balance_due_date?: string | null
+          balance_due_warned_at?: string | null
+          balance_overdue_at?: string | null
           carrier?: string | null
           created_at?: string
           created_by?: string | null
@@ -1910,6 +2795,8 @@ export type Database = {
           deleted_by?: string | null
           delivery_address?: string | null
           delivery_notes?: string | null
+          delivery_overdue_at?: string | null
+          delivery_warned_at?: string | null
           extracted_data?: Json | null
           extraction_source?: string
           held_at?: string | null
@@ -1984,6 +2871,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_methods: {
+        Row: {
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       payment_terms: {
         Row: {
@@ -2077,6 +2997,8 @@ export type Database = {
         }
         Update: {
           amount?: number
+          amount_try?: number | null
+          amount_usd?: number | null
           bank_account_id?: number | null
           created_at?: string
           created_by?: string | null
@@ -2085,6 +3007,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           direction?: string
+          exchange_rate?: number | null
           id?: never
           is_advance?: boolean
           kind?: string
@@ -2095,13 +3018,28 @@ export type Database = {
           payment_method_id?: number | null
           reference_no?: string | null
           updated_at?: string
+          usd_rate?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
@@ -2116,6 +3054,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
             referencedColumns: ["id"]
           },
         ]
@@ -2185,6 +3130,39 @@ export type Database = {
           },
         ]
       }
+      print_types: {
+        Row: {
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_categories: {
         Row: {
           color: string | null
@@ -2228,6 +3206,109 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_cost_items: {
+        Row: {
+          amount: number | null
+          calculation_type: string
+          cost_id: number
+          currency: string
+          fabric_name: string | null
+          id: number
+          item_type: string
+          name: string
+          quantity: number | null
+          sort_order: number
+          unit_price: number | null
+        }
+        Insert: {
+          amount?: number | null
+          calculation_type?: string
+          cost_id: number
+          currency?: string
+          fabric_name?: string | null
+          id?: number
+          item_type?: string
+          name: string
+          quantity?: number | null
+          sort_order?: number
+          unit_price?: number | null
+        }
+        Update: {
+          amount?: number | null
+          calculation_type?: string
+          cost_id?: number
+          currency?: string
+          fabric_name?: string | null
+          id?: number
+          item_type?: string
+          name?: string
+          quantity?: number | null
+          sort_order?: number
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_cost_items_cost_id_fkey"
+            columns: ["cost_id"]
+            isOneToOne: false
+            referencedRelation: "product_costs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_costs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency_display: string
+          id: number
+          is_current: boolean
+          notes: string | null
+          product_id: number
+          rate_snapshot: Json
+          total_cost_try: number
+          total_cost_usd: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency_display?: string
+          id?: number
+          is_current?: boolean
+          notes?: string | null
+          product_id: number
+          rate_snapshot?: Json
+          total_cost_try?: number
+          total_cost_usd?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency_display?: string
+          id?: number
+          is_current?: boolean
+          notes?: string | null
+          product_id?: number
+          rate_snapshot?: Json
+          total_cost_try?: number
+          total_cost_usd?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_costs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
             referencedColumns: ["id"]
           },
         ]
@@ -2424,6 +3505,8 @@ export type Database = {
           currency: string
           deleted_at: string | null
           deleted_by: string | null
+          follow_up_at: string | null
+          follow_up_reason: string | null
           id: number
           internal_notes: string | null
           lead_time_days: number | null
@@ -2454,6 +3537,8 @@ export type Database = {
           currency?: string
           deleted_at?: string | null
           deleted_by?: string | null
+          follow_up_at?: string | null
+          follow_up_reason?: string | null
           id?: never
           internal_notes?: string | null
           lead_time_days?: number | null
@@ -2484,6 +3569,8 @@ export type Database = {
           currency?: string
           deleted_at?: string | null
           deleted_by?: string | null
+          follow_up_at?: string | null
+          follow_up_reason?: string | null
           id?: never
           internal_notes?: string | null
           lead_time_days?: number | null
@@ -2772,6 +3859,7 @@ export type Database = {
           fee_currency: string
           id: number
           operation_id: number
+          overdue_warned_at: string | null
           quote_id: number | null
           received_at: string | null
           rejection_reason: string | null
@@ -2780,6 +3868,7 @@ export type Database = {
           revision_round: number
           shipped_at: string | null
           status_id: number | null
+          target_date: string | null
           tracking_number: string | null
           updated_at: string
           version: number
@@ -2800,6 +3889,7 @@ export type Database = {
           fee_currency?: string
           id?: never
           operation_id: number
+          overdue_warned_at?: string | null
           quote_id?: number | null
           received_at?: string | null
           rejection_reason?: string | null
@@ -2808,6 +3898,7 @@ export type Database = {
           revision_round?: number
           shipped_at?: string | null
           status_id?: number | null
+          target_date?: string | null
           tracking_number?: string | null
           updated_at?: string
           version: number
@@ -2828,6 +3919,7 @@ export type Database = {
           fee_currency?: string
           id?: never
           operation_id?: number
+          overdue_warned_at?: string | null
           quote_id?: number | null
           received_at?: string | null
           rejection_reason?: string | null
@@ -2836,6 +3928,7 @@ export type Database = {
           revision_round?: number
           shipped_at?: string | null
           status_id?: number | null
+          target_date?: string | null
           tracking_number?: string | null
           updated_at?: string
           version?: number
@@ -3028,6 +4121,524 @@ export type Database = {
         }
         Relationships: []
       }
+      task_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          assigned_to: string | null
+          id: number
+          reason: string | null
+          task_id: number
+          unassigned_at: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          assigned_to?: string | null
+          id?: never
+          reason?: string | null
+          task_id: number
+          unassigned_at?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          assigned_to?: string | null
+          id?: never
+          reason?: string | null
+          task_id?: number
+          unassigned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_assignments_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_assignments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_dependencies: {
+        Row: {
+          created_at: string
+          dependency_type: string
+          depends_on_task_id: number
+          id: number
+          task_id: number
+        }
+        Insert: {
+          created_at?: string
+          dependency_type?: string
+          depends_on_task_id: number
+          id?: never
+          task_id: number
+        }
+        Update: {
+          created_at?: string
+          dependency_type?: string
+          depends_on_task_id?: number
+          id?: never
+          task_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_dependencies_depends_on_task_id_fkey"
+            columns: ["depends_on_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_priorities: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_default: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_default?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_default?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      task_statuses: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_closed: boolean
+          is_default: boolean
+          is_system: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_closed?: boolean
+          is_default?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_closed?: boolean
+          is_default?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      task_suggestion_state: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: number
+          kind: string
+          operation_id: number
+          reason: string | null
+          ref_id: number
+          state: string
+          task_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          kind: string
+          operation_id: number
+          reason?: string | null
+          ref_id: number
+          state: string
+          task_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          kind?: string
+          operation_id?: number
+          reason?: string | null
+          ref_id?: number
+          state?: string
+          task_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_suggestion_state_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_suggestion_state_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_suggestion_state_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_templates: {
+        Row: {
+          assignee_team_id: number | null
+          assignee_user_id: string | null
+          created_at: string
+          default_assignee_rule: string
+          default_priority_id: number | null
+          description_template: string | null
+          due_offset_hours: number
+          id: number
+          is_active: boolean
+          sort_order: number
+          title_template: string
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_team_id?: number | null
+          assignee_user_id?: string | null
+          created_at?: string
+          default_assignee_rule?: string
+          default_priority_id?: number | null
+          description_template?: string | null
+          due_offset_hours?: number
+          id?: never
+          is_active?: boolean
+          sort_order?: number
+          title_template: string
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_team_id?: number | null
+          assignee_user_id?: string | null
+          created_at?: string
+          default_assignee_rule?: string
+          default_priority_id?: number | null
+          description_template?: string | null
+          due_offset_hours?: number
+          id?: never
+          is_active?: boolean
+          sort_order?: number
+          title_template?: string
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_assignee_team_id_fkey"
+            columns: ["assignee_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_templates_assignee_user_id_fkey"
+            columns: ["assignee_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_templates_default_priority_id_fkey"
+            columns: ["default_priority_id"]
+            isOneToOne: false
+            referencedRelation: "task_priorities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_team_id: number | null
+          assigned_to: string | null
+          auto_kind: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          due_at: string | null
+          due_warned_at: string | null
+          entity_id: number | null
+          entity_type: string | null
+          estimated_hours: number | null
+          id: number
+          overdue_notified_at: string | null
+          parent_task_id: number | null
+          priority_id: number | null
+          sort_order: number
+          source: string
+          started_at: string | null
+          status_id: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_team_id?: number | null
+          assigned_to?: string | null
+          auto_kind?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          due_warned_at?: string | null
+          entity_id?: number | null
+          entity_type?: string | null
+          estimated_hours?: number | null
+          id?: never
+          overdue_notified_at?: string | null
+          parent_task_id?: number | null
+          priority_id?: number | null
+          sort_order?: number
+          source?: string
+          started_at?: string | null
+          status_id?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_team_id?: number | null
+          assigned_to?: string | null
+          auto_kind?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          due_warned_at?: string | null
+          entity_id?: number | null
+          entity_type?: string | null
+          estimated_hours?: number | null
+          id?: never
+          overdue_notified_at?: string | null
+          parent_task_id?: number | null
+          priority_id?: number | null
+          sort_order?: number
+          source?: string
+          started_at?: string | null
+          status_id?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_team_id_fkey"
+            columns: ["assigned_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_priority_id_fkey"
+            columns: ["priority_id"]
+            isOneToOne: false
+            referencedRelation: "task_priorities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "task_statuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          id: number
+          joined_at: string
+          team_id: number
+          user_id: string
+        }
+        Insert: {
+          id?: never
+          joined_at?: string
+          team_id: number
+          user_id: string
+        }
+        Update: {
+          id?: never
+          joined_at?: string
+          team_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          code: string | null
+          created_at: string
+          department_id: number | null
+          id: number
+          is_active: boolean
+          lead_user_id: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          department_id?: number | null
+          id?: never
+          is_active?: boolean
+          lead_user_id?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          department_id?: number | null
+          id?: never
+          is_active?: boolean
+          lead_user_id?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_permission_overrides: {
         Row: {
           created_at: string
@@ -3169,20 +4780,148 @@ export type Database = {
           },
         ]
       }
+      workflow_steps: {
+        Row: {
+          assignee_user_id: string | null
+          default_assignee_rule: string
+          default_priority_id: number | null
+          description_template: string | null
+          due_offset_hours: number
+          id: number
+          sort_order: number
+          title_template: string
+          workflow_id: number
+        }
+        Insert: {
+          assignee_user_id?: string | null
+          default_assignee_rule?: string
+          default_priority_id?: number | null
+          description_template?: string | null
+          due_offset_hours?: number
+          id?: never
+          sort_order?: number
+          title_template: string
+          workflow_id: number
+        }
+        Update: {
+          assignee_user_id?: string | null
+          default_assignee_rule?: string
+          default_priority_id?: number | null
+          description_template?: string | null
+          due_offset_hours?: number
+          id?: never
+          sort_order?: number
+          title_template?: string
+          workflow_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_steps_assignee_user_id_fkey"
+            columns: ["assignee_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_default_priority_id_fkey"
+            columns: ["default_priority_id"]
+            isOneToOne: false
+            referencedRelation: "task_priorities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflows: {
+        Row: {
+          created_at: string
+          id: number
+          is_active: boolean
+          name: string
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          name: string
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          name?: string
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      _auto_task_upsert: {
+        Args: {
+          p_assigned_to: string
+          p_auto_kind: string
+          p_due_at: string
+          p_entity_id: number
+          p_entity_type: string
+          p_title: string
+        }
+        Returns: undefined
+      }
+      accept_task_suggestion: {
+        Args: {
+          p_assigned_to: string
+          p_description: string
+          p_due_at: string
+          p_kind: string
+          p_operation_id: number
+          p_priority_id: number
+          p_ref_id: number
+          p_title: string
+        }
+        Returns: number
+      }
       add_working_hours: {
         Args: { p_from: string; p_hours: number }
         Returns: string
       }
+      advance_override: {
+        Args: { p_order_id: number; p_reason: string }
+        Returns: Json
+      }
+      ai_calls_today: { Args: never; Returns: number }
+      ai_cost_month: { Args: never; Returns: number }
+      ai_cost_today: { Args: never; Returns: number }
+      ai_feature_calls_today: { Args: { p_feature: string }; Returns: number }
+      ai_spend_summary: { Args: never; Returns: Json }
+      alert_manager_recipients: { Args: never; Returns: string[] }
+      alert_pool_recipients: { Args: never; Returns: string[] }
       app_timezone: { Args: never; Returns: string }
+      approve_draft_quote: { Args: { p_document_id: number }; Returns: number }
       build_document_data: {
         Args: { p_language?: string; p_operation_id: number; p_type: string }
         Returns: Json
       }
+      build_draft_quote: { Args: { p_operation_id: number }; Returns: number }
+      cache_historical_rate: {
+        Args: { p_currency: string; p_date: string; p_rate: number }
+        Returns: undefined
+      }
+      catalog_code_key: { Args: { input: string }; Returns: string }
+      catalog_slugify: { Args: { input: string }; Returns: string }
       check_import_duplicates: {
         Args: { p_rows: Json }
         Returns: {
@@ -3192,11 +4931,6 @@ export type Database = {
         }[]
       }
       claim_operation: { Args: { p_operation_id: number }; Returns: Json }
-      document_uretici: { Args: Record<string, never>; Returns: Json }
-      process_open_file_alerts: { Args: Record<string, never>; Returns: number }
-      process_delivery_warnings: { Args: Record<string, never>; Returns: number }
-      daily_summary: { Args: Record<string, never>; Returns: Json }
-      snooze_open_file: { Args: { p_open_file_id: number; p_reason: string; p_until: string }; Returns: Json }
       convert_lead_to_customer: {
         Args: {
           p_customer_type_id: number
@@ -3204,6 +4938,15 @@ export type Database = {
           p_lead_id: number
           p_tax_number?: string
           p_tax_office?: string
+        }
+        Returns: number
+      }
+      create_catalog_product_and_link: {
+        Args: {
+          p_code: string
+          p_collection_id?: number
+          p_item_id: number
+          p_name: string
         }
         Returns: number
       }
@@ -3235,10 +4978,73 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      current_rates: { Args: never; Returns: Json }
+      customer_archive: { Args: { p_customer_id: number }; Returns: undefined }
+      customer_balance: {
+        Args: { p_as_of?: string; p_customer_id: number }
+        Returns: {
+          balance_try: number
+          balance_usd: number
+          last_transaction_at: string
+        }[]
+      }
+      customer_delete_preview: {
+        Args: { p_customer_id: number }
+        Returns: Json
+      }
+      customer_hard_delete: { Args: { p_customer_id: number }; Returns: Json }
+      customer_summary: { Args: { p_customer_id: number }; Returns: Json }
+      customer_unarchive: {
+        Args: { p_customer_id: number }
+        Returns: undefined
+      }
+      daily_summary: { Args: never; Returns: Json }
+      dismiss_merge: { Args: { p_operation: number }; Returns: undefined }
+      dismiss_task_suggestion: {
+        Args: {
+          p_kind: string
+          p_operation_id: number
+          p_reason: string
+          p_ref_id: number
+        }
+        Returns: undefined
+      }
+      document_uretici: { Args: never; Returns: Json }
+      due_payments: {
+        Args: never
+        Returns: {
+          amount_usd: number
+          customer_id: number
+          customer_name: string
+          days_left: number
+          due_date: string
+          due_kind: string
+          operation_code: string
+          operation_id: number
+          order_id: number
+          sufficient: boolean
+        }[]
+      }
+      due_quote_followups: {
+        Args: never
+        Returns: {
+          follow_up_at: string
+          operation_id: number
+          quote_id: number
+          reason: string
+        }[]
+      }
+      evaluate_order_due: { Args: { p_order_id: number }; Returns: number }
       file_record_exists: {
         Args: { p_bucket: string; p_path: string }
         Returns: boolean
       }
+      finance_customer_visible: {
+        Args: { p_customer_id: number }
+        Returns: boolean
+      }
+      finance_scope_all: { Args: never; Returns: boolean }
+      finance_summary: { Args: never; Returns: Json }
       find_duplicates: {
         Args: {
           p_company?: string
@@ -3272,36 +5078,10 @@ export type Database = {
           title: string
         }[]
       }
-      has_permission: { Args: { permission_key: string }; Returns: boolean }
-      current_rates: { Args: Record<string, never>; Returns: Json }
-      set_exchange_rate: { Args: { p_currency: string; p_rate: number; p_source?: string }; Returns: undefined }
-      save_product_cost: { Args: { p_product_id: number; p_items: Json; p_total_try: number; p_total_usd: number; p_rates: Json; p_notes: string | null }; Returns: number }
-      product_price: { Args: { p_product_id: number; p_quantity: number }; Returns: Json }
-      rate_to_try: { Args: { p_currency: string }; Returns: number }
-      rate_on_date: { Args: { p_currency: string; p_date: string }; Returns: number }
-      cache_historical_rate: { Args: { p_currency: string; p_rate: number; p_date: string }; Returns: undefined }
-      customer_balance: { Args: { p_customer_id: number; p_as_of?: string }; Returns: { balance_usd: number; balance_try: number; last_transaction_at: string | null }[] }
-      reverse_account_transaction: { Args: { p_id: number; p_reason: string }; Returns: number }
-      order_paid_summary: { Args: { p_order_id: number }; Returns: Json }
-      order_advance_check: { Args: { p_order_id: number }; Returns: Json }
-      advance_override: { Args: { p_order_id: number; p_reason: string }; Returns: Json }
-      process_payment_due_warnings: { Args: Record<string, never>; Returns: number }
-      finance_summary: { Args: Record<string, never>; Returns: Json }
       goal_actual: { Args: { p_goal_id: number }; Returns: number }
-      task_subtree_progress: { Args: { p_task_id: number }; Returns: number }
-      user_workload: { Args: { p_user_id: string }; Returns: { open_count: number; estimated_hours: number }[] }
-      task_blocking: { Args: { p_task_id: number }; Returns: { depends_on_task_id: number; title: string; status_key: string }[] }
-      operation_task_suggestions: { Args: { p_operation_id: number }; Returns: { template_id: number; trigger_event: string; title: string; description: string | null; priority_id: number | null; assignee_rule: string; resolved_assignee: string | null; due_offset_hours: number }[] }
-      operation_workflow_suggestions: { Args: { p_operation_id: number }; Returns: { step_id: number; workflow_name: string; trigger_event: string; title: string; description: string | null; priority_id: number | null; assignee_rule: string; resolved_assignee: string | null; due_offset_hours: number }[] }
-      accept_task_suggestion: { Args: { p_operation_id: number; p_kind: string; p_ref_id: number; p_title: string; p_description: string | null; p_priority_id: number | null; p_assigned_to: string | null; p_due_at: string | null }; Returns: number }
-      dismiss_task_suggestion: { Args: { p_operation_id: number; p_kind: string; p_ref_id: number; p_reason: string | null }; Returns: undefined }
-      ai_calls_today: { Args: Record<string, never>; Returns: number }
-      process_task_due_warnings: { Args: Record<string, never>; Returns: number }
-      process_goal_notifications: { Args: Record<string, never>; Returns: number }
-      ai_spend_summary: { Args: Record<string, never>; Returns: Json }
-      open_balances: { Args: Record<string, never>; Returns: { customer_id: number; customer_name: string; balance_usd: number; balance_try: number; last_at: string | null }[] }
-      due_payments: { Args: Record<string, never>; Returns: { order_id: number; operation_id: number; operation_code: string; customer_id: number; customer_name: string; due_kind: string; due_date: string; days_left: number; amount_usd: number; sufficient: boolean }[] }
-      post_account_transaction: { Args: { p_customer_id: number; p_direction: string; p_source_type: string; p_amount: number; p_currency: string; p_source_id?: number | null; p_operation_id?: number | null; p_exchange_rate?: number | null; p_usd_rate?: number | null; p_occurred_at?: string | null; p_description?: string | null; p_reverses_id?: number | null; p_created_by?: string | null }; Returns: number }
+      has_permission: { Args: { permission_key: string }; Returns: boolean }
+      intake_normalize_phone: { Args: { p_raw: string }; Returns: string }
+      intake_process: { Args: { p: Json }; Returns: Json }
       is_active_user: { Args: never; Returns: boolean }
       is_admin_or_owner: { Args: never; Returns: boolean }
       log_dedup_override: {
@@ -3328,6 +5108,62 @@ export type Database = {
         Args: { p_gate: string; p_operation_id: number; p_reason: string }
         Returns: undefined
       }
+      manager_interventions: { Args: never; Returns: Json }
+      manager_pending_quotes: { Args: { p_limit?: number }; Returns: Json }
+      manager_pending_requests: { Args: { p_limit?: number }; Returns: Json }
+      merge_operations: {
+        Args: { p_source: number; p_target: number }
+        Returns: undefined
+      }
+      metric_active_funnel: { Args: never; Returns: Json }
+      metric_employees: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      metric_finance: { Args: { p_from: string; p_to: string }; Returns: Json }
+      metric_funnel: {
+        Args: { p_from: string; p_scope_user?: string; p_to: string }
+        Returns: Json
+      }
+      metric_interactions: {
+        Args: {
+          p_channel?: number
+          p_from: string
+          p_scope_user?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      metric_leads: { Args: { p_from: string; p_to: string }; Returns: Json }
+      metric_orders: { Args: { p_from: string; p_to: string }; Returns: Json }
+      metric_pipeline: {
+        Args: { p_from: string; p_scope_user?: string; p_to: string }
+        Returns: Json
+      }
+      metric_quotes: {
+        Args: { p_from: string; p_scope_user?: string; p_to: string }
+        Returns: Json
+      }
+      metric_request_trend: {
+        Args: { p_from: string; p_scope_user?: string; p_to: string }
+        Returns: Json
+      }
+      metric_requests: {
+        Args: {
+          p_category?: number
+          p_channel?: number
+          p_from: string
+          p_province?: number
+          p_scope_user?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      metric_samples: { Args: { p_from: string; p_to: string }; Returns: Json }
+      metric_stage_durations: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       normalize_company_core: { Args: { input: string }; Returns: string }
       normalize_company_core_arr: {
         Args: { input: string; p_stop: string[] }
@@ -3338,6 +5174,57 @@ export type Database = {
         Returns: string
       }
       normalize_tr: { Args: { input: string }; Returns: string }
+      notify_payment: {
+        Args: {
+          p_body: string
+          p_code: string
+          p_op: number
+          p_owner: string
+          p_sev: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
+      }
+      of_close: {
+        Args: { p_op: number; p_reason: string; p_type: string }
+        Returns: undefined
+      }
+      of_hours: { Args: { p_default: number; p_key: string }; Returns: number }
+      of_open: {
+        Args: { p_due: string; p_op: number; p_type: string }
+        Returns: undefined
+      }
+      op_advance_stage: {
+        Args: { p_operation_id: number; p_target_key: string }
+        Returns: undefined
+      }
+      op_set_stage: {
+        Args: { p_operation_id: number; p_target_key: string }
+        Returns: undefined
+      }
+      open_balances: {
+        Args: never
+        Returns: {
+          balance_try: number
+          balance_usd: number
+          customer_id: number
+          customer_name: string
+          last_at: string
+        }[]
+      }
+      open_file_level: {
+        Args: {
+          p_due: string
+          p_escalate_hours: number
+          p_file_type: string
+          p_now: string
+          p_opened: string
+          p_urgent: number
+          p_warn: number
+        }
+        Returns: number
+      }
       operation_revisions: {
         Args: { p_operation_id: number }
         Returns: {
@@ -3352,8 +5239,71 @@ export type Database = {
           table_name: string
         }[]
       }
+      operation_task_suggestions: {
+        Args: { p_operation_id: number }
+        Returns: {
+          assignee_rule: string
+          description: string
+          due_offset_hours: number
+          priority_id: number
+          resolved_assignee: string
+          template_id: number
+          title: string
+          trigger_event: string
+        }[]
+      }
+      operation_workflow_suggestions: {
+        Args: { p_operation_id: number }
+        Returns: {
+          assignee_rule: string
+          description: string
+          due_offset_hours: number
+          priority_id: number
+          resolved_assignee: string
+          step_id: number
+          title: string
+          trigger_event: string
+          workflow_name: string
+        }[]
+      }
+      order_advance_check: { Args: { p_order_id: number }; Returns: Json }
+      order_paid_summary: { Args: { p_order_id: number }; Returns: Json }
+      post_account_transaction: {
+        Args: {
+          p_amount: number
+          p_created_by?: string
+          p_currency: string
+          p_customer_id: number
+          p_description?: string
+          p_direction: string
+          p_exchange_rate?: number
+          p_occurred_at?: string
+          p_operation_id?: number
+          p_reverses_id?: number
+          p_source_id?: number
+          p_source_type: string
+          p_usd_rate?: number
+        }
+        Returns: number
+      }
+      process_delivery_warnings: { Args: never; Returns: number }
+      process_goal_notifications: { Args: never; Returns: number }
+      process_open_file_alerts: { Args: never; Returns: number }
+      process_payment_due_warnings: { Args: never; Returns: number }
+      process_quote_final_hour: { Args: never; Returns: number }
+      process_sample_due_warnings: { Args: never; Returns: number }
+      process_task_due_warnings: { Args: never; Returns: number }
+      product_price: {
+        Args: { p_product_id: number; p_quantity: number }
+        Returns: Json
+      }
       quote_default_tax_rate: { Args: never; Returns: number }
       quote_default_validity_days: { Args: never; Returns: number }
+      rate_on_date: {
+        Args: { p_currency: string; p_date: string }
+        Returns: number
+      }
+      rate_to_try: { Args: { p_currency: string }; Returns: number }
       recompute_order_totals: {
         Args: { p_order_id: number }
         Returns: undefined
@@ -3362,22 +5312,88 @@ export type Database = {
         Args: { p_quote_id: number }
         Returns: undefined
       }
+      report_permission_matrix: { Args: never; Returns: Json }
       require_siparis_onay: {
         Args: { p_operation_id: number }
         Returns: undefined
+      }
+      resolve_alert_recipients: {
+        Args: { p_assigned: string; p_file_type: string; p_level: number }
+        Returns: string[]
+      }
+      resolve_catalog_item: {
+        Args: { p_item_id: number; p_product_id: number }
+        Returns: undefined
+      }
+      reverse_account_transaction: {
+        Args: { p_id: number; p_reason: string }
+        Returns: number
       }
       revise_sample: {
         Args: { p_reason: string; p_sample_id: number }
         Returns: number
       }
+      save_product_cost: {
+        Args: {
+          p_items: Json
+          p_notes: string
+          p_product_id: number
+          p_rates: Json
+          p_total_try: number
+          p_total_usd: number
+        }
+        Returns: number
+      }
+      set_exchange_rate: {
+        Args: { p_currency: string; p_rate: number; p_source?: string }
+        Returns: undefined
+      }
+      set_role_permission: {
+        Args: { p_granted: boolean; p_perm_key: string; p_role_key: string }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sla_sweep: { Args: never; Returns: number }
+      snooze_open_file: {
+        Args: { p_open_file_id: number; p_reason: string; p_until: string }
+        Returns: Json
+      }
+      suggest_catalog_products: {
+        Args: { p_code: string; p_limit?: number }
+        Returns: {
+          code: string
+          id: number
+          name: string
+        }[]
+      }
+      task_blocking: {
+        Args: { p_task_id: number }
+        Returns: {
+          depends_on_task_id: number
+          status_key: string
+          title: string
+        }[]
+      }
+      task_subtree_progress: { Args: { p_task_id: number }; Returns: number }
       undo_import_batch: { Args: { p_batch_id: number }; Returns: Json }
+      user_workload: {
+        Args: { p_user_id: string }
+        Returns: {
+          estimated_hours: number
+          open_count: number
+        }[]
+      }
     }
     Enums: {
       audit_action: "insert" | "update" | "delete" | "restore"
-      audit_source: "user" | "system" | "automation" | "migration" | "import"
+      audit_source:
+        | "user"
+        | "system"
+        | "automation"
+        | "migration"
+        | "import"
+        | "rpc"
       file_category: "document" | "image" | "avatar" | "export" | "other"
     }
     CompositeTypes: {
@@ -3504,13 +5520,17 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       audit_action: ["insert", "update", "delete", "restore"],
-      audit_source: ["user", "system", "automation", "migration", "import"],
+      audit_source: [
+        "user",
+        "system",
+        "automation",
+        "migration",
+        "import",
+        "rpc",
+      ],
       file_category: ["document", "image", "avatar", "export", "other"],
     },
   },

@@ -13,6 +13,39 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.25.0] — 2026-08-31
+
+### M1.3 — Panelde ürün özellik yönetimi
+M1.1/M1.2 ile gelen kumaş/kalıp/baskı sözlükleri artık arayüzden yönetilebiliyor.
+
+- **`useFabricDictionaries`** — kumaş grupları + gruba bağlı tipler (tek istek),
+  kalıp ve baskı sözlükleri. Ev kalıbı `useReferenceQuery` (oturum hazır olmadan
+  sorgu göndermez, boş sonuç önbelleğe girmez).
+- **Ürün formu:** Kumaş Grubu → Kumaş Tipi (bağlı seçim; grup seçilmeden tip seçilemez,
+  çünkü aynı kumaş adı birden çok grupta olabilir), Kalıp (Fit), Gramaj,
+  **"Baskı var"** işaretlenince açılan Baskı Tekniği + Ayrıntısı, ve **Site adresi (slug)**.
+  Baskı kapatılırsa tip ve ayrıntı da temizlenir — tutarsız kayıt kalmaz.
+- **Ürün detayı:** yeni alanlar teknik bilgi tablosunda; baskı yoksa baskı satırları
+  hiç gösterilmiyor (boş satır gürültüsü yok).
+- **Katalog listesine kumaş filtresi** — 672 ürün artık kumaş grubuna göre süzülüyor.
+- **`src/lib/catalogSlug.ts` + 6 test** — `slugify` ve `isValidSlug`. Aynı kural DB'de
+  `catalog_slugify()` olarak duruyor; ikisi ayrışırsa kullanıcı anlaşılmaz hata görür,
+  bu yüzden tek yerde ve testli. Formda "addan öner" yalnız slug boşken görünür —
+  mevcut slug kazara ezilmesin (sitedeki bağlantı ve SEO kırılır).
+
+### `database.types.ts` yeniden üretildi
+Dosya canlı şemadan yeniden üretildi (119 KB → 164 KB). Eskimiş tipler **5 gerçek
+uyumsuzluğu gizliyormuş** — hepsi RPC argümanı. Tip üreteci Postgres argümanlarını
+zorunlu (non-null) sayıyor; Postgres'te argümanlar her zaman NULL kabul eder ve bu
+fonksiyonlar null'ı işliyor. Açıklamalı dar cast'lerle çözüldü, CLAUDE.md'ye not düşüldü.
+
+### Not
+- Şema değişikliğinden sonra **PostgREST şema önbelleği yenilendi**
+  (`notify pgrst, 'reload schema'`); dört yeni embed'in çözüldüğü canlıda doğrulandı
+  (`PGRST200` değil `42501` dönüyor → ilişki tanınıyor, yalnız yetki engelliyor).
+- `.env` düzeltmesi: doldurulmamış `<...>` yer tutucuları kabuk `source` işlemini
+  bozuyordu (`parse error`), yorum satırına alındı.
+
 ## [1.24.0] — 2026-08-31
 
 ### M1.2 — Katalog özellik aktarımı: slug + kumaş sözlüğü canlıya işlendi
