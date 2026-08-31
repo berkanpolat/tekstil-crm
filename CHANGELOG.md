@@ -13,6 +13,43 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.23.0] — 2026-08-31
+
+### M1.1 — Katalog özellik şeması (birleştirme programı: ürün master)
+Studio'daki (uretimCrm) ürün sözlüklerini ve yapısal alanları yeniCrm'e taşıyabilmek için
+**şema** hazırlandı. Bu paket veri taşımaz — 672 ürünün alan doldurması M1.2'dedir.
+
+- **Migration `20260831000000_m1_1_katalog_ozellikleri.sql` — CANLIYA UYGULANMADI.**
+  Yerel PostgreSQL 17'de gerçek veritabanında sınandı; canlıya uygulama ayrı onay + yedek ister.
+- **4 sözlük tablosu:** `fabric_groups` (9, tohumlandı), `fabric_types` (grubuna bağlı,
+  169 kayıt M1.2'de gelecek), `fit_types` (6, tohumlandı), `print_types` (5, tohumlandı).
+  Studio'nun şeması **kopyalanmadı**, yeniCrm ev kalıbına uyarlandı: uuid yerine
+  `bigint identity`, `name` yerine `key`/`label`, `has_role()` yerine
+  `is_active_user()` (okuma) / `is_admin_or_owner()` (yazma), `is_system` bayrağı.
+- **`catalog_products` + 8 kolon** (hepsi nullable, mevcut ürünler etkilenmez):
+  `slug`, `fabric_group_id`, `fabric_type_id`, `fit_type_id`, `print_type_id`,
+  `gramaj` (>0 kısıtı), `has_print`, `print_details`.
+- **`catalog_slugify(text)`** — site uyumlu slug üreteci (Türkçe→ASCII).
+  `slug` kısmi benzersiz indeks (`deleted_at is null`): arşivlenen ürünün slug'ı
+  yeniden kullanılabilir, canlı ürünlerde çakışma engellenir.
+
+### Doğrulama (yerel PostgreSQL 17, 10 sınav)
+- **`catalog_slugify`, sitenin gerçek 672 slug'ından 664'ünü birebir üretti.**
+  Sapan 8 kayıt algoritma hatası değil: 7'si sitenin çakışma için eklediği `-2` soneki,
+  1'i adında olmayan kelime taşıyor. **Sonuç: slug addan türetilemez, kaynaktan
+  alınmalı** — M1.2 slug'ları site verisinden okuyacak, üreteci yalnız yeni ürün için
+  ve doğrulama amaçlı kullanacak.
+- Çift slug reddedildi · birden çok NULL slug kabul edildi · arşiv sonrası slug yeniden
+  kullanılabildi · `gramaj=0` reddedildi · `has_print` varsayılanı false ·
+  kumaş tipi silinince ürün `NULL`'a düştü, kumaş grubu silinemedi (restrict) ·
+  tohumlama tekrar çalıştırılabilir · `updated_at` tetikleyicisi çalışıyor.
+
+### Keşif notu (M1.2'yi ilgilendirir)
+- **Site iki kataloğu birleştiriyor:** `products.json` 672 üründen **197'sinde `cat`
+  alanı boş** (Studio'nun aktif ürün sayısıyla birebir), **475'inde dolu**. Yani dosya
+  iki kaynağın elle birleşimi — üreten hiçbir script yok, 10 script onu okuyor.
+  "Çift katalog" sorununun somut hali; M1.4 bunu tek kaynağa bağlayacak.
+
 ## [1.22.0] — 2026-08-31
 
 ### Kendi sunucumuzda yayına alma: crm.tekstilas.com (cPanel + Cloudflare)
