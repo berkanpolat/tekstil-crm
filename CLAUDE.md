@@ -113,33 +113,35 @@ gelen talepler otomatik düşer; katalog, belge motoru, finans, görev/hedef ve 
 
 ## Bekleyen İşler
 
-### 🔴 Öncelikli
-- ✅ **Red sebepleri — TAMAM.** `data/red-sebepleri.csv` (118 kayıt) işlendi:
-  118 quote'a `rejection_reason_id` yazıldı (hepsi `stage=teklif_reddedildi`),
-  dağılım CSV ile birebir. 4 yeni sebep (MOQ Fazla, Sonra Değerlendirecek, Numune
-  Ücreti Fazla, Yanlış Numara) eklendi. Fuzzy isimler de bağlandı (Ayaz Atlas→AYAZ
-  ALTAS, Mahir Tuğanatay→Mahir Tuğantay). Listede olmayan 37 reddedilmiş quote boş.
-- ✅ **Müşteri silme — iki aşamalı TAMAM (v1.10.0 backend + v1.11.0 UI).**
-  Arşivle (soft-delete, operasyonlar `archived_with_customer` ile geri alınabilir)
-  + Kalıcı Sil (`customers.delete` = owner+admin, cari/ödeme guard, storage temizliği,
-  önizleme + ad yazarak onay). Migration `20260821000000` canlıda.
+> Ayrıntılı ve güncel liste kalıcı hafızada: `crm-acik-isler`. Aşağısı özet.
 
-### 🟡 Sonra
-- **Gösterge paneli tasarım iyileştirmesi.**
-- **Raporlar sayfası gözden geçirme.**
-- **Eşleşmeyen ~50 lead** (`data/leads.csv`) — çözüm/eşleştirme.
-- **İzlenmeyen dosyaların commit'i:** `services/pdf-renderer/templates/studio.html`
-  + `scripts/` altındaki izlenmeyen yardımcı scriptler.
+### 🔴 Acil
+- **Üç anahtar yenilenmeli** (oturum kaydına düştü): FTP (`tekstila`), Cloudflare API
+  token, `INTAKE_SECRET`. Sonuncusunda sıra: **önce** Supabase secrets, **sonra**
+  sunucudaki `lead.php` — tersi olursa aradaki talepler 401 alır.
+- **Eşleşmeyen WhatsApp lead'leri birikiyor.** CRM'de olmayan numaradan mesaj gelince
+  `whatsapp_eslesmeyen` kaynaklı lead açılıyor (mesaj kaybolmasın diye — doğru davranış).
+  teklead'de aktarılmayan ~10.400 kişi var; çözülmezse lead listesi kirlenir.
+- **PDF servisi kapalı** — belge/teklif PDF üretimi çalışmıyor. Kod sağlam (yerelde
+  421 KB'lık gerçek PDF üretildi); Fly ücretsiz katmanı öldüğü için barındırma yok.
+  Plan: Render.com ücretsiz + uyanık tutma ping'i.
+
+### 🟡 Yarım kalan geçişler
+- **WhatsApp:** teklead → CRM kopya iletimi çalışıyor (gerçek trafikle doğrulandı).
+  Kalan: Twilio konsolundan webhook'u CRM'e çevir, teklead iletimini kapat.
+- **`uretim/products.json`** CRM'den üretildi ama **siteye yayınlanmadı**.
+- **teklead gönderim** hâlâ teklead'den; CRM'de yetenek hazır.
+
+### 🟡 Veri boşlukları
+672 üründe gramaj yok · 197 üründe kumaş yok (katalog 2) · 32 üründe tür yerine üst
+grup · 2 talep kalemi bağsız · 3 kumaş sınıflandırması tahminî.
+
+### ⬜ Cevap bekleyen
+**Studio müşteri portalı fiilen kullanılıyor mu?** M4 (portal) ve M5 (PayTR)
+paketlerinin var olup olmadığını bu belirliyor.
 
 ### 🧪 Test edilmemiş sürümler
 v1.3.2, v1.3.3, v1.3.4, v1.4.0, v1.5.0 — arayüzde doğrulanmadı.
-
-### 📊 Veri notu (maliyet aktarımı, v1.9.0)
-- **6 ürün kasıtlı maliyetsiz:** `BB_C_01`, `BB_C_03`, `BB_P_02` (boş),
-  `E_P_14` (yalnız kumaş adı), `K_P_07` (işçilik girilmemiş),
-  `004_takimi-kirmizi` (CSV'de yok). Sonradan girilebilir.
-- **4 ürünün toplam maliyeti $5 altı** (`BB_C_08 $3.15`, `ET_P_04 $4.56`,
-  `BB_C_10 $4.88`, `BB_C_14 $4.93`) — hesap doğru, **kaynak veri kontrolü bekliyor**.
 
 ## Bilinen teknik notlar (kritik)
 
@@ -148,7 +150,7 @@ v1.3.2, v1.3.3, v1.3.4, v1.4.0, v1.5.0 — arayüzde doğrulanmadı.
   `--geri-al vX.Y.Z`). **Netlify kullanılmıyor.**
 - ⚠️ **PDF servisi kapalı** — `tekstil-pdf-renderer.fly.dev` yok; belge/teklif PDF üretimi
   çalışmaz. Kaynak `services/pdf-renderer/` altında, yeniden yayınlanabilir.
-- ⚠️ **Migration defter kayması:** 106 dosya diskte; CLI ledger'da 56. Son migrasyonlar
+- ⚠️ **Migration defter kayması:** 130 dosya diskte; defterde 61 (1 Eyl 2026 ölçümü). Son migrasyonlar
   `psql -f` ile uygulandı (DB'de var, ledger'da yok). `supabase db push` dikkatli kullanılmalı.
 - **Gizli anahtarlar sohbete yazılmaz** → `.secrets/` (gitignore) veya terminal.
 - `database.types.ts` **31 Ağu 2026'da yeniden üretildi** (`supabase gen types typescript
