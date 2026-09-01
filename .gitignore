@@ -61,3 +61,8 @@ scripts/.*.generated.sql
 scripts/.katalog-*
 scripts/.leads-*
 deno.lock
+
+# Güvenlik taraması çıktıları — DEPO HERKESE AÇIK.
+# sast/ raporları canlı sistemin istismar ayrıntılarını içerir; asla işlenmez.
+sast/
+.claude/skills/sast-*/

@@ -15,7 +15,13 @@ const PDF = (() => { const i = args.indexOf('--pdf'); if (i >= 0) return args[i 
   const cand = readdirSync('docs/kaynak').find((f) => /atalog.*\.pdf$/i.test(f)); return cand ? join('docs/kaynak', cand) : null })()
 const PGURL = process.env.PGURL ?? readFileSync('/tmp/pgurl.txt', 'utf8').trim()
 const sql = (s) => execFileSync('psql', [PGURL, '-qtAc', s], { encoding: 'utf8' }).trim()
-const sqlSafe = (s) => s.replace(/'/g, "''")
+const sqlSafe = (s) => String(s).replace(/'/g, "''")
+// GÜVENLİK (SAST 1 Eyl 2026): `code` DB'den okunup hem Storage anahtarına hem de
+// psql komutuna gömülüyor. Artık catalog_products üzerinde biçim CHECK'i var
+// (migration 20260901130000), ama script bağımsız çalıştığı ve eski verilerle de
+// kullanılabildiği için savunmayı burada tekrarlıyoruz: uymayan kod atlanır.
+const KOD_BICIM = /^[A-Za-z0-9._-]{1,64}$/
+const kodGuvenli = (code) => KOD_BICIM.test(String(code ?? ''))
 if (!PDF || !existsSync(PDF)) { console.error('PDF bulunamadı. --pdf ile yol verin veya docs/kaynak/ altına koyun.'); process.exit(1) }
 console.log('PDF:', PDF, DRY ? '(DRY-RUN)' : '')
 
@@ -40,6 +46,8 @@ async function importImages() {
   const TYPES = ['detay', 'arka', 'yan', 'diger', 'diger']
   let done = 0, skipped = 0, imgCount = 0
   for (const p of prods.slice(0, LIMIT === Infinity ? undefined : LIMIT)) {
+    // GÜVENLİK: kod hem dosya yoluna hem SQL'e giriyor — biçime uymayanı hiç işleme.
+    if (!kodGuvenli(p.code)) { console.error(`  ATLANDI (gecersiz kod bicimi): ${JSON.stringify(p.code)}`); skipped++; continue }
     if (sql(`select count(*) from public.catalog_product_images where product_id=${p.id}`) !== '0') { skipped++; continue }
     // bu sayfadaki ürün-boyutu görsellerin indeksleri (yükseklik ~1000, genişlik 400-820)
     const list = execFileSync('pdfimages', ['-list', '-f', String(p.page), '-l', String(p.page), PDF], { encoding: 'utf8' }).split('\n').slice(2)
@@ -54,7 +62,7 @@ async function importImages() {
     for (let k = 0; k < files.length; k++) {
       if (!keep.includes(k)) continue          // yalnızca ürün görselleri
       const buf = readFileSync(join(dir, files[k]))
-      const path = `catalog/${p.code}/${idx}.jpg`
+      const path = `catalog/${p.code}/${idx}.jpg`   // p.code yukarıda kodGuvenli() ile doğrulandı
       const up = await supa.storage.from('documents').upload(path, buf, { contentType: 'image/jpeg', upsert: true })
       if (up.error) { console.error(`  ${p.code} yükleme hatası:`, up.error.message); continue }
       const fid = sql(`insert into public.files (bucket, storage_path, original_name, mime_type, category, entity_type, entity_id, uploaded_by)

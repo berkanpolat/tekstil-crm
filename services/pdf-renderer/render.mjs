@@ -13,6 +13,39 @@ async function buildDoc(page, { template, data, language }) {
     const setVar = (name, val) => window.eval(name + ' = ' + JSON.stringify(val) + ';')
     const P = (o) => window.setPageOrient(o)
 
+    /**
+     * GÜVENLİK (SAST 1 Eyl 2026): çağıranın gönderdiği ham HTML'i beyaz listeye
+     * indirger. Regex ile değil, GERÇEK ayrıştırıcıyla (DOMParser) çalışır —
+     * kaçırma numaralarına kapalıdır. Grafik/tablo işaretlemesi korunur;
+     * betik, olay özniteliği, dış kaynak ve gezinme kaldırılır.
+     */
+    const temizleHtml = (html) => {
+      const IZINLI_ETIKET = new Set(['DIV','SPAN','P','BR','HR','B','STRONG','I','EM','U','SMALL',
+        'H1','H2','H3','H4','H5','H6','UL','OL','LI','TABLE','THEAD','TBODY','TFOOT','TR','TH','TD',
+        'SVG','G','PATH','RECT','CIRCLE','ELLIPSE','LINE','POLYLINE','POLYGON','TEXT','TSPAN',
+        'DEFS','LINEARGRADIENT','RADIALGRADIENT','STOP','CLIPPATH','TITLE','DESC','MARKER','SYMBOL','USE'])
+      // foreignObject KASITLI olarak dışarıda: SVG içine keyfi HTML sokmanın yoludur.
+      const IZINLI_OZNITELIK = /^(class|style|width|height|viewbox|preserveaspectratio|x|y|x1|y1|x2|y2|cx|cy|r|rx|ry|d|points|fill|fill-opacity|fill-rule|stroke|stroke-width|stroke-dasharray|stroke-linecap|stroke-linejoin|opacity|transform|text-anchor|dominant-baseline|font-size|font-family|font-weight|letter-spacing|colspan|rowspan|align|offset|stop-color|stop-opacity|gradientunits|gradienttransform|clip-path|marker-end|marker-start|id|dy|dx)$/i
+
+      const belge = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html')
+      const gez = (dugum) => {
+        for (const c of Array.from(dugum.children)) {
+          if (!IZINLI_ETIKET.has(c.tagName.toUpperCase())) { c.remove(); continue }
+          for (const oz of Array.from(c.attributes)) {
+            const ad = oz.name.toLowerCase()
+            // on* olay öznitelikleri, href/src/xlink gibi kaynak çekenler ve
+            // beyaz listede olmayan her şey düşer.
+            if (!IZINLI_OZNITELIK.test(ad)) { c.removeAttribute(oz.name); continue }
+            if (/(javascript|data|vbscript)\s*:/i.test(oz.value)) { c.removeAttribute(oz.name); continue }
+            if (ad === 'style' && /(expression|javascript:|url\s*\()/i.test(oz.value)) c.removeAttribute(oz.name)
+          }
+          gez(c)
+        }
+      }
+      gez(belge.body)
+      return belge.body.innerHTML
+    }
+
     if (template === 'fiyat_teklifi') {
       P('portrait')
       // language parametresi dil için OTORİTE — data.tkS.dil onu ezmesin.
@@ -68,7 +101,18 @@ async function buildDoc(page, { template, data, language }) {
       // P4B.7 — Maliyet belgesi (İÇ KULLANIM). studio.html'de fonksiyonu yok; HTML doğrudan kurulur.
       P('portrait')
       const m = data.maliyet || {}
-      const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      // GÜVENLİK (SAST 1 Eyl 2026): esc() tırnakları kaçırmıyordu; değerler öznitelik
+      // bağlamına da girdiği için `"` ile öznitelik kırılıp onerror= enjekte edilebiliyordu.
+      const esc = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      // Görsel kaynağı: yalnız data:image ve https.
+      const gorselSrc = (v) => {
+        const t = String(v == null ? '' : v).trim()
+        if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(t)) return t
+        if (/^https:\/\/[^\s"'<>]+$/i.test(t)) return t
+        return ''
+      }
       const rows = (m.items || []).map((it) => `<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">${esc(it.name)}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#555">${esc(it.detail)}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${esc(it.amount)}</td></tr>`).join('')
       const tiers = (m.tiers || []).map((t) => `<tr><td style="padding:5px 8px;border-bottom:1px solid #eee">${esc(t.qty)}</td><td style="padding:5px 8px;border-bottom:1px solid #eee">${esc(t.unitCost)}</td><td style="padding:5px 8px;border-bottom:1px solid #eee">%${esc(t.margin)}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;font-weight:600">${esc(t.unitPrice)}</td><td style="padding:5px 8px;border-bottom:1px solid #eee">${esc(t.total)}</td></tr>`).join('')
       root.innerHTML = `<div class="sheet" style="width:210mm;min-height:297mm;box-sizing:border-box;padding:16mm;font-family:Inter,Arial,sans-serif;color:#1a2230;background:#fff">
@@ -77,7 +121,7 @@ async function buildDoc(page, { template, data, language }) {
           <div style="background:#c0392b;color:#fff;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;text-align:center">İÇ KULLANIM<br><span style="font-weight:400">Müşteri ile Paylaşılmaz</span></div>
         </div>
         <div style="display:flex;gap:16px;margin-top:16px">
-          ${m.image ? `<img src="${m.image}" style="width:42mm;height:56mm;object-fit:cover;border:1px solid #ddd;border-radius:6px">` : ''}
+          ${gorselSrc(m.image) ? `<img src="${esc(gorselSrc(m.image))}" style="width:42mm;height:56mm;object-fit:cover;border:1px solid #ddd;border-radius:6px">` : ''}
           <div style="flex:1"><table style="width:100%;font-size:13px">
             <tr><td style="color:#888;padding:3px 0;width:120px">Ürün Kodu</td><td style="font-weight:600">${esc(m.code)}</td></tr>
             <tr><td style="color:#888;padding:3px 0">Ürün Adı</td><td style="font-weight:600">${esc(m.name)}</td></tr>
@@ -145,7 +189,12 @@ async function buildDoc(page, { template, data, language }) {
       // kurulur (ekranla birebir aynı SVG) ve data.rapor.bodyHtml olarak gelir;
       // antet/font/sayfa çerçevesi studio.html'deki window.reportDoc içindedir.
       P('portrait')
-      root.innerHTML = window.reportDoc(data.rapor || {})
+      // GÜVENLİK (SAST 1 Eyl 2026 — Kritik): `data.rapor.bodyHtml` HTTP gövdesinden
+      // gelip ham olarak belgenin gövde işaretlemesi oluyordu → render hostunda JS
+      // çalıştırma (üstelik paylaşılan sayfada kalıcı). Beyaz listeye indirgeniyor.
+      const rapor = Object.assign({}, data.rapor || {})
+      if (rapor.bodyHtml != null) rapor.bodyHtml = temizleHtml(String(rapor.bodyHtml))
+      root.innerHTML = window.reportDoc(rapor)
     } else {
       throw new Error('bilinmeyen şablon: ' + template)
     }
@@ -177,7 +226,14 @@ async function buildDoc(page, { template, data, language }) {
         .sort((a, b) => b[0].length - a[0].length) // uzun kaynak önce → alt-dize çakışması yok
       let h = root.innerHTML
       pairs.forEach(([from], i) => { h = h.split(from).join(' U' + i + ' ') })
-      pairs.forEach(([, to], i) => { h = h.split(' U' + i + ' ').join(to) })
+      // GÜVENLİK (SAST 1 Eyl 2026 — Kritik, EN GENİŞ yüzey): `to` değerleri kaçırılmadan,
+      // render EDİLMİŞ HTML'e string ikamesiyle geri yazılıyordu. Şablona özel değil —
+      // TÜM belge tiplerinde tetikleniyordu, yani "o şablonu kullanmıyoruz" savunması
+      // işlemiyordu: ayarlardaki tek bir alan (ör. şirket adı) kod çalıştırmaya yetiyordu.
+      const escA = (x) => String(x == null ? '' : x)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      pairs.forEach(([, to], i) => { h = h.split(' U' + i + ' ').join(escA(to)) })
       root.innerHTML = h
     }
     // Sayfalanmış belgelerde (fiyat_teklifi/siparis_onay) son bir güvenlik: print-media

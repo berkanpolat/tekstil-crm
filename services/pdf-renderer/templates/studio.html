@@ -2001,7 +2001,16 @@ const BAR_BG='<svg class="bar-bg" viewBox="0 0 1028 150" preserveAspectRatio="no
 let order={musteri:'',icerik:'',adres:'',toplam:1};
 let koliler=[]; let editIndex=-1;
 const $=id=>document.getElementById(id);
-const H=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* GÜVENLİK (SAST 1 Eyl 2026): H() tırnakları kaçırmıyordu; sipBcRows() gibi yerlerde
+   öznitelik bağlamında kullanıldığı için `"` ile öznitelik kırılabiliyordu
+   (data-code kaçışı). Tırnaklar da kaçırılır. */
+const H=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+/* Görsel kaynağı süzgeci: yalnız data:image ve https. `"` ile öznitelikten
+   kaçıp onerror= enjekte etme yolunu kapatır. */
+const IMGSRC=v=>{var t=String(v==null?'':v).trim();
+  if(/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(t))return t;
+  if(/^https:\/\/[^\s"'<>]+$/i.test(t))return t;
+  return '';};
 const A=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
 function readOrder(){
@@ -2034,7 +2043,7 @@ function stickerHTML(k,index){
   const code=k.icerik&&k.icerik.length?k.icerik:'0000000000';
   const rows=[
     [I.person,'MÜŞTERİ',val(k.musteri)],
-    [I.box,'KOLİ NUMARASI',no+' / '+order.toplam],
+    [I.box,'KOLİ NUMARASI',no+' / '+H(order.toplam)],
     [I.barcode,'KOLİ İÇERİĞİ',val(k.icerik)],
     [I.palette,'RENK',val(k.renk)],
     [I.dress,'BEDEN',val(k.beden)],
@@ -2044,7 +2053,7 @@ function stickerHTML(k,index){
   ].map(r=>`<div class="frow"><div class="ic">${r[0]}</div><div class="ln"><span class="flabel">${r[1]}</span><span class="colon">:</span><span class="fval">${H(r[2])}</span></div></div>`).join('');
   return `<div class="sticker">
     <div class="st-top"><img class="st-logo" src="${LOGO}" alt="Tekstil A.Ş."></div>
-    <div class="koli-badge"><span class="pk">${I.pkg}</span><div class="kb"><div class="lab">KOLİ</div><div class="num">${no}/${order.toplam}</div></div></div>
+    <div class="koli-badge"><span class="pk">${I.pkg}</span><div class="kb"><div class="lab">KOLİ</div><div class="num">${no}/${H(order.toplam)}</div></div></div>
     <div class="st-body">
       <div class="st-left">${rows}</div>
       <div class="st-right">
@@ -2097,7 +2106,7 @@ function render(){
   list.innerHTML = koliler.length===0
     ? '<div class="empty">Henüz koli eklenmedi.<br>Bilgileri girip “Koli Ekle”ye bas.</div>'
     : koliler.map((k,i)=>`<div class="koli-item ${i===editIndex?'editing':''}">
-        <div class="koli-no">${i+1}/${order.toplam}</div>
+        <div class="koli-no">${i+1}/${H(order.toplam)}</div>
         <div class="koli-meta"><b>${H(val(k.renk))} · ${H(val(k.beden))}</b><span>${H(val(k.adet))} adet · ${H(val(k.agirlik))}</span></div>
         <button class="icon-btn" title="Yukarı" ${i===0?'disabled':''} onclick="move(${i},-1)">▲</button>
         <button class="icon-btn" title="Aşağı" ${i===koliler.length-1?'disabled':''} onclick="move(${i},1)">▼</button>
@@ -2788,7 +2797,7 @@ function tkEnsureFotoAR(){if(tkS&&tkS.foto&&!(tkS.fotoAR>0)){var im=new Image();
 function tkRenderFoto(){
   var h=$('tk-foto-host');if(!h)return;
   if(tkS.foto){
-    h.innerHTML='<div class="tk-foto-prev"><img src="'+tkS.foto+'" alt="urun gorseli"><div class="tk-foto-act"><button class="btn btn-ghost" onclick="tkPickFoto()">Degistir</button><button class="btn btn-ghost tk-foto-rmv" onclick="tkDelFoto()">Kaldir</button></div></div>';
+    h.innerHTML='<div class="tk-foto-prev"><img src="'+H(IMGSRC(tkS.foto))+'" alt="urun gorseli"><div class="tk-foto-act"><button class="btn btn-ghost" onclick="tkPickFoto()">Degistir</button><button class="btn btn-ghost tk-foto-rmv" onclick="tkDelFoto()">Kaldir</button></div></div>';
   }else{
     h.innerHTML='<button type="button" class="tk-foto-add" onclick="tkPickFoto()"><span class="ic">+</span><b>Urun gorseli ekle</b><em>JPG / PNG / WebP</em></button>';
   }
@@ -2969,7 +2978,7 @@ function tkQuoteDoc(){
   var mr=function(k,v){return '<div class="qmr"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';};
   var talepNo=(tkS.talep&&tkS.talep.length===6)?'STD-'+H(tkS.talep):'<span class="mut">—</span>';
   var photoHTML='';
-  if(tkS.foto){var _ar=(tkS.fotoAR>0)?tkS.fotoAR:0.75,_W=165,_Hm=205,_w,_h;if(_ar>=1){_w=_W;_h=Math.round(_W/_ar);}else{_h=_Hm;_w=Math.round(_Hm*_ar);if(_w>_W){_w=_W;_h=Math.round(_W/_ar);}}photoHTML='<div class="qphoto"><img src="'+tkS.foto+'" alt="ürün görseli" style="width:'+_w+'px;height:'+_h+'px"></div>';}
+  if(tkS.foto){var _ar=(tkS.fotoAR>0)?tkS.fotoAR:0.75,_W=165,_Hm=205,_w,_h;if(_ar>=1){_w=_W;_h=Math.round(_W/_ar);}else{_h=_Hm;_w=Math.round(_Hm*_ar);if(_w>_W){_w=_W;_h=Math.round(_W/_ar);}}photoHTML='<div class="qphoto"><img src="'+H(IMGSRC(tkS.foto))+'" alt="ürün görseli" style="width:'+_w+'px;height:'+_h+'px"></div>';}
   var meta=mr(T.talep,talepNo)+mr(T.tarih,H(today))+mr(T.gecerli,tkMv(tkGecerliL(tkS.gecerli)))+mr(T.teslimat,tesl?H(tesl):'<span class="mut">'+T.notset+'</span>')+mr(T.odeme,tkMv(tkS.odeme))+(ind>0?mr(T.indirim,(EN?(indTxt+'%'):('%'+indTxt))):'');
   var thead='<thead><tr><th style="width:30%">'+T.thDetay+'</th><th>'+T.thKumas+'</th><th class="ctr">'+T.thAdet+'</th><th class="num">'+T.thBirim+'</th><th class="num">'+T.thTop+'</th></tr></thead>';
   var rowHTML=rows.map(function(o){var adet=parseFloat(o.adet)||0,birim=parseFloat(o.birim)||0,tot=adet*birim;var net=tot*(1-ind/100),disc=tot-net;var tlB=foreign&&rate?birim*rate:null,tlNet=foreign&&rate?net*rate:null;var totCell=ind>0?('<span class="was">'+tkMoneyL(tot,code)+'</span><b>'+tkMoneyL(net,code)+'</b><span class="disc">'+T.discCell(indTxt,tkMoneyL(disc,code))+'</span>'):('<b>'+tkMoneyL(net,code)+'</b>');

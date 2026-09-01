@@ -77,7 +77,20 @@ function parseCSV(text){
   if(field.length||row.length){row.push(field);rows.push(row)}
   return rows
 }
-const esc = s => s==null ? 'null' : "'"+String(s).replace(/'/g,"''")+"'"
+// GÜVENLİK (SAST 1 Eyl 2026): literaller `do $$ ... $$` bloğunun İÇİNE gömülüyor.
+// esc() yalnız tek tırnağı kaçırdığı için, içinde `$$` geçen bir müşteri/marka adı
+// bloğu erkenden kapatıp kalan metni SQL olarak çalıştırabiliyordu. Tek tırnak
+// kaçışına ek olarak dolar-işareti dizilerini de etkisizleştiriyoruz.
+const esc = s => {
+  if (s == null) return 'null'
+  const v = String(s)
+  // Dolar-alıntı sonlandırıcısı üretebilecek her `$` dizisini böl (chr(36) ile
+  // birleştirme literal değeri korur, ama ayrıştırıcı için `$$` oluşmaz).
+  if (v.includes('$')) {
+    return v.split('$').map(part => "'" + part.replace(/'/g, "''") + "'").join(" || chr(36) || ")
+  }
+  return "'" + v.replace(/'/g, "''") + "'"
+}
 const trimOrNull = s => { const t=(s??'').trim(); return t===''?null:t }
 
 // --- Referans id'leri canlı çek ---------------------------------------
@@ -198,13 +211,13 @@ if (withErr.length){ console.log(`\n  ❌ HATALI SATIRLAR:`); withErr.forEach(p=
 let sql = `-- OTOMATİK ÜRETİLDİ — import-musteriler.mjs\n\\set ON_ERROR_STOP on\nBEGIN;\n`
 for (const p of plan){
   if (p.errors.length){ sql += `-- #${p.row} ATLANDI (hata): ${p.errors.join('; ')}\n`; continue }
-  sql += `do $$ declare cid bigint; begin\n`
+  sql += `do $imp$ declare cid bigint; begin\n`
   sql += `  insert into customers (full_name, company_name, city, district, country, status_id, customer_type_id, created_at, created_by)\n`
   sql += `  values (${esc(p.name)}, ${esc(p.company)}, ${esc(p.city)}, ${esc(p.district)}, ${esc(p.country)}, ${p.sId}, ${p.tId??'null'}, ${esc(p.created)}, ${esc(OWNER)}) returning id into cid;\n`
   if (p.phoneE164) sql += `  insert into contact_points (entity_type, entity_id, type, value, is_primary, created_by) values ('customer', cid, 'phone', ${esc(p.phoneE164)}, true, ${esc(OWNER)});\n`
   if (p.email)     sql += `  insert into contact_points (entity_type, entity_id, type, value, is_primary, created_by) values ('customer', cid, 'email', ${esc(p.email)}, true, ${esc(OWNER)});\n`
   for (const n of p.notes) sql += `  insert into notes (entity_type, entity_id, body, is_internal, created_by) values ('customer', cid, ${esc(n)}, true, ${esc(OWNER)});\n`
-  sql += `end $$;\n`
+  sql += `end $imp$;\n`
 }
 sql += `COMMIT;\n`
 writeFileSync(SQL_OUT, sql)

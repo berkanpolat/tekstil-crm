@@ -5,11 +5,39 @@ import express from 'express'
 import { chromium } from 'playwright'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { timingSafeEqual } from 'node:crypto'
 import { renderDocument, renderPreview } from './render.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STUDIO = join(__dirname, 'templates', 'studio.html')
+// file:// erişimi yalnız bu dizinle sınırlı (bkz. page.route).
+const SABLON_DIZINI = join(__dirname, 'templates')
+// Dış kaynak yalnız bu hostlardan — tam eşleşme, alt-dize DEĞİL.
+const IZINLI_CDN_HOSTLARI = new Set(['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'unpkg.com'])
 const SECRET = process.env.PDF_SECRET || ''
+
+// GÜVENLİK (SAST 1 Eyl 2026 — Kritik): kimlik denetimi `if (SECRET && ...)`
+// kalıbındaydı; PDF_SECRET tanımlı DEĞİLSE koruma SESSİZCE KAPANIYORDU ve /render
+// internete kimliksiz açılıyordu. Güvenli varsayılan tam tersidir: sır yoksa
+// servis iş görmez. (Önyüz zaten x-pdf-secret göndermiyordu — yani pratikte
+// koruma hiç devrede değildi.)
+function yetkiKontrol(req, res) {
+  if (!SECRET) {
+    res.status(503).json({
+      error: 'yapilandirma_eksik',
+      detail: 'PDF_SECRET tanımlı değil. Servis kimliksiz çalışmaz; ortam değişkenini ayarlayın.',
+    })
+    return false
+  }
+  const gelen = req.get('x-pdf-secret') || ''
+  // Sabit süreli karşılaştırma (zamanlama sızıntısını önler).
+  const a = Buffer.from(gelen), b = Buffer.from(SECRET)
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    res.status(401).json({ error: 'unauthorized' })
+    return false
+  }
+  return true
+}
 const PORT = Number(process.env.PORT || 4046)
 
 // Beş belgenin durum değişkenleri. Bir kısmı `let` ile tanımlı → window'a düşmez;
@@ -32,10 +60,27 @@ async function newStudioPage() {
   const page = await browser.newPage({ viewport: { width: 900, height: 1300 }, deviceScaleFactor: 2 })
   await page.route('**/*', (route) => {
     const url = route.request().url()
-    if (url.startsWith('file:')) return route.continue()
-    // Barkod ve supabase-js kütüphaneleri lazım (boot çökmesin); API/analitik çağrıları kesilir.
-    if (url.includes('JsBarcode') || url.includes('jsbarcode') || url.includes('supabase-js@2')) return route.continue()
-    return route.abort()
+
+    // GÜVENLİK (SAST 1 Eyl 2026 — Kritik, yerelde kanıtlandı):
+    //
+    // (a) `url.startsWith('file:')` TÜM yerel dosyaları geçiriyordu. Sayfa file://
+    //     origin'inde çalıştığı için şablona enjekte edilen
+    //     `<iframe src="file:///proc/self/environ">` render hostundaki her dosyayı
+    //     PDF'e bastırabiliyordu — tüm ortam değişkenleri, yani tüm sırlar dahil.
+    //     Artık yalnız şablon dizinindeki dosyalar geçer.
+    //
+    // (b) İzin listesi ALT-DİZE eşleşmesiydi: `http://169.254.169.254/?x=jsbarcode`
+    //     filtreyi geçiyordu (bulut metadata SSRF'i). Artık tam host eşleşmesi.
+    let u
+    try { u = new URL(url) } catch { return route.abort() }
+
+    if (u.protocol === 'file:') {
+      const yol = decodeURIComponent(u.pathname)
+      return yol.startsWith(SABLON_DIZINI) ? route.continue() : route.abort()
+    }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return route.abort()
+    if (!IZINLI_CDN_HOSTLARI.has(u.hostname)) return route.abort()
+    return route.continue()
   })
   page.on('pageerror', () => {}) // uygulama boot'undaki ağ hataları görmezden gelinir
   await page.goto('file://' + STUDIO, { waitUntil: 'domcontentloaded', timeout: 30000 })
@@ -62,6 +107,21 @@ async function getPage() {
   return warmPage
 }
 
+/**
+ * GÜVENLİK (SAST 1 Eyl 2026): `warmPage` TÜM istekler arasında paylaşılıyordu.
+ * Şablona enjekte edilen bir betik sayfada KALICI oluyor ve sonraki isteklerin
+ * belgelerini (başka müşterilerin fiyatları, cari ekstreleri) okuyup
+ * değiştirebiliyordu — kiracılar arası belge sızıntısı.
+ *
+ * Artık her render kendi sayfasında çalışır ve sonunda kapatılır. Chromium
+ * örneği sıcak kaldığı için maliyet yalnız sayfa açılışıdır (~yüz ms), belge
+ * üretimi seyrek olduğundan kabul edilebilir.
+ */
+async function izoleSayfaIle(fn) {
+  const page = await newStudioPage()
+  try { return await fn(page) } finally { await page.close().catch(() => {}) }
+}
+
 const app = express()
 app.use(express.json({ limit: '12mb' }))
 
@@ -77,13 +137,12 @@ app.use((req, res, next) => {
 app.get('/health', (_req, res) => res.json({ ok: true, warm: !!warmPage && !warmPage.isClosed() }))
 
 app.post('/render', async (req, res) => {
-  if (SECRET && req.get('x-pdf-secret') !== SECRET) return res.status(401).json({ error: 'unauthorized' })
+  if (!yetkiKontrol(req, res)) return
   const { template, data, language = 'tr' } = req.body || {}
   if (!template || !data) return res.status(400).json({ error: 'template ve data gerekli' })
   const t0 = Date.now()
   try {
-    const page = await getPage()
-    const pdf = await renderDocument(page, { template, data, language })
+    const pdf = await izoleSayfaIle((page) => renderDocument(page, { template, data, language }))
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('X-Render-Ms', String(Date.now() - t0))
     res.send(pdf)
@@ -95,11 +154,11 @@ app.post('/render', async (req, res) => {
 
 // Canlı önizleme — HTML döndürür (PDF üretmeden, hızlı). Editör yazarken çağırır.
 app.post('/preview', async (req, res) => {
-  if (SECRET && req.get('x-pdf-secret') !== SECRET) return res.status(401).json({ error: 'unauthorized' })
+  if (!yetkiKontrol(req, res)) return
   const { template, data, language = 'tr' } = req.body || {}
   if (!template || !data) return res.status(400).json({ error: 'template ve data gerekli' })
   try {
-    const html = await renderPreview(await getPage(), { template, data, language })
+    const html = await izoleSayfaIle((page) => renderPreview(page, { template, data, language }))
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.send(html)
   } catch (err) {

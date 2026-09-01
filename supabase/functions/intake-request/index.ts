@@ -4,6 +4,7 @@
 // verify_jwt = false; X-Intake-Secret ile korunur. Bir adım patlasa da talep oluşur.
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/auth.ts'
+import { fetchDogrulanmis, ssrfGuvenliUrl } from '../_shared/ssrf.ts'
 
 const HEADERS = { ...corsHeaders, 'Access-Control-Allow-Headers': corsHeaders['Access-Control-Allow-Headers'] + ', x-intake-secret' }
 
@@ -67,14 +68,37 @@ Deno.serve(async (req) => {
   const fileUrl = (body.file_url as string | undefined)?.trim()
   if (fileUrl) {
     try {
-      const r = await fetch(fileUrl)
+      // GÜVENLİK (SAST 1 Eyl 2026 — Kritik SSRF): file_url yalnız .trim() görüp
+      // doğrudan fetch ediliyordu. Şema/host/özel-IP/yönlendirme denetimi yoktu.
+      // Yanıt Storage'a yazıldığı için KÖR DEĞİL, okunabilir SSRF'ti: Edge
+      // Runtime'dan 169.254.169.254 (bulut metadata) ve iç servisler hedeflenip
+      // içerik geri okunabiliyordu. Üstelik hata metni operations.description'a
+      // düşüp CRM arayüzünde göründüğü için ayrıca bir oracle işlevi görüyordu.
+      // İzin listesi ayarlardan (virgüllü host listesi). Tanımlıysa YALNIZ o
+      // hostlar indirilir — talep ucu için önerilen sıkı mod.
+      const izinHam = (await db.from('settings').select('value').eq('key', 'intake.file_url_allowed_hosts').maybeSingle()).data?.value
+      const izinliHostlar = String(izinHam ?? '').replace(/^"|"$/g, '').split(',').map((s) => s.trim()).filter(Boolean)
+
+      const guvenli = await ssrfGuvenliUrl(fileUrl, izinliHostlar)
+      if (!guvenli.ok) throw new Error(guvenli.sebep)
+
+      // redirect:'manual' — 302 ile iç ağa sıçrama engellenir; yönlendirme varsa
+      // hedef yeniden doğrulanarak en fazla 3 adım izlenir.
+      const r = await fetchDogrulanmis(guvenli.url, izinliHostlar)
       if (!r.ok) throw new Error(`http ${r.status}`)
       const bytes = new Uint8Array(await r.arrayBuffer())
-      if (bytes.byteLength > maxBytes) notes.push(`dosya ${maxMb}MB sınırını aştı, atlandı: ${fileUrl}`)
+      if (bytes.byteLength > maxBytes) notes.push(`dosya ${maxMb}MB sınırını aştı, atlandı`)
       else await store(bytes, fileUrl.split('/').pop()?.split('?')[0] || 'ek', r.headers.get('content-type') ?? 'application/octet-stream')
     } catch (e) {
       // İndirme başarısız → operasyon notuna yazılır (aşağıda); talep yine oluşur.
-      notes.push(`dosya indirilemedi: ${fileUrl} (${e instanceof Error ? e.message : 'hata'})`)
+      //
+      // GÜVENLİK: eskiden not, URL'i ve ham hata metnini içeriyordu. Bu, SSRF
+      // denemelerinin sonucunu CRM arayüzünden okunabilir kılıyordu — yani
+      // fonksiyon bir "oracle" işlevi görüyordu (bağlantı reddedildi / zaman
+      // aşımı / HTTP kodu ayrımı iç ağ haritası çıkarmaya yeter).
+      // Ayrıntı yalnız sunucu günlüğüne, nota sadece nedensiz özet.
+      console.error('[intake] file_url indirilemedi', { fileUrl, hata: e instanceof Error ? e.message : e })
+      notes.push('ek dosya indirilemedi')
     }
   }
 

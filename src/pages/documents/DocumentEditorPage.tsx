@@ -134,12 +134,41 @@ export function DocumentEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [data, language, typeKey])
 
-  function onFrameLoad(e: React.SyntheticEvent<HTMLIFrameElement>) {
-    try {
-      const doc = e.currentTarget.contentDocument
-      if (doc) setDocHeight(Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight, 400))
-    } catch { /* yoksay */ }
-  }
+  /**
+   * GÜVENLİK (SAST 1 Eyl 2026 — Kritik): önizleme iframe'i `sandbox` olmadan
+   * `srcDoc` kullanıyordu. srcdoc origin'i EBEVEYNDEN MİRAS ALIR, yani PDF
+   * servisinden dönen HTML crm.tekstilas.com bağlamında çalışıyor ve
+   * localStorage'daki Supabase JWT'sine erişebiliyordu. Belge şablonlarındaki
+   * kaçışsız alanlar (rapor.bodyHtml, maliyet.image, tkS.foto) bu yüzden
+   * doğrudan oturum çalmaya yükseliyordu.
+   *
+   * Çözüm: `allow-same-origin` VERİLMEZ → iframe opak origin'e düşer, bizim
+   * origin'imize (localStorage/DOM/cookie) erişemez. `allow-scripts` kalır ki
+   * yükseklik ölçümü çalışsın; ölçüm artık contentDocument okumasıyla değil,
+   * enjekte edilen küçük betiğin postMessage'ıyla yapılır (opak origin'den
+   * contentDocument okunamaz). Enjekte edilen CSP ise sandbox içindeki betiğin
+   * dışarıya veri sızdırmasını engeller.
+   */
+  const previewSrcDoc = previewHtml
+    ? `<meta http-equiv="Content-Security-Policy" content="connect-src 'none'; form-action 'none'; base-uri 'none'">`
+      + previewHtml
+      + `<script>(function(){function p(){try{parent.postMessage({__belgeYukseklik:Math.max(
+           document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0,400)},'*')}catch(e){}}
+           addEventListener('load',p);setTimeout(p,60);setTimeout(p,400);
+           if(window.ResizeObserver&&document.body){new ResizeObserver(p).observe(document.body)}})();<\/script>`
+    : ''
+
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      // Opak origin'den gelir (ev.origin === 'null'); yalnız sayı kabul edilir.
+      const h = (ev.data as { __belgeYukseklik?: unknown } | null)?.__belgeYukseklik
+      if (typeof h === 'number' && Number.isFinite(h) && h > 0) {
+        setDocHeight(Math.min(Math.max(h, 400), 20000))
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
 
   async function generate() {
     if (!data || !typeKey) return
@@ -233,7 +262,7 @@ export function DocumentEditorPage({ mode }: { mode: 'new' | 'edit' }) {
             {previewHtml ? (
               <div style={{ width: PAGE_W * zoom, height: docHeight * zoom, margin: '0 auto' }}>
                 <iframe
-                  title="Belge önizleme" srcDoc={previewHtml} onLoad={onFrameLoad}
+                  title="Belge önizleme" srcDoc={previewSrcDoc} sandbox="allow-scripts"
                   style={{ width: PAGE_W, height: docHeight, transform: `scale(${zoom})`, transformOrigin: 'top left', border: 0, background: '#fff' }}
                   className="shadow-md"
                 />

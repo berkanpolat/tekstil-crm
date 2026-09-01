@@ -13,6 +13,122 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.35.0] — 2026-09-01
+
+### Güvenlik: SAST taraması ve düzeltmeleri
+
+`utkusen/sast-skills` ile 14 zafiyet sınıfında tarama yapıldı (505 kaynak dosya).
+**80 tekil bulgu: Kritik 6 · Yüksek 28 · Orta 33 · Düşük 13.** Rapor `sast/` altında;
+iddiaların bir bölümü canlı DB'de `pg_*` sorgularıyla ayrıca doğrulandı/çürütüldü.
+
+#### Uygulanan migration'lar
+- `20260901120000_guvenlik_1_rpc_yetkilendirme.sql`
+- `20260901130000_guvenlik_2_storage_ve_kod_kisiti.sql`
+- `20260901140000_guvenlik_3_kapilar_insert.sql`
+
+#### Düzeltildi — veritabanı yetkilendirmesi (kök neden: EXECUTE grant'leri varsayılana bırakılmış)
+- **`intake_process` `anon`'a açıktı** — paylaşılan sır (`X-Intake-Secret`) ve edge
+  fonksiyonu tamamen atlanarak, herkese açık publishable anahtarla lead/müşteri/
+  operasyon/taslak teklif yazılabiliyordu. Artık yalnız `service_role`.
+  Doğrulandı: RPC çağrısı `permission denied for function intake_process`.
+- **Şema geneli `revoke`:** `anon`'a açık fonksiyon sayısı **231 → 33** (kalan 31'i
+  `pg_trgm` metin fonksiyonu; 2'si kasıtlı: `is_active_user`, `has_permission`).
+  `alter default privileges` ile bundan sonrası da kapalı.
+- **`post_account_transaction`** — yetki kontrolü yoktu ve `p_created_by` parametre
+  olduğu için denetim izi de sahtelenebiliyordu. `finance.edit` kapısı eklendi,
+  `created_by` artık her zaman gerçek çağıran. Trigger zinciri (`sync_order_debt`,
+  `payments_to_account`) kırılmasın diye mantık `_internal` fonksiyona taşındı —
+  aksi hâlde `sales` rolü sipariş oluşturamaz hâle gelirdi.
+- **`customer_balance`, `order_paid_summary`** — `finance.view` kapısı eklendi
+  (P5.8'de `sales`'ten geri alınan yetki bu RPC'ler yüzünden etkisizdi).
+- **`goal_actual`** — yalnız `ciro` dalı yetki ister; sayım hedefleri ve kişinin
+  kendi hedefi açık kalır (hedefler ekranı tüm rollere görünür).
+- **`set_exchange_rate`** — pozitiflik kontrolü geri geldi + mevcut kura göre ±%25
+  makullük bandı (bandın dışı `finance.edit` ister). Kapatılmadı: kur bayatlayınca
+  herhangi bir kullanıcının oturumu otomatik yenileme tetikliyor.
+- **`undo_import_batch`** — yalnız partiyi açan kişi veya `settings.manage`.
+- **`dismiss_merge`** — oturum kontrolü eklendi.
+
+#### Düzeltildi — Storage
+- **`storage.objects` UPDATE politikasında sahiplik kontrolü yoktu** (DELETE'te vardı):
+  her aktif çalışan onaylı teklif/sipariş PDF'inin üzerine **izsiz** yazabiliyordu
+  (`files.checksum` ve denetim izi değişmiyor). `owner = auth.uid()` eklendi.
+  Uygulama `upsert:false` + yeni UUID yolu kullandığı için hiçbir akış etkilenmez.
+- **Bucket sınırları yoktu** (`file_size_limit`/`allowed_mime_types` NULL):
+  documents 25 MiB + 13 MIME, avatars 2 MiB + 3 MIME.
+- **Anahtar ad alanı savunması:** `..`, ters bölü ve mutlak yol reddedilir.
+
+#### Düzeltildi — enjeksiyon ve yol kaçışı
+- **`catalog_products.code`/`source_code` biçim kısıtı** — tek DDL iki bulguyu
+  kapatır: Storage anahtarı/yerel dosya yolu kaçışı **ve** `import-catalog.mjs`
+  içindeki `psql` enjeksiyonu. Mevcut 672 satır zaten uyumluydu.
+- `import-musteriler.mjs` — `esc()` `$$` kaçırmadığı için müşteri adı `do $$…$$`
+  bloğunu erken kapatabiliyordu; dolar dizileri etkisizleştirildi, blok etiketi `$imp$`.
+- `check-normalize-consistency.mjs` — `String.replace`'in `$'` özel dizisi tırnak
+  kaçışını yiyordu; fonksiyon biçimine geçildi.
+
+#### Düzeltildi — SSRF (canlıda açıktı)
+- **`intake-request` `file_url`** yalnız `.trim()` görüp fetch ediliyordu; yanıt
+  Storage'a yazıldığı için **kör değil okunabilir** SSRF'ti (bulut metadata + iç ağ).
+  Yeni `_shared/ssrf.ts`: şema/port/kimlik denetimi, özel-ayrılmış IP blokları,
+  DNS çözümleyip tüm kayıtları denetleme (rebinding), elle yönlendirme takibi,
+  `intake.file_url_allowed_hosts` ayarıyla izin listesi (`tekstilas.com` kuruldu).
+  Hata metni artık operasyon notuna yazılmıyor — oracle olarak kullanılıyordu.
+- **23 regresyon testi** (`tests/unit/ssrf.test.ts`). Test gerçek bir açık yakaladı:
+  `[::ffff:169.254.169.254]` ilk sürümde engellenmiyordu, çünkü URL ayrıştırıcısı
+  adresi `::ffff:a9fe:a9fe` biçimine normalize ediyor; IPv6 denetimi düzgün
+  ayrıştırmayla yeniden yazıldı.
+
+#### Düzeltildi — belge motoru (PDF servisi) ve önizleme
+- **Önizleme iframe'i `sandbox`sız `srcDoc` kullanıyordu.** srcdoc origin'i
+  ebeveynden miras aldığı için PDF servisinden dönen HTML `crm.tekstilas.com`
+  bağlamında çalışıyor ve `localStorage`'daki JWT'ye erişebiliyordu. Artık
+  `sandbox="allow-scripts"` (opak origin) + `postMessage` ile yükseklik + CSP.
+- **`/render` ve `/preview` fiilen kimliksizdi:** kontrol `if (SECRET && …)`
+  kalıbındaydı, `PDF_SECRET` yoksa koruma sessizce kapanıyordu (önyüz zaten başlık
+  göndermiyordu). Güvenli varsayılana çevrildi: sır yoksa 503; karşılaştırma
+  sabit süreli.
+- **`page.route` tüm `file:` URL'lerini geçiriyordu** → `<iframe src="file:///proc/self/environ">`
+  ile render hostundaki her dosya PDF'e basılabiliyordu. Artık yalnız şablon dizini.
+- **Egress izin listesi alt-dize eşleşmesiydi** (`http://169.254.169.254/?x=jsbarcode`
+  geçiyordu) → tam host eşleşmesi.
+- **`warmPage` tüm istekler arasında paylaşımlıydı** → enjekte edilen betik kalıcı
+  oluyor ve sonraki belgeleri okuyabiliyordu (kiracılar arası sızıntı). Her render
+  kendi sayfasında, sonunda kapatılıyor.
+- **Kaçış hataları:** `esc()` ve `H()` tırnak kaçırmıyordu; `data.uretici.*` render
+  edilmiş HTML'e ham ikame ediliyordu (**tüm şablonlarda** tetikleniyordu — en geniş
+  yüzey); `maliyet.image` ve `tkS.foto` öznitelik kırılabiliyordu; koli etiketinde
+  `order.toplam` kaçışsızdı. Görsel kaynakları `data:image`/`https` ile sınırlandı.
+- **`rapor.bodyHtml`** ham gövde işaretlemesi oluyordu → DOMParser tabanlı beyaz
+  liste temizleyicisi (regex değil). `foreignObject` kasıtlı olarak dışarıda.
+- Yerelde doğrulandı: geçerli fiyat teklifi **295 KB PDF** üretiyor; dört saldırı
+  vektörü (file:// okuma, betik enjeksiyonu, üretici alanı, görsel öznitelik kırma)
+  etkisiz, meşru `data:image` görseli ve ayar ikamesi çalışmaya devam ediyor.
+
+#### Düzeltildi — iş kuralı kapıları
+- **Üç `hard_gate` trigger'ı da yalnız `BEFORE UPDATE`'ti.** Doğrudan INSERT ile
+  kalemsiz "gönderilmiş" teklif, gerekçesiz red ve gerekçesiz iptal yaratılabiliyordu.
+  Üçü de `before insert or update`. Doğrulandı: saldırı INSERT'leri engelleniyor,
+  normal teklif oluşturma ve gerekçeli red çalışmaya devam ediyor.
+
+#### Çürütüldü (rapora sıkılaştırma notu olarak indirildi)
+- `search_path = public` kullanan 14 fonksiyon **sömürülebilir değil**: `public`
+  şemasında CREATE yetkisi yalnız `pg_database_owner`'da (anon/authenticated/
+  service_role hepsinde `false`).
+- `set_role_permission` doğru korunmuş (ilk satırda owner/admin kapısı).
+- `pg_graphql` üretimde **kurulu değil** → GraphQL saldırı yüzeyi yok.
+
+### Bilinerek yapılmadı
+Bazı bulgular kasıtlı olarak bu turda ele alınmadı: bir kısmı ürün kararı gerektiriyor
+(davranış değiştirir), bir kısmı sunucu erişimi ister, biri de veri tamamlanmadan
+zorlanırsa üretimi kırar. Ayrıntılı liste ve gerekçeleri **depo dışında** tutulur
+(kalıcı hafıza: `crm-sast-taramasi`, rapor: `sast/final-report.md` — `.gitignore`'da).
+
+> **Not:** `sast/` çıktıları bu depoya işlenmez. Depo herkese açıktır; raporlar
+> canlı sistemin istismar ayrıntılarını içerir.
+
+---
+
 ## [1.34.0] — 2026-08-31
 
 ### Belge motoru: PDF servisi kurtarma hazırlığı

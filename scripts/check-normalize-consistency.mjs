@@ -29,7 +29,11 @@ if (!process.env.PGHOST || !process.env.PGUSER) {
 const lit = (v) => `'${String(v).replace(/'/g, "''")}'`
 const evalSql = (value, expr) =>
   execFileSync('psql', [...PG, '-c',
-    `select coalesce((${expr.replace(/\$VAL/g, lit(value))})::text, '${NULL}')`],
+    // GÜVENLİK (SAST 1 Eyl 2026): ikinci argüman STRING verilirse String.replace
+    // özel dizileri yorumlar — `$'` "eşleşmeden sonraki metin" demektir ve lit()'in
+    // tırnak kaçışını yiyerek enjeksiyona yol açar. Fonksiyon biçimi bu yorumlamayı
+    // tamamen kapatır.
+    `select coalesce((${expr.replace(/\$VAL/g, () => lit(value))})::text, '${NULL}')`],
     { encoding: 'utf8', env: process.env }).trim()
 
 const load = (name) => JSON.parse(readFileSync(join(ROOT, 'tests/fixtures', name), 'utf8'))
