@@ -13,6 +13,67 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.36.0] — 2026-09-02
+
+### Belge motoru yeniden ayakta — Cloudflare Browser Run
+
+PDF üretimi 31 Ağustos'tan beri kapalıydı: servis Fly.io'daydı, sürekli açık 1 GB
+makine ücretliydi ve uygulama silinmişti. Kod sağlamdı, eksik olan yalnız barındırmaydı.
+
+Ölçüt "en ucuz" değil, **aylarca kimse dokunmadan ayakta kalan** seçildi. Render
+ücretsiz (512 MB / 0,1 CPU, dokümanı "üretimde kullanmayın" diyor) ve Oracle Always
+Free (7 günde CPU %20 altındaysa makine geri alınıyor — bizim kullanım profilimiz
+tanım gereği "boşta") elendi. Seçilen: **Cloudflare Browser Run** — sunucu yok,
+sertifika yok, güncelleme yok; ücretsiz planda günde 10 dk tarayıcı süresi ≈ 150 belge.
+Limit aşımında fatura değil `429` gelir. Ayrıntı: `docs/devir/belge-motoru.md`.
+
+#### Yayına alındı
+- Worker Cloudflare'e dağıtıldı: `https://tekstil-belge-motoru.white-bird-ce69.workers.dev`
+  (hesap: Info@tekstilas.com). `/health`, `/rates` doğrulandı; `/render` kimliksiz
+  istekte 401 veriyor. Bundle 1.434 KB ham / 444 KB gzip.
+- `VITE_PDF_SERVICE_URL` `.env` ve `.env.example`'a eklendi — önyüz motoru buradan bulur.
+
+#### Eklendi
+- **`services/pdf-worker/`** — Cloudflare Worker. `/render`, `/rates`,
+  `/rate-on-date`, `/health`. Bundle 444 KB gzip (ücretsiz plan sınırı 3 MB).
+- **Tarayıcıda canlı önizleme** (`src/lib/belgeOnizleme.ts` + `public/belge-sablonu.html`).
+  Önizleme artık sunucuya GİTMİYOR: editör her tuş vuruşunda önizleme ister, bunu
+  Browser Run'a bağlamak günlük bütçeyi dakikalar içinde bitirirdi. Yan fayda:
+  motor yapılandırılmamış olsa bile önizleme çalışır.
+- **`src/lib/belgeMotoru.ts`** — PDF üretimi ve TCMB kuru için tek kapı.
+- **İki doğrulama betiği** — `sablon-dogrula.mjs` (hermetik şablon, ağ kapalıyken,
+  orijinalle birebir mi) ve `onizleme-dogrula.mjs` (tarayıcı köprüsü sunucuyla aynı mı).
+  9 senaryo, 8 belge tipi + EN; ikisi de **birebir eşleşme** veriyor.
+- `docs/devir/belge-motoru.md` — mimari, seçim gerekçeleri, dağıtım, doğrulama.
+
+#### Değişti
+- **Kimlik: paylaşılan sır → Supabase oturumu.** Worker jetonu `/auth/v1/user`'a sorar;
+  imza, süre ve **iptal** tek adımda doğrulanır. Önyüze gömülü sır kalmadı. (Eski
+  `x-pdf-secret` zaten pratikte hiç gönderilmiyordu.)
+- **Dört ayrı `/render` çağrısı tek yardımcıya toplandı** (belge motoru, raporlar,
+  maliyet belgesi, cari ekstre). Dördü de kimliksizdi ve hata mesajları farklıydı;
+  kimlik/hata mantığı kopyalandıkça biri güncellenmeyi kaçırırdı.
+- **Kota hatası (`429`) genel hatadan ayrıldı** — "servis bozuk" sanan kullanıcı
+  tekrar deneyip kalan bütçeyi yakmasın.
+- **Şablon hermetik hale getirildi** — JsBarcode gömüldü, dış `<script>`/`<link>`
+  söküldü, `default-src 'none'` CSP eklendi. Belge üretilirken sayfa hiçbir ağ
+  isteği yapamıyor; Node servisindeki istek kesme filtresine gerek kalmadı.
+- **`prebuild`** eklendi: şablonlar her derlemede yeniden üretilir. `studio.html`
+  elden değiştirilip yeniden üretilmezse önizleme ile PDF sessizce ayrışırdı.
+
+#### Düzeltildi
+- `render.mjs` içindeki nöbetçi dizi ham NUL baytı olarak yazılmıştı; dosya "ikili"
+  görünüyor ve **grep/ripgrep — dolayısıyla SAST taramaları — onu atlıyordu.** Worker
+  kopyasında kaçış dizisine çevrildi (çalışma zamanı davranışı birebir aynı).
+
+#### Bilinerek yapılmadı
+- **Worker'da `/preview` ucu yok.** Önizlemeyi sunucuya bağlamak, PDF için ayrılmış
+  bütçeyi tüketmenin en hızlı yoludur.
+- `services/pdf-renderer/` (Node + Playwright) kaldırılmadı: şablon/kod üretiminin
+  kaynağı ve Cloudflare'den çıkmak gerekirse hazır Docker imajı.
+
+---
+
 ## [1.35.0] — 2026-09-01
 
 ### Güvenlik: SAST taraması ve düzeltmeleri

@@ -1,13 +1,14 @@
 {
   "name": "tekstil-crm",
   "private": true,
-  "version": "1.35.0",
+  "version": "1.36.0",
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "dev": "vite",
+    "prebuild": "node services/pdf-worker/scripts/sablon-hazirla.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",

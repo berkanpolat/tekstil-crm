@@ -1,0 +1,19 @@
+{
+  "name": "tekstil-belge-motoru",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tekstil A.Ş. belge motoru — Cloudflare Worker + Browser Run. Orijinal studyo şablonlarını sarmalar.",
+  "scripts": {
+    "sablon": "node scripts/sablon-hazirla.mjs",
+    "port": "node scripts/render-portla.mjs",
+    "hazirla": "npm run sablon && npm run port",
+    "dogrula": "node scripts/sablon-dogrula.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/puppeteer": "^1.0.4",
+    "wrangler": "^4.128.0"
+  }
+}

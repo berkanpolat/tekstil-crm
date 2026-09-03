@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, FileText, Lock, Plus, Trash2, Loader2, Save, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
+import { belgePdfUret } from '@/lib/belgeMotoru'
 import { getSignedUrl } from '@/hooks/useFiles'
 import { toUserMessage } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
@@ -216,10 +216,8 @@ function CostDocButton({ product, cost, rateMap, rateInfo }: { product: CatalogP
         tiers: rows.map((r) => ({ qty: r.quantity, unitCost: usd(r.unitCost), margin: r.marginPercent, unitPrice: usd(r.unitPrice), total: usd(r.total) })),
         hazirlayan: '—', tarih: new Date().toLocaleDateString('tr-TR'), versiyon: cost.version,
       }
-      if (!hasPdfService) throw new Error(PDF_UNAVAILABLE)
-      const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/render', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ template: 'maliyet_belgesi', data: { maliyet }, language: 'tr' }) })
-      if (!res.ok) throw new Error(`PDF servisi hatası (${res.status}).`)
-      const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `maliyet-${product.code}.pdf`; document.body.appendChild(a); a.click(); a.remove()
+      const blob = await belgePdfUret({ template: 'maliyet_belgesi', data: { maliyet }, language: 'tr' })
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `maliyet-${product.code}.pdf`; document.body.appendChild(a); a.click(); a.remove()
       toast.success('Maliyet belgesi indirildi (İç Kullanım).')
     } catch (err) { toast.error(await toUserMessage(err)) } finally { setBusy(false) }
   }

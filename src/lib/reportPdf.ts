@@ -4,7 +4,7 @@
 // reportChartSvg'nin AYNI fonksiyonlarından üretilir (ekranla birebir).
 // Antet/font/sayfa çerçevesi studio.html'deki reportDoc() içinde durur.
 // =====================================================================
-import { env, PDF_UNAVAILABLE } from './env'
+import { belgePdfUret } from './belgeMotoru'
 import {
   funnelSvg, hourHistogramSvg, donutSvg, escapeHtml, CHART_PALETTE,
   type ReportPdfModel, type ReportBlock, type ReportKpi,
@@ -93,15 +93,8 @@ export function buildReportBodyHtml(model: ReportPdfModel): string {
 
 export interface ReportPdfMeta { title: string; periodLabel: string; rangeLabel: string; generatedAt: string; footnote?: string }
 
-/** Gövdeyi kurup belge servisine yollar; PDF blob döner. Servis yoksa/hatada throw. */
+/** Gövdeyi kurup belge motoruna yollar; PDF blob döner. Servis yoksa/hatada throw. */
 export async function fetchReportPdf(model: ReportPdfModel, meta: ReportPdfMeta, language = 'tr'): Promise<Blob> {
-  if (!env.pdfServiceUrl) throw new Error(PDF_UNAVAILABLE)
   const bodyHtml = buildReportBodyHtml(model)
-  const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/render', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ template: 'rapor', language, data: { rapor: { ...meta, bodyHtml } } }),
-  })
-  if (!res.ok) throw new Error(`PDF servisi hatası (${res.status}). Servis çalışıyor mu? (${env.pdfServiceUrl})`)
-  return res.blob()
+  return belgePdfUret({ template: 'rapor', language, data: { rapor: { ...meta, bodyHtml } } })
 }

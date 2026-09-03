@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
-import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
+import { belgePdfUret, kurlar, kurTarihli } from '@/lib/belgeMotoru'
+import { onizlemeHtmlUret } from '@/lib/belgeOnizleme'
 import { ensureRows } from '@/lib/errors'
 import { useUploadFile, getSignedUrl } from './useFiles'
 import { buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath, type DraftLineInput } from '@/lib/draftQuoteBridge'
@@ -48,35 +49,24 @@ export function stripInternal(data: Record<string, unknown>): Record<string, unk
   return out
 }
 
-/** Canlı önizleme — PDF servisi /preview → stilli HTML. Editör yazarken (debounce) çağırır. */
+/**
+ * Canlı önizleme — TARAYICIDA üretilir (bkz. lib/belgeOnizleme.ts), belge motoruna
+ * gitmez. Editör her tuş vuruşunda önizleme ister; bunu sunucuya bağlamak PDF için
+ * ayrılmış günlük tarayıcı bütçesini bitirirdi. Belge kurma mantığı PDF'le AYNI
+ * kaynaktan (render.mjs → buildDoc) geldiği için ekran ile çıktı birebir tutar.
+ *
+ * Motor yapılandırılmamış olsa bile önizleme ÇALIŞIR — yalnız "PDF üret" kapalıdır.
+ */
 export async function fetchPreviewHtml(typeKey: DocumentTypeKey, data: Record<string, unknown>, language: string): Promise<string> {
-  if (!hasPdfService) return `<div style="display:flex;height:100%;align-items:center;justify-content:center;color:#64748b;font-family:sans-serif;text-align:center;padding:2rem">${PDF_UNAVAILABLE}<br>Önizleme için belge servisi yapılandırılmalı.</div>`
-  const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/preview', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ template: TEMPLATE_NAME[typeKey], data: stripInternal(data), language }),
-  })
-  if (!res.ok) throw new Error(`Önizleme hatası (${res.status}).`)
-  return res.text()
+  return onizlemeHtmlUret(TEMPLATE_NAME[typeKey], stripInternal(data), language)
 }
 
-/** Döviz kuru (TCMB Döviz Satış) — PDF servisi sunucu tarafında çeker (B1). */
-export async function fetchRates(): Promise<{ USD: number | null; EUR: number | null; GBP: number | null; date: string; source: string } | null> {
-  try {
-    const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/rates')
-    if (!res.ok) return null
-    return await res.json()
-  } catch { return null }
-}
+/** Döviz kuru (TCMB Döviz Satış) — belge motoru sunucu tarafında çeker (B1). */
+export const fetchRates = kurlar
 
 /** Belirli tarihteki TCMB kuru (ödeme günü kuru). Hafta sonu/tatilde en yakın önceki
  *  bültene yürünür; bulletinDate gerçek bülten tarihini verir. found=false → kur yok. */
-export async function fetchRateOnDate(date: string): Promise<{ found: boolean; date: string; bulletinDate?: string; USD?: number; EUR?: number; GBP?: number } | null> {
-  try {
-    const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/rate-on-date?date=' + encodeURIComponent(date))
-    if (!res.ok) return null
-    return await res.json()
-  } catch { return null }
-}
+export const fetchRateOnDate = kurTarihli
 
 /**
  * P6.7 düzeltme — Sipariş bilgisi BELGEDEN okunur (YZ yerine). Sipariş formunu SİSTEM üretir;
@@ -409,14 +399,8 @@ export function useGenerateDocument() {
           .select('id, file_id').eq('operation_id', operationId).eq('document_type_id', dt.id).eq('data_hash', hash).is('deleted_at', null).limit(1).maybeSingle()
         if (existing?.file_id) { qc.invalidateQueries({ queryKey: ['documents', operationId] }); return { document_id: existing.id, file_id: existing.file_id, idempotent: true } }
       }
-      // 5. PDF servisi → bytes (servis yoksa net mesaj — sessiz hata değil)
-      if (!hasPdfService) throw new Error(PDF_UNAVAILABLE)
-      const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/render', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ template: dt.template_name, data: docData, language }),
-      })
-      if (!res.ok) throw new Error(`PDF servisi hatası (${res.status}). Servis çalışıyor mu? (${env.pdfServiceUrl})`)
-      const blob = await res.blob()
+      // 5. Belge motoru → bytes (servis yoksa / oturum yoksa net mesaj — sessiz hata değil)
+      const blob = await belgePdfUret({ template: dt.template_name, data: docData, language })
       const file = new File([blob], `${typeKey}-${operationId ?? Date.now()}.pdf`, { type: 'application/pdf' })
       // 6. Storage + files
       const uploaded = await upload.mutateAsync({ file, bucket: 'documents', category: 'document', entityType: 'operation', entityId: operationId != null ? String(operationId) : 'bagimsiz' })

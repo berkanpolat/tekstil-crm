@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { supabase } from '@/lib/supabase'
-import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
+import { belgePdfUret } from '@/lib/belgeMotoru'
 import { toUserMessage } from '@/lib/errors'
 import { formatMoney } from '@/lib/money'
 
@@ -68,13 +68,7 @@ export function EkstreDialog({ customerId, onClose }: { customerId: number; onCl
         rows,
         generatedAt: new Date().toLocaleString('tr-TR'),
       }
-      if (!hasPdfService) throw new Error(PDF_UNAVAILABLE)
-      const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/render', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ template: 'cari_ekstre', data: { ekstre }, language }),
-      })
-      if (!res.ok) throw new Error('Ekstre üretilemedi (PDF servisi).')
-      const blob = await res.blob()
+      const blob = await belgePdfUret({ template: 'cari_ekstre', data: { ekstre }, language })
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
       a.download = `ekstre-${cu?.company_name || cu?.full_name || customerId}-${to}.pdf`; a.click()
       toast.success('Ekstre indirildi.')

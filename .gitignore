@@ -66,3 +66,6 @@ deno.lock
 # sast/ raporları canlı sistemin istismar ayrıntılarını içerir; asla işlenmez.
 sast/
 .claude/skills/sast-*/
+
+# Wrangler yerel durum dizini (Cloudflare Worker gelistirme)
+.wrangler/

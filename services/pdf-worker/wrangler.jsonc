@@ -1,0 +1,36 @@
+{
+  // Tekstil A.Ş. — Belge Motoru (Cloudflare Worker + Browser Run).
+  // Dağıtım: npx wrangler deploy   (önce: npx wrangler login)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tekstil-belge-motoru",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  // Worker içinde Node yerleşiklerini kullanmıyoruz ama @cloudflare/puppeteer
+  // bazı yollarda node: şemasına başvuruyor.
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Chromium. Belge üretimi bunun üzerinden yapılır; ücretsiz planda günde 10 dk.
+  "browser": {
+    "binding": "BROWSER"
+  },
+
+  // studio.html'i JS bundle'ına METİN olarak alır (src/index.js içindeki import).
+  // Statik varlık olarak yayımlamıyoruz: şablonun herkese açık bir adresi olmasın,
+  // tarayıcı da onu internetten çekmek yerine doğrudan setContent ile alsın.
+  "rules": [
+    { "type": "Text", "globs": ["**/*.html"], "fallthrough": false }
+  ],
+
+  "vars": {
+    // CRM yayın adresi — CORS bu adresle sınırlı.
+    "CORS_ORIGIN": "https://crm.tekstilas.com",
+    // Kimlik doğrulama Supabase'e sorulur. Bunlar sır değildir (anon anahtar
+    // önyüz derlemesinde zaten var); PDF_SECRET gibi paylaşılan bir sır YOK.
+    "SUPABASE_URL": "https://kkxvoxeqfsaqzklrtgrw.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_HcZIEYsmxwopvP44Ba7-LQ_AJGsaxwH"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
