@@ -12,7 +12,7 @@
 #   2) Yayindaki mevcut surumu YEDEKLE  -> ~/tekstil-crm-yedekler/crm-web/
 #   3) Build + dogrulama (index.html, .htaccess, assets)
 #   4) Kalici arsiv        -> /crm/_versions/v<X.Y.Z>/
-#   5) Canliya mirror      -> /crm/            (_versions haric)
+#   5) Canliya mirror      -> /crm/            (_versions ve surec haric)
 #   6) Yayin dogrulamasi   -> HTTP 200 + version.json + SPA yonlendirmesi
 #
 # GERI ALMA
@@ -41,7 +41,7 @@ if [ "${1:-}" = "--geri-al" ]; then
   echo "═══ GERI ALMA → ${HEDEF} ═══"
   ftp_cmd "cd ${REMOTE_DIR}/_versions/${HEDEF}" >/dev/null 2>&1 \
     || { echo "HATA: ${REMOTE_DIR}/_versions/${HEDEF} sunucuda yok."; exit 1; }
-  ftp_cmd "mirror --parallel=4 --delete --exclude-glob _versions/ ${REMOTE_DIR}/_versions/${HEDEF}/ ${REMOTE_DIR}/" 
+  ftp_cmd "mirror --parallel=4 --delete --exclude-glob _versions/ --exclude-glob surec/ ${REMOTE_DIR}/_versions/${HEDEF}/ ${REMOTE_DIR}/" 
   echo "✅ ${HEDEF} yayina alindi → ${PROD_URL}"
   exit 0
 fi
@@ -73,7 +73,7 @@ echo "═══ [2/6] Yayindaki surumu yedekle ═══"
 if ftp_cmd "cd ${REMOTE_DIR}" >/dev/null 2>&1; then
   D="${YEDEK_KOK}/$(date +%Y%m%d-%H%M%S)-oncesi-v${SURUM}"
   mkdir -p "$D"
-  ftp_cmd "mirror --parallel=4 --exclude-glob _versions/ ${REMOTE_DIR}/ ${D}/" >/dev/null 2>&1 || true
+  ftp_cmd "mirror --parallel=4 --exclude-glob _versions/ --exclude-glob surec/ ${REMOTE_DIR}/ ${D}/" >/dev/null 2>&1 || true
   N=$(find "$D" -type f 2>/dev/null | wc -l | tr -d ' ')
   if [ "$N" -gt 0 ]; then echo "  ✅ ${N} dosya → ${D}"
   else rmdir "$D" 2>/dev/null || true; echo "  (hedef bos — ilk yayin, yedeklenecek bir sey yok)"; fi
@@ -108,7 +108,7 @@ ftp_cmd "mkdir -p ${REMOTE_DIR}/_versions/v${SURUM}; mirror -R --parallel=4 ${RO
 # ----------------------------------------------------------------- deploy ----
 echo ""
 echo "═══ [5/6] Canliya mirror → ${REMOTE_DIR}/ ═══"
-ftp_cmd "mkdir -p ${REMOTE_DIR}; mirror -R --parallel=4 --delete --exclude-glob _versions/ --exclude-glob .well-known/ --exclude-glob cgi-bin/ --exclude-glob .user.ini --exclude-glob php.ini ${ROOT}/dist/ ${REMOTE_DIR}/" 2>&1 | tail -2
+ftp_cmd "mkdir -p ${REMOTE_DIR}; mirror -R --parallel=4 --delete --exclude-glob _versions/ --exclude-glob surec/ --exclude-glob .well-known/ --exclude-glob cgi-bin/ --exclude-glob .user.ini --exclude-glob php.ini ${ROOT}/dist/ ${REMOTE_DIR}/" 2>&1 | tail -2
 
 # -------------------------------------------------------------- dogrulama ---
 echo ""
