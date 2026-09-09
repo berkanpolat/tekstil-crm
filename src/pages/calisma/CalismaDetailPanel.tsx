@@ -14,20 +14,17 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DatePicker } from '@/components/shared/DatePicker'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
 import { useCustomer } from '@/hooks/useCustomers'
 import { useContactPoints, type ContactPoint, type ContactType } from '@/hooks/useContactPoints'
 import { useChannelOptions, useOutcomeOptions } from '@/hooks/useInteractions'
-import { useOperationList, useRequestStatusOptions, useUpdateOperation } from '@/hooks/useOperations'
+import { useOperationList } from '@/hooks/useOperations'
 import { useAddOperationInteraction } from '@/hooks/useOperationActivity'
 import { useSetQuoteResult, useAdvanceStage } from '@/hooks/useQuotes'
 import { useEntityFiles, useSignedUrl, type FileRow } from '@/hooks/useFiles'
 import {
-  useSetNextAction, useCustomerActions, useCustomerQuotes, useCustomerSamples, useCustomerOrders,
+  useSetNextAction, useCustomerActions, useLastNotes, useCustomerQuotes, useCustomerSamples, useCustomerOrders,
 } from '@/hooks/useCalisma'
 import type { OperationRow } from '@/hooks/useOperations'
 
@@ -105,29 +102,6 @@ function FileLink({ file }: { file: FileRow }) {
   )
 }
 
-function StatusDropdown({ statusKey, statusLabel, onPick }: {
-  statusKey: string | null; statusLabel: string | null; onPick: (id: number) => void
-}) {
-  const statuses = useRequestStatusOptions()
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className="hover:bg-subtle ring-border inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset">
-          {statusLabel ?? 'Belirle'} <ChevronDown className="size-3 opacity-50" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {(statuses.data ?? []).map((s) => (
-          <DropdownMenuItem key={s.id} onClick={() => onPick(s.id)}>
-            {s.key === statusKey ? <Check className="size-3.5" /> : <span className="w-[14px]" />}
-            <span className={cn(s.key === statusKey && 'font-medium')}>{s.label}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /** Küçük durum rozeti (referans color tonu). */
 function Pill({ label, color }: { label: string | null; color: string | null }) {
   if (!label) return null
@@ -159,12 +133,12 @@ export function CalismaDetailPanel({ row, onOpenChange, onNavigate, hasPrev, has
   const actions = useCustomerActions(customerId)
   const custOps = useOperationList({ customerId, page: 1, pageSize: 100, sort: { key: 'created_at', dir: 'desc' } })
   const opIds = useMemo(() => (custOps.data?.rows ?? []).map((o) => o.id), [custOps.data])
+  const lastActions = useLastNotes(opIds)
   const quotes = useCustomerQuotes(opIds)
   const samples = useCustomerSamples(opIds)
   const orders = useCustomerOrders(opIds)
   const files = useEntityFiles('customer', customerId != null ? String(customerId) : null)
 
-  const updateOp = useUpdateOperation()
   const addAction = useAddOperationInteraction()
   const setNextAction = useSetNextAction()
   const setQuoteResult = useSetQuoteResult()
@@ -219,11 +193,6 @@ export function CalismaDetailPanel({ row, onOpenChange, onNavigate, hasPrev, has
       setNote(''); setOutcomeId(null); setFollowUp(null); setFormOpen(false)
       toast.success(followUp ? 'Aksiyon eklendi, takip tarihi ayarlandı.' : 'Aksiyon eklendi.')
     } catch (err) { toast.error(await toUserMessage(err)) }
-  }
-
-  async function changeOpStatus(opId: number, statusId: number) {
-    try { await updateOp.mutateAsync({ id: opId, request_status_id: statusId }); await qc.invalidateQueries({ queryKey: ['operations'] }) }
-    catch (err) { toast.error(await toUserMessage(err)) }
   }
 
   const busy = addAction.isPending || setNextAction.isPending
@@ -330,7 +299,8 @@ export function CalismaDetailPanel({ row, onOpenChange, onNavigate, hasPrev, has
                       <div className="text-text-muted text-[10px]">{fmtDate(o.requested_at ?? o.created_at)}</div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <StatusDropdown statusKey={o.status_key} statusLabel={o.status_label} onPick={(id) => void changeOpStatus(o.id, id)} />
+                      {(() => { const la = lastActions.data?.get(o.id); return la?.outcome_label
+                        ? <Pill label={la.outcome_label} color={la.outcome_color} /> : null })()}
                       <Button variant="ghost" size="icon" className="size-7" title="Talebi aç" onClick={() => goto(`/talepler/${o.id}`)}><ArrowUpRight className="size-3.5" /></Button>
                     </div>
                   </li>

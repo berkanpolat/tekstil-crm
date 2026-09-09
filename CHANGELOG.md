@@ -13,6 +13,24 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.39.2] — 2026-09-09
+
+### Hızlı Çalışma — "Durum" açılır listesi kaldırıldı, yerine "Son sonuç" (hata düzeltmesi)
+Panelden/listeden talep durumu değiştirirken **"Girilen değer bu alan için izin verilen
+aralık/değer dışında"** hatası alınıyordu. Kök neden: `request_status` açılır listesi
+işlevsizdi — rework sonrası `request_statuses`'ta yalnız 2 aktif kayıt kalmış (varsayılan
+**Teklif Bekliyor** + **Teklif İletildi**), ve "Teklif İletildi" `operations_teklif_gate`
+trigger'ıyla korunuyor (teklif dosyası yoksa `check_violation`/23514 fırlatır). Günlük
+dispozisyon zaten **interaction_outcomes** (Ulaşıldı/Ulaşılamadı/Sonra Aranacak/Olumsuz).
+
+- **Durum açılır listesi kaldırıldı** (hem liste satırı hem panel Talepler). `request_status_id`
+  artık elle yazılmıyor → hata ortadan kalktı.
+- **Yerine "Son sonuç"** — son aksiyonun outcome'u, renkli rozet, **salt bilgi** (tıklanmaz).
+- **Aşama** rozeti salt bilgi olarak kaldı. Durumu değiştirmenin tek yolu **aksiyon eklemek**
+  (panelde). Böylece aşama = süreç nerede, son sonuç = en son ne oldu; ikisi de doğru
+  kaynaktan, elle bozulamıyor.
+- İşlev kaybı yok (dropdown zaten çalışmıyordu). 254 test yeşil, migration yok.
+
 ## [1.39.1] — 2026-09-09
 
 ### Hızlı Çalışma paneli — tasarım gözden geçirmesi (işlev değişmedi)

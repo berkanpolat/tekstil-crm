@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 import {
   Zap, Phone, FileText, ListChecks, MessageSquare, MessageCircle, Mail, Camera, Send, Globe,
-  ChevronDown, Pencil, Check,
+  Pencil,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
@@ -11,17 +10,12 @@ import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DataTable, type DataTableColumn, type SortState } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { toUserMessage } from '@/lib/errors'
 import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useAssigneeOptions } from '@/hooks/useLeads'
 import {
-  useOperationList, useOperationStageOptions, useChannelOptions, useRequestStatusOptions,
-  useUpdateOperation, type OperationRow,
+  useOperationList, useOperationStageOptions, useChannelOptions, type OperationRow,
 } from '@/hooks/useOperations'
 import { useLastNotes } from '@/hooks/useCalisma'
 import { CalismaDetailPanel } from './CalismaDetailPanel'
@@ -83,16 +77,6 @@ export function CalismaPage() {
   const stages = useOperationStageOptions()
   const owners = useAssigneeOptions()
   const channels = useChannelOptions()
-  const requestStatuses = useRequestStatusOptions()
-  const updateOp = useUpdateOperation()
-
-  // B — hafif talep durumu (request_status_id). Aşama (stage_id) DEĞİL; aşama
-  // çocuk kayıtların yansıması olarak trigger'larla ilerler, satır içinden değişmez.
-  async function changeStatus(row: OperationRow, statusId: number) {
-    try {
-      await updateOp.mutateAsync({ id: row.id, request_status_id: statusId })
-    } catch (err) { toast.error(await toUserMessage(err)) }
-  }
 
   // Sekme → mevcut useOperationList filtresine eşleme:
   //  - teklif: aşama = teklif_bekliyor
@@ -159,28 +143,15 @@ export function CalismaPage() {
     // Aşama — SALT BİLGİ (tıklanmaz). Çocuk kayıtların yansıması; trigger'larla ilerler.
     { key: 'stage', header: 'Aşama', cell: (r) => r.stage_label
       ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', toneClass(r.stage_color))}>{r.stage_label}</span> : '—' },
-    // Durum — hafif talep durumu (request_status); tıkla → açılır liste → kaydet.
-    { key: 'status', header: 'Durum', cell: (r) => (
-      <div onClick={(e) => e.stopPropagation()}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="hover:bg-subtle inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ring-border">
-              {r.status_label ?? 'Belirle'}
-              <ChevronDown className="size-3 opacity-50" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {(requestStatuses.data ?? []).map((s) => (
-              <DropdownMenuItem key={s.id} onClick={() => void changeStatus(r, s.id)}>
-                {s.key === r.status_key && <Check className="size-3.5" />}
-                <span className={cn(s.key === r.status_key ? 'font-medium' : '', s.key !== r.status_key && 'pl-[18px]')}>{s.label}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    ) },
-    // Son aksiyon — son etkileşimin özeti (kanal ikonu + sonuç + metin + göreli zaman).
+    // Son sonuç — son aksiyonun outcome'u, renkli rozet (SALT BİLGİ, tıklanmaz).
+    // Durum artık elle değişmez; tek yol aksiyon eklemek (panelde).
+    { key: 'outcome', header: 'Son sonuç', cell: (r) => {
+      const n = lastNotes.data?.get(r.id)
+      return n?.outcome_label
+        ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', toneClass(n.outcome_color))}>{n.outcome_label}</span>
+        : <span className="text-text-muted text-xs">—</span>
+    } },
+    // Son aksiyon — son etkileşimin kanalı + zamanı + not özeti (outcome ayrı sütunda).
     // Tıklayınca (satır tıklaması gibi) yan panel açılır; aksiyon oradan eklenir.
     { key: 'action', header: 'Son aksiyon', className: 'max-w-[300px]', cell: (r) => {
       const n = lastNotes.data?.get(r.id)
@@ -191,7 +162,6 @@ export function CalismaPage() {
         <div className="min-w-0">
           <div className="text-text-muted flex items-center gap-1.5 text-[11px]">
             <Icon className={cn('size-3.5 shrink-0', TONE_TEXT[toneOf(n.channel_color)])} />
-            {n.outcome_label && <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', toneClass(n.outcome_color))}>{n.outcome_label}</span>}
             <span>{formatRelative(n.occurred_at, nowMs)}</span>
           </div>
           {n.summary && <span className="text-text-secondary line-clamp-1 mt-0.5 block text-xs">{n.summary}</span>}
@@ -225,7 +195,7 @@ export function CalismaPage() {
     <div className="space-y-5">
       <PageHeader
         title="Hızlı Çalışma"
-        description="Satırdan durumu güncelle, not ekle (Enter), geçmişi yan panelde gör. Aşama süreçle ilerler; değiştirmek için Düzenle."
+        description="Aşama süreçle ilerler, son sonuç en son aksiyondan gelir. Satıra tıkla → yan panelden aksiyon ekle, teklif sonucu işaretle, geçmişi gör."
       />
 
       <div className="flex flex-wrap gap-2">
