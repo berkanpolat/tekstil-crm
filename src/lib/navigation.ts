@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Zap,
   Sparkles,
   Building2,
   Inbox,
@@ -46,6 +47,7 @@ export function canViewFinance(roleKey: string | null | undefined): boolean {
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Gösterge Paneli', path: '/', icon: LayoutDashboard, description: 'Özet metrikler, bekleyen işler ve günlük akış.' },
+  { label: 'Hızlı Çalışma', path: '/calisma', icon: Zap, description: 'Tek liste; hızlı durum + not takibi (deneme).' },
   { label: 'Potansiyeller', path: '/potansiyeller', icon: Sparkles, description: 'Gelen potansiyel müşteriler ve mesajlaşma.' },
   { label: 'Mesajlar', path: '/mesajlar', icon: MessageSquare, description: 'WhatsApp gelen kutusu; potansiyel ve müşteri konuşmaları.' },
   { label: 'Müşteriler', path: '/musteriler', icon: Building2, description: 'Müşteri kartları, iletişim geçmişi ve zaman çizelgesi.' },

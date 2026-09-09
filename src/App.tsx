@@ -50,10 +50,11 @@ import { TekliflerListPage } from '@/pages/quotes/TekliflerListPage'
 import { NumunelerListPage } from '@/pages/samples/NumunelerListPage'
 import { SiparislerListPage } from '@/pages/orders/SiparislerListPage'
 import { RaporlarPage } from '@/pages/reports/RaporlarPage'
+import { CalismaPage } from '@/pages/calisma/CalismaPage'
 import { NAV_ITEMS } from '@/lib/navigation'
 
 /** Gerçek sayfası olan modüller (yer tutucu değil). */
-const IMPLEMENTED_PATHS = new Set(['/', '/ayarlar', '/potansiyeller', '/musteriler', '/talepler', '/teklifler', '/numuneler', '/siparisler', '/katalog', '/belgeler', '/finans', '/gorevler', '/hedefler', '/raporlar'])
+const IMPLEMENTED_PATHS = new Set(['/', '/calisma', '/ayarlar', '/potansiyeller', '/musteriler', '/talepler', '/teklifler', '/numuneler', '/siparisler', '/katalog', '/belgeler', '/finans', '/gorevler', '/hedefler', '/raporlar'])
 
 /**
  * Faz 0 yönlendirme.
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="/numuneler" element={<NumunelerListPage />} />
             <Route path="/siparisler" element={<SiparislerListPage />} />
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/calisma" element={<CalismaPage />} />
             <Route path="/belgeler" element={<BelgelerListPage />} />
             <Route path="/katalog" element={<CatalogListPage />} />
             <Route path="/katalog/:id" element={<CatalogProductPage />} />

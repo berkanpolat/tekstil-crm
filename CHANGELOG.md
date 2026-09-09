@@ -13,6 +13,33 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.36.0] — 2026-09-09
+
+### Hızlı Çalışma Ekranı — PROTOTİP, Paket 1 (tek liste, salt-okunur)
+Çalışanlar eski "Süreç Takip" sistemini (1 talep = 1 satır) daha hızlı buluyordu.
+Zengin veri modeline dokunmadan üstüne yeni bir hızlı çalışma yüzeyi eklendi.
+Yeni rota `/calisma` (menüde "Hızlı Çalışma", deneme). **Mevcut sayfalar, RPC'ler
+ve şema değişmedi; yeni migration yok.**
+
+- **Tek liste:** Müşteri · Ürün · Durum · Son not · Bekleme · Takip eden.
+  50/100 sayfalama, üstte arama + Takip eden/Kanal filtresi. `useOperationList`
+  (mevcut) yeniden kullanıldı, dokunulmadı.
+- **Son not & Bekleme süresi:** sayfadaki operasyonların en son etkileşimi tek
+  toplu sorguyla getirilir (`useLastNotes` — salt-okunur, yeni RPC yok). "Bekleme",
+  son temas/talep tarihinden bu yana geçen süredir; 3 günü aşınca vurgulanır.
+- **Rol bazlı sekmeler:** "Bugün aranacaklar" / "Teklif bekleyenler" / "Tümü".
+  `sales` rolü "Bugün aranacaklar" ile açılır, diğerleri "Tümü". Rol sistemi
+  call-center'ı teklifçiden ayırmadığından (ikisi de `sales`) kullanıcının son
+  seçtiği sekme `localStorage`'da hatırlanır.
+  - Ara-çözüm: "Bugün aranacaklar" şu an SLA süresi geçmiş açık talepleri gösterir;
+    nihai sürüm (Paket 4) `customers.next_action_at`'e bağlanacak.
+- **Yeni birim testleri:** `calismaUtils` (rol varsayılanı, sekme doğrulama, bekleme
+  biçimi, bayatlama eşiği) — 7 test. Navigasyon menü sayısı testi 16'ya güncellendi
+  (Mesajlar + Hızlı Çalışma).
+- Sıradaki paketler: P3 yan panel (müşteri geçmişi) → P2 satır içi güncelleme →
+  P4 hızlı kayıt.
+- Not: Bu paket v1.21.0 tabanında yazıldı, v1.35.0 üzerine rebase edildi.
+
 ## [1.35.0] — 2026-09-01
 
 ### Güvenlik: SAST taraması ve düzeltmeleri
@@ -618,6 +645,7 @@ CRM ilk kez yayında. Netlify **kullanılmıyor** — dağıtım hedefi baştan 
 
 ### Not
 - Birim test sayısı **214** (CLAUDE.md'de 161 yazıyordu — düzeltildi).
+
 ## [1.21.0] — 2026-08-28
 
 ### Belge motoru: otomatik sayfalama (çok sayfalı PDF) — kırpma sorunu giderildi
