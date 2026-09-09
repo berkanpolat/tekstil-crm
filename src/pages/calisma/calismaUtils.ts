@@ -63,6 +63,23 @@ export function stepIndex(index: number, len: number, dir: 'prev' | 'next'): num
   return next >= 0 && next < len ? next : index
 }
 
+/**
+ * Göreli zaman etiketi ("az önce" / "5 dk önce" / "3 sa önce" / "2 gün önce").
+ * Son aksiyonun ne zaman olduğunu tarama-dostu göstermek için. Kaynak yoksa "—".
+ */
+export function formatRelative(fromIso: string | null, nowMs: number): string {
+  if (!fromIso) return '—'
+  const then = new Date(fromIso).getTime()
+  if (Number.isNaN(then)) return '—'
+  const mins = Math.floor(Math.max(0, nowMs - then) / 60000)
+  if (mins < 1) return 'az önce'
+  if (mins < 60) return `${mins} dk önce`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} sa önce`
+  const days = Math.floor(hours / 24)
+  return `${days} gün önce`
+}
+
 /** Bekleme süresi eşiği geçtiyse (varsayılan 3 gün) vurgula — "uzun süredir temas yok". */
 export function isStale(fromIso: string | null, nowMs: number, days = 3): boolean {
   if (!fromIso) return false

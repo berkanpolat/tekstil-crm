@@ -13,6 +13,38 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.39.0] — 2026-09-09
+
+### Hızlı Çalışma Ekranı — PROTOTİP, Panel işlem merkezine genişledi (P3+)
+Yan panel artık müşterinin TÜM sürecini gösteren bir takip & durum merkezi. Zeynep
+"bu müşteri nerede kalmış" sorusunu Müşteriler menüsüne gitmeden buradan yanıtlar.
+**Mevcut sayfa/RPC/şema değişmedi, migration yok** (yeni okuma/yardımcı hook'lar salt-okunur).
+
+**Terminoloji:** "Not" → **"Aksiyon"** (interactions). Liste sütunu "Son not" → **"Son aksiyon"**
+(kanal ikonu + sonuç + kısa metin + göreli zaman "2 gün önce"). Satır içi "Not ekle" kaldırıldı;
+"Son aksiyon" hücresine tıklayınca panel açılır.
+
+**Panelde YAPILIR (takip & durum):**
+- **Aksiyon ekleme formu** (en üstte): kanal (varsayılan telefon) · sonuç · not · sonraki
+  takip tarihi. Kaydet → interactions'a yazar, liste anında tazelenir. Takip tarihi girilirse
+  `customers.next_action_at` güncellenir ("Bugün aranacaklar" bundan beslenir).
+- **Talep durumu** değiştirme (request_status) — panelde her talep için, listede de.
+- **Teklif sonucu** işaretleme: Kabul (numune/sipariş/işaretle) veya Red (red sebebi zorunlu).
+  Mevcut `QuoteAcceptDialog`/`QuoteRejectDialog` + `useSetQuoteResult`/`useAdvanceStage` — teklif
+  detayındaki akışla birebir aynı (tek kaynak).
+
+**Panelde GÖRÜNÜR (salt okuma, "…aç" derin bağlantısıyla):** Talepler (kod/tarih/aşama/durum),
+Teklifler, Numuneler, Siparişler, Belgeler — hepsi müşteri geneli (tüm talepleri kapsar).
+
+**Panelde YAPILMAZ (ilgili menüye gider):** yeni numune/sipariş oluşturma, teklif hazırlama/
+belge üretme, müşteri bilgisi düzenleme. Her kaydın yanında "…aç" bağlantısı ilgili sayfaya götürür.
+
+- **Aşama (stage) salt bilgi** — panelde ve listede rozet olarak görünür, elle değişmez.
+- Panel açıkken ↑/↓ ok gezinmesi sürüyor; panelde yapılan değişiklik ana listeye anında yansır.
+- Yeni salt-okunur hook'lar: `useCustomerQuotes/Samples/Orders`, `useSetNextAction`; `useLastNotes`
+  kanal+sonuç ile zenginleşti. Yeni test: `formatRelative` (254 test toplam).
+- Sıradaki: P4 hızlı kayıt.
+
 ## [1.38.0] — 2026-09-09
 
 ### Hızlı Çalışma Ekranı — PROTOTİP, Paket 2 (satır içi güncelleme)

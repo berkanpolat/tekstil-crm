@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defaultTabForRole, parseTab, formatWaiting, isStale, stepIndex } from './calismaUtils'
+import { defaultTabForRole, parseTab, formatWaiting, formatRelative, isStale, stepIndex } from './calismaUtils'
 
 const NOW = new Date('2026-09-09T12:00:00Z').getTime()
 const ago = (ms: number) => new Date(NOW - ms).toISOString()
@@ -52,6 +52,16 @@ describe('isStale', () => {
     expect(isStale(ago(2 * DAY), NOW)).toBe(false)
     expect(isStale(ago(4 * DAY), NOW)).toBe(true)
     expect(isStale(null, NOW)).toBe(false)
+  })
+})
+
+describe('formatRelative (son aksiyon zamanı)', () => {
+  it('ölçekler + "önce" eki', () => {
+    expect(formatRelative(null, NOW)).toBe('—')
+    expect(formatRelative(ago(30 * 1000), NOW)).toBe('az önce')
+    expect(formatRelative(ago(5 * MIN), NOW)).toBe('5 dk önce')
+    expect(formatRelative(ago(3 * HOUR), NOW)).toBe('3 sa önce')
+    expect(formatRelative(ago(2 * DAY), NOW)).toBe('2 gün önce')
   })
 })
 
