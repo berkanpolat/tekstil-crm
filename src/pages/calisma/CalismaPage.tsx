@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Zap, Phone, FileText, ListChecks, MessageSquare } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
@@ -15,8 +14,9 @@ import {
   useOperationList, useOperationStageOptions, useChannelOptions, type OperationRow,
 } from '@/hooks/useOperations'
 import { useLastNotes } from '@/hooks/useCalisma'
+import { CalismaDetailPanel } from './CalismaDetailPanel'
 import {
-  CALISMA_TABS, defaultTabForRole, parseTab, tabStorageKey, formatWaiting, isStale,
+  CALISMA_TABS, defaultTabForRole, parseTab, tabStorageKey, formatWaiting, isStale, stepIndex,
   type CalismaTab,
 } from './calismaUtils'
 
@@ -32,7 +32,6 @@ const toneClass = (c: string | null): string =>
  * güncelleme (P2), yan panel (P3) ve hızlı kayıt (P4) sonraki paketlerde gelir.
  */
 export function CalismaPage() {
-  const navigate = useNavigate()
   const { data: me } = useCurrentUser()
 
   // Bekleme süresi için sabit "şimdi" (render purity: Date.now() render'da yasak).
@@ -58,6 +57,7 @@ export function CalismaPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const [sort, setSort] = useState<SortState | null>({ key: 'created_at', dir: 'desc' })
+  const [selectedId, setSelectedId] = useState<number | null>(null)
 
   const stages = useOperationStageOptions()
   const owners = useAssigneeOptions()
@@ -90,6 +90,25 @@ export function CalismaPage() {
   const lastNotes = useLastNotes(opIds)
   const waitingBasis = (r: OperationRow) =>
     lastNotes.data?.get(r.id)?.occurred_at ?? r.requested_at ?? r.created_at
+
+  // Yan panel — seçili satır + klavye ok gezinmesi (mevcut sayfa içinde).
+  const selectedIndex = selectedId == null ? -1 : rows.findIndex((r) => r.id === selectedId)
+  const selectedRow = selectedIndex >= 0 ? rows[selectedIndex]! : null
+  const navigateRow = (dir: 'prev' | 'next') => {
+    const next = stepIndex(selectedIndex, rows.length, dir)
+    if (next >= 0 && next !== selectedIndex) setSelectedId(rows[next]!.id)
+  }
+  useEffect(() => {
+    if (selectedId == null) return
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (e.key === 'ArrowDown') { e.preventDefault(); navigateRow('next') }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); navigateRow('prev') }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedId, selectedIndex, rows])
 
   const columns: DataTableColumn<OperationRow>[] = [
     { key: 'customer', header: 'Müşteri', cell: (r) => (
@@ -172,13 +191,23 @@ export function CalismaPage() {
       <DataTable
         columns={columns} data={rows} rowKey={(r) => String(r.id)}
         loading={isLoading || isFetching} columnToggle={false}
-        onRowClick={(r) => navigate(`/talepler/${r.id}`)}
+        onRowClick={(r) => setSelectedId(r.id)}
+        rowClassName={(r) => (r.id === selectedId ? 'bg-accent-pale/60 hover:bg-accent-pale/60' : undefined)}
         page={page} pageSize={pageSize} total={data?.total ?? 0}
         onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); resetPage() }}
         pageSizeOptions={[50, 100]}
         sort={sort} onSortChange={setSort}
         emptyState={<EmptyState icon={Zap} title="Kayıt yok"
           description={tab === 'bugun' ? 'Bugün acil aranacak talep görünmüyor.' : hasFilters ? 'Filtreleri değiştirin.' : 'Bu listede kayıt yok.'} />}
+      />
+
+      <CalismaDetailPanel
+        row={selectedRow}
+        onOpenChange={(open) => { if (!open) setSelectedId(null) }}
+        onNavigate={navigateRow}
+        hasPrev={selectedIndex > 0}
+        hasNext={selectedIndex >= 0 && selectedIndex < rows.length - 1}
+        position={selectedIndex >= 0 ? `${selectedIndex + 1}/${rows.length}` : undefined}
       />
     </div>
   )

@@ -52,6 +52,17 @@ export function formatWaiting(fromIso: string | null, nowMs: number): string {
   return `${days} gün`
 }
 
+/**
+ * Yan panel ok gezinmesi: geçerli indeksten bir sonraki/önceki satır indeksi.
+ * Sınır dışında kalırsa (ilk satırda ↑, son satırda ↓) mevcut indeks korunur.
+ * index < 0 (seçim yok) ise -1 döner.
+ */
+export function stepIndex(index: number, len: number, dir: 'prev' | 'next'): number {
+  if (index < 0 || len <= 0) return -1
+  const next = dir === 'prev' ? index - 1 : index + 1
+  return next >= 0 && next < len ? next : index
+}
+
 /** Bekleme süresi eşiği geçtiyse (varsayılan 3 gün) vurgula — "uzun süredir temas yok". */
 export function isStale(fromIso: string | null, nowMs: number, days = 3): boolean {
   if (!fromIso) return false

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defaultTabForRole, parseTab, formatWaiting, isStale } from './calismaUtils'
+import { defaultTabForRole, parseTab, formatWaiting, isStale, stepIndex } from './calismaUtils'
 
 const NOW = new Date('2026-09-09T12:00:00Z').getTime()
 const ago = (ms: number) => new Date(NOW - ms).toISOString()
@@ -52,5 +52,20 @@ describe('isStale', () => {
     expect(isStale(ago(2 * DAY), NOW)).toBe(false)
     expect(isStale(ago(4 * DAY), NOW)).toBe(true)
     expect(isStale(null, NOW)).toBe(false)
+  })
+})
+
+describe('stepIndex (yan panel ok gezinmesi)', () => {
+  it('ileri/geri hareket eder', () => {
+    expect(stepIndex(0, 5, 'next')).toBe(1)
+    expect(stepIndex(3, 5, 'prev')).toBe(2)
+  })
+  it('sınırda mevcut indekste kalır', () => {
+    expect(stepIndex(0, 5, 'prev')).toBe(0)
+    expect(stepIndex(4, 5, 'next')).toBe(4)
+  })
+  it('seçim yoksa (-1) veya boş listede -1', () => {
+    expect(stepIndex(-1, 5, 'next')).toBe(-1)
+    expect(stepIndex(0, 0, 'next')).toBe(-1)
   })
 })

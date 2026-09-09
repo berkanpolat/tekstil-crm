@@ -13,6 +13,27 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.37.0] — 2026-09-09
+
+### Hızlı Çalışma Ekranı — PROTOTİP, Paket 3 (yan panel — müşteri geçmişi)
+Listede bir satıra tıklayınca sağdan **Sheet** açılır; sayfa değişmez, salt-okunur.
+Zeynep aramadan önce "en son ne zaman aradık, ne dedi, hangi teklif için arıyoruz"
+sorularının cevabını tek ekranda görür. **Mevcut sayfa/RPC/şema değişmedi, migration yok.**
+
+- **Künye:** müşteri adı + kod, birincil iletişim noktaları (telefon/WhatsApp/Instagram/
+  e-posta rozetleri), ilk temas + son temas tarihi, takip eden. Üstte bu talebin kodu
+  ve aşaması (bağlam).
+- **Etkileşim geçmişi:** müşteri seviyesinde TÜM etkileşimler, en yeni üstte
+  (tarih + kanal + sonuç + not + kim, gelen/giden yön ikonu). `useInteractions('customer')`.
+- **Teklifler / Numuneler:** bu operasyona ait sürümler (durum + tutar + tarih).
+  `useOperationQuotes` / `useOperationSamples`.
+- **Dosyalar:** bu talebin dosyaları; tıklayınca imzalı URL ile yeni sekmede açılır.
+- **Klavye ile gezinme:** panel açıkken ↑/↓ ok tuşları (ve başlıktaki oklar) sayfadaki
+  bir sonraki/önceki kayda geçer; seçili satır listede vurgulanır. Konum "3/50" gösterilir.
+- Tüm hook'lar mevcut, salt-okunur; yeni RPC yok.
+- **Yeni test:** `stepIndex` ok-gezinme sınır mantığı — 3 test (toplam calismaUtils 10).
+- Sıradaki: P2 satır içi güncelleme → P4 hızlı kayıt.
+
 ## [1.36.0] — 2026-09-09
 
 ### Hızlı Çalışma Ekranı — PROTOTİP, Paket 1 (tek liste, salt-okunur)
