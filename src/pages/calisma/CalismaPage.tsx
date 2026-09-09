@@ -36,9 +36,15 @@ const CHANNEL_ICON: Record<string, typeof Phone> = {
   telefon: Phone, whatsapp: MessageCircle, instagram: Camera, email: Mail, eposta: Mail, telegram: Send, web: Globe, website: Globe,
 }
 
+const ALLOWED = ['success', 'warning', 'danger', 'info', 'neutral']
+const toneOf = (c: string | null): StatusTone => (ALLOWED.includes(c ?? '') ? (c as StatusTone) : 'neutral')
 const toneClass = (c: string | null): string =>
-  c && (['success', 'warning', 'danger', 'info', 'neutral'] as string[]).includes(c)
-    ? STATUS_TONE_CLASS[c as StatusTone] : 'bg-neutral-badge text-neutral-badge-foreground'
+  c && ALLOWED.includes(c) ? STATUS_TONE_CLASS[c as StatusTone] : 'bg-neutral-badge text-neutral-badge-foreground'
+/** Kanal ikonu rengi (referans color tonu) — sınıflar literal (Tailwind tarayıcısı için). */
+const TONE_TEXT: Record<StatusTone, string> = {
+  success: 'text-success-foreground', danger: 'text-danger-foreground',
+  warning: 'text-warning-foreground', info: 'text-info-foreground', neutral: 'text-text-muted',
+}
 
 /**
  * Hızlı Çalışma Ekranı (/calisma) — PROTOTİP, Paket 1: tek liste, salt-okunur.
@@ -184,11 +190,11 @@ export function CalismaPage() {
       return (
         <div className="min-w-0">
           <div className="text-text-muted flex items-center gap-1.5 text-[11px]">
-            <Icon className="size-3.5 shrink-0" />
-            {n.outcome_label && <span className={cn('font-medium', n.outcome_positive ? 'text-success-foreground' : n.outcome_positive === false ? 'text-danger-foreground' : '')}>{n.outcome_label}</span>}
-            <span>· {formatRelative(n.occurred_at, nowMs)}</span>
+            <Icon className={cn('size-3.5 shrink-0', TONE_TEXT[toneOf(n.channel_color)])} />
+            {n.outcome_label && <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', toneClass(n.outcome_color))}>{n.outcome_label}</span>}
+            <span>{formatRelative(n.occurred_at, nowMs)}</span>
           </div>
-          {n.summary && <span className="text-text-secondary line-clamp-1 block text-xs">{n.summary}</span>}
+          {n.summary && <span className="text-text-secondary line-clamp-1 mt-0.5 block text-xs">{n.summary}</span>}
         </div>
       )
     } },

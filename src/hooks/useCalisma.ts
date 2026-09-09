@@ -11,7 +11,9 @@ export interface LastAction {
   author_name: string | null
   channel_key: string | null
   channel_label: string | null
+  channel_color: string | null
   outcome_label: string | null
+  outcome_color: string | null
   outcome_positive: boolean | null
 }
 
@@ -19,8 +21,8 @@ interface RawLastAction {
   operation_id: number | null
   summary: string | null
   occurred_at: string
-  interaction_channels: { key: string; label: string } | null
-  interaction_outcomes: { label: string; is_positive: boolean } | null
+  interaction_channels: { key: string; label: string; color: string | null } | null
+  interaction_outcomes: { label: string; is_positive: boolean; color: string | null } | null
   author: { full_name: string } | null
 }
 
@@ -37,7 +39,7 @@ export function useLastNotes(operationIds: number[]) {
     queryFn: async (): Promise<Map<number, LastAction>> => {
       const { data, error } = await supabase
         .from('interactions')
-        .select('operation_id, summary, occurred_at, interaction_channels(key, label), interaction_outcomes(label, is_positive), author:users!interactions_created_by_fkey(full_name)')
+        .select('operation_id, summary, occurred_at, interaction_channels(key, label, color), interaction_outcomes(label, is_positive, color), author:users!interactions_created_by_fkey(full_name)')
         .in('operation_id', operationIds)
         .is('deleted_at', null)
         .order('occurred_at', { ascending: false })
@@ -51,12 +53,56 @@ export function useLastNotes(operationIds: number[]) {
             author_name: r.author?.full_name ?? null,
             channel_key: r.interaction_channels?.key ?? null,
             channel_label: r.interaction_channels?.label ?? null,
+            channel_color: r.interaction_channels?.color ?? null,
             outcome_label: r.interaction_outcomes?.label ?? null,
+            outcome_color: r.interaction_outcomes?.color ?? null,
             outcome_positive: r.interaction_outcomes?.is_positive ?? null,
           })
         }
       }
       return map
+    },
+  })
+}
+
+// ---- Panel aksiyon geçmişi (müşteri seviyesi, kanal/sonuç renkleriyle) ----
+export interface CustAction {
+  id: number
+  occurred_at: string
+  summary: string | null
+  direction: string
+  channel_key: string | null
+  channel_label: string | null
+  channel_color: string | null
+  outcome_label: string | null
+  outcome_color: string | null
+  outcome_positive: boolean | null
+  author_name: string | null
+}
+interface RawCustAction {
+  id: number; occurred_at: string; summary: string | null; direction: string
+  interaction_channels: { key: string; label: string; color: string | null } | null
+  interaction_outcomes: { label: string; is_positive: boolean; color: string | null } | null
+  author: { full_name: string } | null
+}
+export function useCustomerActions(customerId: number | null) {
+  return useQuery({
+    queryKey: ['calisma-cust-actions', customerId],
+    enabled: customerId != null,
+    queryFn: async (): Promise<CustAction[]> => {
+      const { data, error } = await supabase.from('interactions')
+        .select('id, occurred_at, summary, direction, interaction_channels(key, label, color), interaction_outcomes(label, is_positive, color), author:users!interactions_created_by_fkey(full_name)')
+        .eq('entity_type', 'customer').eq('entity_id', customerId as number)
+        .is('deleted_at', null).order('occurred_at', { ascending: false })
+      if (error) throw error
+      return ((data ?? []) as unknown as RawCustAction[]).map((r) => ({
+        id: r.id, occurred_at: r.occurred_at, summary: r.summary, direction: r.direction,
+        channel_key: r.interaction_channels?.key ?? null, channel_label: r.interaction_channels?.label ?? null,
+        channel_color: r.interaction_channels?.color ?? null,
+        outcome_label: r.interaction_outcomes?.label ?? null, outcome_color: r.interaction_outcomes?.color ?? null,
+        outcome_positive: r.interaction_outcomes?.is_positive ?? null,
+        author_name: r.author?.full_name ?? null,
+      }))
     },
   })
 }

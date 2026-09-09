@@ -13,6 +13,25 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.39.1] — 2026-09-09
+
+### Hızlı Çalışma paneli — tasarım gözden geçirmesi (işlev değişmedi)
+Yalnız görünüm; hiçbir davranış/mutation değişmedi.
+- **Aksiyon geçmişi kartlı:** her kayıt ayrı blok, aralarında boşluk, sol kenarda
+  kanal rengine göre ince şerit. Üst: tarih-saat (gri) + kanal ikonu + sonuç rozeti;
+  orta: not metni (en okunur); alt: kim (çok küçük gri).
+- **Hızlı ekleme formu katlanır:** varsayılan kapalı, "+ Aksiyon ekle" ile açılır;
+  kanal+sonuç tek satır, not 2 satır, takip tarihi+Kaydet tek satır — paneli boğmuyor.
+- **Bölüm hiyerarşisi:** başlıklar daha büyük/koyu + üstte ayırıcı çizgi, sayaç soluk,
+  bölümler arası boşluk arttı.
+- **Renk (tek kaynak: referans `color` tonları):** sonuç rozetleri ve kanal ikonları
+  renkli (olumlu=yeşil, olumsuz=kırmızı, ulaşılamadı=gri, sonra aranacak=turuncu,
+  teklif isteniyor=mavi; telefon/WhatsApp/e-posta ayrışır). Liste "Son aksiyon" hücresi de.
+- **Ferahlık:** panel arka planı beyaz, kartlar hafif gri; iç boşluklar arttı; künye
+  sadeleşti, iletişim rozetleri küçüldü.
+- Yeni salt-okunur `useCustomerActions` (kanal/sonuç renkleriyle); `useLastNotes` renk
+  alanlarıyla genişledi. Migration yok. 254 test yeşil.
+
 ## [1.39.0] — 2026-09-09
 
 ### Hızlı Çalışma Ekranı — PROTOTİP, Panel işlem merkezine genişledi (P3+)
