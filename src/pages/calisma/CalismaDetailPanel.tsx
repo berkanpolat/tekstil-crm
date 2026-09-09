@@ -19,12 +19,12 @@ import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/Qu
 import { useCustomer } from '@/hooks/useCustomers'
 import { useContactPoints, type ContactPoint, type ContactType } from '@/hooks/useContactPoints'
 import { useChannelOptions, useOutcomeOptions } from '@/hooks/useInteractions'
-import { useOperationList } from '@/hooks/useOperations'
+import { useOperationList, useUpdateOperation } from '@/hooks/useOperations'
 import { useAddOperationInteraction } from '@/hooks/useOperationActivity'
 import { useSetQuoteResult, useAdvanceStage } from '@/hooks/useQuotes'
 import { useEntityFiles, useSignedUrl, type FileRow } from '@/hooks/useFiles'
 import {
-  useSetNextAction, useCustomerActions, useLastNotes, useCustomerQuotes, useCustomerSamples, useCustomerOrders,
+  useCustomerActions, useLastNotes, useCustomerQuotes, useCustomerSamples, useCustomerOrders,
 } from '@/hooks/useCalisma'
 import type { OperationRow } from '@/hooks/useOperations'
 
@@ -140,7 +140,7 @@ export function CalismaDetailPanel({ row, onOpenChange, onNavigate, hasPrev, has
   const files = useEntityFiles('customer', customerId != null ? String(customerId) : null)
 
   const addAction = useAddOperationInteraction()
-  const setNextAction = useSetNextAction()
+  const updateOp = useUpdateOperation()
   const setQuoteResult = useSetQuoteResult()
   const advance = useAdvanceStage()
   const channels = useChannelOptions()
@@ -173,6 +173,7 @@ export function CalismaDetailPanel({ row, onOpenChange, onNavigate, hasPrev, has
       qc.invalidateQueries({ queryKey: ['calisma-cust-quotes'] }),
       qc.invalidateQueries({ queryKey: ['calisma-cust-samples'] }),
       qc.invalidateQueries({ queryKey: ['calisma-cust-orders'] }),
+      qc.invalidateQueries({ queryKey: ['calisma-worklist'] }),
       customerId != null ? qc.invalidateQueries({ queryKey: ['customer', customerId] }) : Promise.resolve(),
     ])
   }
@@ -182,20 +183,26 @@ export function CalismaDetailPanel({ row, onOpenChange, onNavigate, hasPrev, has
     const text = note.trim()
     if (!text && !outcomeId) { toast.error('Not ya da sonuç girin.'); return }
     if (channelId == null) { toast.error('Kanal seçin.'); return }
+    // "Sonra aranacak" → takip tarihi ZORUNLU (o tarihte tekrar listeye gelsin).
+    const outcomeKey = outcomes.data?.find((o) => String(o.id) === outcomeId)?.key
+    if (outcomeKey === 'sonra_aranacak' && !followUp) {
+      toast.error('“Sonra aranacak” için sonraki takip tarihi zorunlu.'); return
+    }
     try {
       await addAction.mutateAsync({
         operation_id: row.id, customer_id: customerId, channel_id: Number(channelId),
         outcome_id: outcomeId ? Number(outcomeId) : null, direction: 'outbound',
         occurred_at: new Date().toISOString(), summary: text || null,
       })
-      if (followUp) await setNextAction.mutateAsync({ customerId, nextActionAt: `${followUp}T09:00:00` })
+      // Takip tarihi TALEP bazında (operations.next_action_at) — müşteri-bazlı değil.
+      if (followUp) await updateOp.mutateAsync({ id: row.id, next_action_at: `${followUp}T09:00:00` })
       await invalidateAll()
       setNote(''); setOutcomeId(null); setFollowUp(null); setFormOpen(false)
       toast.success(followUp ? 'Aksiyon eklendi, takip tarihi ayarlandı.' : 'Aksiyon eklendi.')
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
 
-  const busy = addAction.isPending || setNextAction.isPending
+  const busy = addAction.isPending || updateOp.isPending
   const opRows = custOps.data?.rows ?? []
   const goto = (path: string) => { onOpenChange(false); navigate(path) }
 

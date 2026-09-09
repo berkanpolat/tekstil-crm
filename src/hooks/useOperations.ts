@@ -41,6 +41,8 @@ export interface OperationFilters {
   customerId?: number | null
   /** 'overdue' | 'today' | null — sla_deadline'a göre (P3.8 sonrası dolar). */
   slaState?: 'overdue' | 'today' | null
+  /** Verilirse yalnız bu operation id'leri döner (kova/worklist görünümü). Boş dizi → 0 kayıt. */
+  operationIds?: number[] | null
   page: number
   pageSize: number
   sort?: SortState | null
@@ -94,8 +96,11 @@ export function useOperationList(filters: OperationFilters) {
   return useQuery({
     queryKey: ['operations', filters],
     queryFn: async (): Promise<{ rows: OperationRow[]; total: number }> => {
+      // Kova/worklist görünümü: yalnız verilen id'ler (boş dizi → hiç sorgu atma, 0 kayıt).
+      if (filters.operationIds && filters.operationIds.length === 0) return { rows: [], total: 0 }
       // Birleştirilmiş talepler listede görünmez (merged_into dolu)
       let query = supabase.from('operations').select(LIST_SELECT, { count: 'exact' }).is('deleted_at', null).is('merged_into' as never, null)
+      if (filters.operationIds && filters.operationIds.length) query = query.in('id', filters.operationIds)
 
       if (filters.search) {
         const norm = normalizeTr(filters.search)
@@ -236,6 +241,8 @@ export interface OperationInput {
   channel_id?: number | null
   /** Hafif talep durumu (request_statuses). Aşama (stage_id) DEĞİL. */
   request_status_id?: number | null
+  /** Talep-bazlı sonraki takip/arama tarihi (ISO). /calisma kullanır. */
+  next_action_at?: string | null
   province_id?: number | null
   district?: string | null
   product_source?: string | null

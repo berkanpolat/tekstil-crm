@@ -65,6 +65,32 @@ export function useLastNotes(operationIds: number[]) {
   })
 }
 
+// ---- /calisma iş listesi (calisma_worklist RPC) ----
+export type WorklistBucket = 'bugun_aranacaklar' | 'arandi' | 'gelen_talep' | 'bekleyen_talep' | 'iletilen_teklif'
+
+export interface Worklist {
+  from: string
+  to: string
+  counts: Record<WorklistBucket, number>
+  ids: Record<WorklistBucket, number[]>
+}
+
+/**
+ * Tek RPC ile 5 kovanın sayısı + operation_id[] listesi. p_from/p_to verilmezse
+ * ikisi de bugün (anlık kovalar dönemi yok sayar). id'ler sunucuda sıralı gelir
+ * (bugun_aranacaklar: en eski teklif önce).
+ */
+export function useWorklist(from: string | null, to: string | null) {
+  return useQuery({
+    queryKey: ['calisma-worklist', from, to],
+    queryFn: async (): Promise<Worklist> => {
+      const { data, error } = await supabase.rpc('calisma_worklist' as never, { p_from: from, p_to: to } as never)
+      if (error) throw error
+      return data as unknown as Worklist
+    },
+  })
+}
+
 // ---- Panel aksiyon geçmişi (müşteri seviyesi, kanal/sonuç renkleriyle) ----
 export interface CustAction {
   id: number

@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.40.0] — 2026-09-09
+
+### Hızlı Çalışma — özet kartları + RPC iş listesi + talep-bazlı takip
+Migration'lar **M1 + M2 canlıya uygulandı** (kullanıcı). Bu sürüm istemci tarafı.
+
+- **5 özet kartı** (üstte, tıklanabilir): Bugün aranacaklar · Arandı · Gelen talep ·
+  Bekleyen talep · İletilen teklif. Sayılar **tek RPC**'den (`calisma_worklist`, tek sorgu).
+  Karta tıkla → liste o kovanın operation_id'leriyle filtrelenir; "Tümü" ile temizlenir.
+- **"Bugün aranacaklar"** artık RPC mantığından gelir (eski `slaState='overdue'` ara-çözümü
+  kalktı): teklif iletilip >1 gün geçmiş VE sonrasında **karar bildiren** aksiyon olmayan
+  açık talepler ∪ elle takip tarihi (`operations.next_action_at`) bugüne gelenler.
+  Sıralama **en eski teklif üstte** (sent_at asc) — *bkz. aşağıdaki M2 re-apply notu.*
+- **`useWorklist(from,to)`** (RPC), **`useOperationList`'e additive `operationIds`** filtresi
+  (kova modunda id-dilimli sayfalama + sunucu sırasını koruma).
+- **Panel aksiyon formu → `operations.next_action_at`** (talep-bazlı; müşteri-bazlı değil).
+  **"Sonra aranacak" seçilirse takip tarihi ZORUNLU** (o tarihte tekrar listeye düşer).
+  `customers.next_action_at` korunur, /calisma ona yazmaz.
+- Serbest filtreler (arama/takip eden/kanal) yalnız "Tümü" modunda; kova modunda kovanın
+  kendisi filtredir. Kova değişikliği ana listeye + panele anında yansır (invalidation).
+- Build temiz, 254 test yeşil, yeni birim testi yok (RPC + UI ağırlıklı).
+
+> **⚠️ M2 re-apply gerek:** Canlıdaki `calisma_worklist` "Bugün aranacaklar"ı id sırasında
+> döndürüyor. `sent_at` (en eski teklif üstte) sıralaması için güncellenen
+> `20260909000100_m2_calisma_worklist.sql` **tekrar uygulanmalı** (create-or-replace, güvenli,
+> veri değişmez). Uygulanana kadar liste id sırasında görünür.
+
 ## [1.39.2] — 2026-09-09
 
 ### Hızlı Çalışma — "Durum" açılır listesi kaldırıldı, yerine "Son sonuç" (hata düzeltmesi)
