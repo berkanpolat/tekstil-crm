@@ -1,18 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Zap, Phone, FileText, ListChecks, MessageSquare } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Zap, Phone, FileText, ListChecks, MessageSquare, ChevronDown, Pencil, Plus, Check } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DataTable, type DataTableColumn, type SortState } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { toUserMessage } from '@/lib/errors'
 import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useAssigneeOptions } from '@/hooks/useLeads'
 import {
-  useOperationList, useOperationStageOptions, useChannelOptions, type OperationRow,
+  useOperationList, useOperationStageOptions, useChannelOptions, useRequestStatusOptions,
+  useUpdateOperation, type OperationRow,
 } from '@/hooks/useOperations'
+import { useAddOperationInteraction } from '@/hooks/useOperationActivity'
 import { useLastNotes } from '@/hooks/useCalisma'
 import { CalismaDetailPanel } from './CalismaDetailPanel'
 import {
@@ -33,6 +43,8 @@ const toneClass = (c: string | null): string =>
  */
 export function CalismaPage() {
   const { data: me } = useCurrentUser()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
 
   // Bekleme süresi için sabit "şimdi" (render purity: Date.now() render'da yasak).
   const [nowMs] = useState(() => Date.now())
@@ -58,10 +70,46 @@ export function CalismaPage() {
   const [pageSize, setPageSize] = useState(50)
   const [sort, setSort] = useState<SortState | null>({ key: 'created_at', dir: 'desc' })
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  // Satır içi not düzenleme (Enter → interactions).
+  const [noteEditId, setNoteEditId] = useState<number | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
 
   const stages = useOperationStageOptions()
   const owners = useAssigneeOptions()
   const channels = useChannelOptions()
+  const requestStatuses = useRequestStatusOptions()
+  const updateOp = useUpdateOperation()
+  const addInteraction = useAddOperationInteraction()
+  // Not kanalı varsayılan "telefon" — Zeynep her seferinde seçmesin.
+  const telefonChannelId = useMemo(
+    () => channels.data?.find((c) => c.key === 'telefon')?.id ?? null,
+    [channels.data],
+  )
+
+  // B — hafif talep durumu (request_status_id). Aşama (stage_id) DEĞİL; aşama
+  // çocuk kayıtların yansıması olarak trigger'larla ilerler, satır içinden değişmez.
+  async function changeStatus(row: OperationRow, statusId: number) {
+    if (statusId === undefined) return
+    try {
+      await updateOp.mutateAsync({ id: row.id, request_status_id: statusId })
+    } catch (err) { toast.error(await toUserMessage(err)) }
+  }
+
+  // Satır içi not → interactions (kanal varsayılan telefon, yön giden).
+  async function saveNote(row: OperationRow) {
+    const text = noteDraft.trim()
+    if (!text) { setNoteEditId(null); return }
+    if (telefonChannelId == null) { toast.error('Telefon kanalı bulunamadı; not kaydedilemedi.'); return }
+    try {
+      await addInteraction.mutateAsync({
+        operation_id: row.id, customer_id: row.customer_id, channel_id: telefonChannelId,
+        outcome_id: null, direction: 'outbound', occurred_at: new Date().toISOString(), summary: text,
+      })
+      await qc.invalidateQueries({ queryKey: ['calisma-last-notes'] })
+      setNoteEditId(null); setNoteDraft('')
+      toast.success('Not eklendi.')
+    } catch (err) { toast.error(await toUserMessage(err)) }
+  }
 
   // Sekme → mevcut useOperationList filtresine eşleme:
   //  - teklif: aşama = teklif_bekliyor
@@ -125,20 +173,69 @@ export function CalismaPage() {
         )}
       </div>
     ) },
-    { key: 'stage', header: 'Durum', cell: (r) => r.stage_label
+    // Aşama — SALT BİLGİ (tıklanmaz). Çocuk kayıtların yansıması; trigger'larla ilerler.
+    { key: 'stage', header: 'Aşama', cell: (r) => r.stage_label
       ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', toneClass(r.stage_color))}>{r.stage_label}</span> : '—' },
-    { key: 'note', header: 'Son not', className: 'max-w-[280px]', cell: (r) => {
-      const n = lastNotes.data?.get(r.id)
-      if (lastNotes.isLoading) return <span className="text-text-muted text-xs">…</span>
-      if (!n?.summary) return <span className="text-text-muted text-xs">—</span>
-      return (
-        <div className="min-w-0">
-          <div className="flex items-start gap-1.5">
-            <MessageSquare className="text-text-muted mt-0.5 size-3.5 shrink-0" />
-            <span className="text-text-secondary line-clamp-2 text-xs">{n.summary}</span>
+    // Durum — hafif talep durumu (request_status); tıkla → açılır liste → kaydet.
+    { key: 'status', header: 'Durum', cell: (r) => (
+      <div onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="hover:bg-subtle inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ring-border">
+              {r.status_label ?? 'Belirle'}
+              <ChevronDown className="size-3 opacity-50" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {(requestStatuses.data ?? []).map((s) => (
+              <DropdownMenuItem key={s.id} onClick={() => void changeStatus(r, s.id)}>
+                {s.key === r.status_key && <Check className="size-3.5" />}
+                <span className={cn(s.key === r.status_key ? 'font-medium' : '', s.key !== r.status_key && 'pl-[18px]')}>{s.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ) },
+    { key: 'note', header: 'Son not', className: 'max-w-[300px]', cell: (r) => {
+      if (noteEditId === r.id) {
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Input
+              autoFocus value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="Not yaz, Enter ile kaydet…" className="h-8 text-xs"
+              disabled={addInteraction.isPending}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); void saveNote(r) }
+                else if (e.key === 'Escape') { e.preventDefault(); setNoteEditId(null); setNoteDraft('') }
+              }}
+              onBlur={() => { if (!addInteraction.isPending) { setNoteEditId(null); setNoteDraft('') } }}
+            />
           </div>
-          {n.author_name && <div className="text-text-muted pl-5 text-[10px]">{n.author_name}</div>}
-        </div>
+        )
+      }
+      const n = lastNotes.data?.get(r.id)
+      return (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setNoteDraft(''); setNoteEditId(r.id) }}
+          className="hover:bg-subtle group -mx-1 flex w-full items-start gap-1.5 rounded px-1 py-0.5 text-left"
+          title="Not eklemek için tıkla"
+        >
+          {lastNotes.isLoading ? (
+            <span className="text-text-muted text-xs">…</span>
+          ) : n?.summary ? (
+            <>
+              <MessageSquare className="text-text-muted mt-0.5 size-3.5 shrink-0" />
+              <span className="min-w-0">
+                <span className="text-text-secondary line-clamp-2 block text-xs">{n.summary}</span>
+                {n.author_name && <span className="text-text-muted text-[10px]">{n.author_name}</span>}
+              </span>
+            </>
+          ) : (
+            <span className="text-text-muted group-hover:text-accent-primary inline-flex items-center gap-1 text-xs"><Plus className="size-3.5" /> Not ekle</span>
+          )}
+        </button>
       )
     } },
     { key: 'waiting', header: 'Bekleme', cell: (r) => {
@@ -152,6 +249,13 @@ export function CalismaPage() {
     { key: 'owner', header: 'Takip eden', cell: (r) => (
       <span className={cn('text-sm', r.owner_name ? 'text-text-secondary' : 'text-text-muted')}>{r.owner_name ?? 'Atanmamış'}</span>
     ) },
+    // Düzenle → tüm alanlar operasyon detayında (tek modal edit bileşeni yok; detayda
+    // düzenleme + aşama süreci mevcut). Satır içi elle aşama değişimi bilinçli olarak yok.
+    { key: 'edit', header: '', align: 'right', cell: (r) => (
+      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); navigate(`/talepler/${r.id}`) }}>
+        <Pencil className="size-3.5" /> Düzenle
+      </Button>
+    ) },
   ]
 
   const hasFilters = !!search || !!ownerId || !!channelId
@@ -161,7 +265,7 @@ export function CalismaPage() {
     <div className="space-y-5">
       <PageHeader
         title="Hızlı Çalışma"
-        description="Tek liste; müşteri, durum ve son notu tek bakışta gör. (Deneme sürüyor — satır içi güncelleme ve yan panel yakında.)"
+        description="Satırdan durumu güncelle, not ekle (Enter), geçmişi yan panelde gör. Aşama süreçle ilerler; değiştirmek için Düzenle."
       />
 
       <div className="flex flex-wrap gap-2">

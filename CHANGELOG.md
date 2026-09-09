@@ -13,6 +13,28 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.38.0] — 2026-09-09
+
+### Hızlı Çalışma Ekranı — PROTOTİP, Paket 2 (satır içi güncelleme)
+Satırdan çıkmadan hızlı güncelleme. **Mevcut sayfa/RPC/şema değişmedi, migration yok.**
+`OperationInput`'a mevcut `request_status_id` kolonu additive olarak eklendi (tip güvenliği).
+
+- **Satır içi not → interactions:** "Son not" hücresine tıkla → yaz → **Enter** kaydeder;
+  `useAddOperationInteraction` ile etkileşim oluşur (kanal varsayılan **telefon**, yön giden —
+  Zeynep her seferinde kanal seçmez). Esc iptal. Kaydedince "Son not"/"Bekleme" tazelenir.
+- **Durum açılır listesi (hafif talep durumu):** "Durum" hücresi = `request_status_id`
+  (Ulaşılamadı / İlgileniyor / Olumsuz / Teklif Bekliyor …). Tıkla → aktif `request_statuses`
+  listesi → seç → `useUpdateOperation` ile kaydeder, sayfa değişmez.
+- **Aşama (stage) SALT BİLGİ:** ayrı "Aşama" rozeti listede görünür ama tıklanmaz.
+  Aşama çocuk kayıtların yansımasıdır (numune/sipariş oluşunca trigger ilerletir); satır
+  içinden elle değiştirilmez — veri modeli desenkron olmasın diye bilinçli karar.
+- **Düzenle:** satır sonu "Düzenle" → operasyon detayına gider (tüm alan düzenleme +
+  aşama süreci orada; ayrı "tüm alanlar" düzenleme-modalı bileşeni yok).
+- Tüm yazımlar mevcut hook'larla; yeni RPC/geçiş-yolu yok. Regresyon: 253 test yeşil.
+- Not: Kullanıcı kararıyla gerçek status_transitions-kapılı aşama değişimi (C seçeneği)
+  yapılmadı — aşama değişimi süreçle (teklif/numune/sipariş) kendiliğinden ilerler.
+- Sıradaki: P4 hızlı kayıt.
+
 ## [1.37.0] — 2026-09-09
 
 ### Hızlı Çalışma Ekranı — PROTOTİP, Paket 3 (yan panel — müşteri geçmişi)

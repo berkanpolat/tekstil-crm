@@ -234,6 +234,8 @@ export interface OperationInput {
   category_id?: number | null
   type_id?: number | null
   channel_id?: number | null
+  /** Hafif talep durumu (request_statuses). Aşama (stage_id) DEĞİL. */
+  request_status_id?: number | null
   province_id?: number | null
   district?: string | null
   product_source?: string | null
