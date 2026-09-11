@@ -27,8 +27,15 @@ beforeAll(async () => {
   ozelAnahtar = cift.privateKey
   const disa = await crypto.subtle.exportKey('jwk', cift.publicKey)
   jwk = { kty: 'EC', crv: 'P-256', x: disa.x, y: disa.y, kid: KID, alg: 'ES256' }
+
+  // JWKS önbelleği modül kapsamında kalıcı olduğundan (bkz. src/jwt.js),
+  // bozuk/farklı-eğrili anahtarları da BAŞTAN aynı JWKS yanıtına ekliyoruz —
+  // testler arasında fetch'i değiştirip cache'i geçersiz kılma yolumuz yok.
+  const bozukAnahtar = { kty: 'EC', crv: 'P-256', kid: 'bozuk-anahtar', alg: 'ES256' } // x/y eksik
+  const yanlisEgriAnahtar = { kty: 'EC', crv: 'P-384', x: disa.x, y: disa.y, kid: 'p384-egri', alg: 'ES256' }
+
   globalThis.fetch = async () =>
-    new Response(JSON.stringify({ keys: [jwk] }), {
+    new Response(JSON.stringify({ keys: [jwk, bozukAnahtar, yanlisEgriAnahtar] }), {
       headers: { 'content-type': 'application/json' },
     })
 })
@@ -71,5 +78,29 @@ describe('jetonCoz', () => {
 
   it('üç parçalı olmayan metni reddeder', async () => {
     expect(await jetonCoz('abc', ENV)).toBeNull()
+  })
+
+  it('base64url alfabesi dışı karakter içeren imzayı FIRLATMADAN reddeder', async () => {
+    const j = await jetonUret({ sub: 'kullanici-1', exp: gelecek() })
+    const parca = j.split('.')
+    const bozukJeton = `${parca[0]}.${parca[1]}.!!!!`
+    await expect(jetonCoz(bozukJeton, ENV)).resolves.toBeNull()
+  })
+
+  it('çok kısa/bozuk uzunlukta imzayı FIRLATMADAN reddeder', async () => {
+    const j = await jetonUret({ sub: 'kullanici-1', exp: gelecek() })
+    const parca = j.split('.')
+    const kisaJeton = `${parca[0]}.${parca[1]}.QQ`
+    await expect(jetonCoz(kisaJeton, ENV)).resolves.toBeNull()
+  })
+
+  it('JWKS bozuk anahtar (x/y eksik) döndürürse FIRLATMADAN reddeder', async () => {
+    const j = await jetonUret({ sub: 'kullanici-1', exp: gelecek() }, { kid: 'bozuk-anahtar' })
+    await expect(jetonCoz(j, ENV)).resolves.toBeNull()
+  })
+
+  it('eğri P-256 değilse (crv: "P-384") reddeder', async () => {
+    const j = await jetonUret({ sub: 'kullanici-1', exp: gelecek() }, { kid: 'p384-egri' })
+    await expect(jetonCoz(j, ENV)).resolves.toBeNull()
   })
 })
