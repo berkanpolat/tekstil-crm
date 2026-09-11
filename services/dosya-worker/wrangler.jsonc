@@ -1,0 +1,28 @@
+{
+  // Tekstil A.Ş. — Dosya Servisi (Cloudflare Worker + R2).
+  // Dağıtım: npx wrangler deploy   (önce: npx wrangler login)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tekstil-dosya",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+
+  // Kova DIŞARIYA KAPALI. Tek giriş bu Worker'dır.
+  "r2_buckets": [
+    { "binding": "KOVA", "bucket_name": "tekstil-crm-dosya" }
+  ],
+
+  "routes": [
+    { "pattern": "dosya.tekstilas.com", "custom_domain": true }
+  ],
+
+  "vars": {
+    // Sır değildir: anon anahtar ön yüz derlemesinde zaten var.
+    "SUPABASE_URL": "https://kkxvoxeqfsaqzklrtgrw.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_HcZIEYsmxwopvP44Ba7-LQ_AJGsaxwH",
+    "CORS_ORIGIN": "https://crm.tekstilas.com"
+  },
+
+  // SERVIS_SIRRI gizli değişkendir; wrangler secret put ile konur (Görev 3).
+
+  "observability": { "enabled": true }
+}
