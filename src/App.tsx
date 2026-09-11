@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
@@ -51,6 +52,7 @@ import { NumunelerListPage } from '@/pages/samples/NumunelerListPage'
 import { SiparislerListPage } from '@/pages/orders/SiparislerListPage'
 import { RaporlarPage } from '@/pages/reports/RaporlarPage'
 import { NAV_ITEMS } from '@/lib/navigation'
+import { dosyaOturumunuBagla } from '@/lib/dosyaOturum'
 
 /** Gerçek sayfası olan modüller (yer tutucu değil). */
 const IMPLEMENTED_PATHS = new Set(['/', '/ayarlar', '/potansiyeller', '/musteriler', '/talepler', '/teklifler', '/numuneler', '/siparisler', '/katalog', '/belgeler', '/finans', '/gorevler', '/hedefler', '/raporlar'])
@@ -62,6 +64,12 @@ const IMPLEMENTED_PATHS = new Set(['/', '/ayarlar', '/potansiyeller', '/musteril
  *  - Ayarlar bir hub'dır; çalışan yönetimi altında.
  */
 export default function App() {
+  // Dosya servisi (R2 + Worker) oturum çerezini Supabase oturumuyla eşler.
+  // Supabase oturumunun kendisi src/lib/auth.tsx (AuthProvider) içinde
+  // yönetiliyor; burada App tek noktada, App.tsx içinde tek sefer kuruluyor —
+  // AuthProvider'a eklenmiyor ki iki ayrı abonelik oluşmasın.
+  useEffect(() => dosyaOturumunuBagla(), [])
+
   return (
     <Routes>
       {/* Public kimlik ekranları */}
