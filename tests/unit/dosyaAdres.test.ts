@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { enYakinBoyut, dosyaUrl } from '@/lib/dosyaAdres'
+import { env } from '@/lib/env'
 
 describe('enYakinBoyut', () => {
   it('küçük genişlikleri 160a yuvarlar', () => {
@@ -27,7 +28,7 @@ describe('enYakinBoyut', () => {
 
 describe('dosyaUrl', () => {
   it('düz adres üretir', () => {
-    expect(dosyaUrl('image/a.jpg')).toBe('http://localhost:8787/d/image/a.jpg')
+    expect(dosyaUrl('image/a.jpg')).toBe(`${env.dosyaUrl}/d/image/a.jpg`)
   })
 
   it('genişliği yuvarlayıp parametreye koyar', () => {
@@ -44,6 +45,6 @@ describe('dosyaUrl', () => {
   })
 
   it('yol parçalarını kodlar ama bölü işaretini korur', () => {
-    expect(dosyaUrl('image/a b.jpg')).toBe('http://localhost:8787/d/image/a%20b.jpg')
+    expect(dosyaUrl('image/a b.jpg')).toBe(`${env.dosyaUrl}/d/image/a%20b.jpg`)
   })
 })
