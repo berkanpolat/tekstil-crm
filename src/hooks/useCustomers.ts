@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import { normalizeTr } from '@/lib/normalize'
 import { contactMatchIds } from '@/hooks/useLeads'
+import { dosyalariSil } from './useFiles'
 import type { SortState } from '@/components/shared/DataTable'
 
 export interface CustomerRow {
@@ -395,17 +396,9 @@ export function useHardDeleteCustomer() {
     mutationFn: async (id: number) => {
       const { data, error } = await supabase.rpc('customer_hard_delete' as never, { p_customer_id: id } as never)
       if (error) throw error
-      // RPC bucket'ı silemez → dönen [{bucket, path}] listesini burada temizle
-      const paths = (data as unknown as { bucket: string; path: string }[]) ?? []
-      const byBucket = new Map<string, string[]>()
-      for (const p of paths) {
-        if (!p?.bucket || !p?.path) continue
-        byBucket.set(p.bucket, [...(byBucket.get(p.bucket) ?? []), p.path])
-      }
-      for (const [bucket, keys] of byBucket) {
-        // storage hatası veriyi geri getirmez; sessiz geç (DB zaten silindi)
-        await supabase.storage.from(bucket).remove(keys)
-      }
+      // Fiziksel silme dosya servisinden geçer (Görev 6'daki ortak yardımcı).
+      const nesneler = (data as unknown as { bucket: string; path: string }[]) ?? []
+      await dosyalariSil(nesneler.map((n) => n?.path).filter(Boolean))
     },
     onSuccess: () => invalidate(qc),
   })
