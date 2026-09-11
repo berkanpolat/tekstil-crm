@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, FlaskConical, Package, BellRing, HandHelping,
-  Zap, Shirt, Clock, CheckCircle2, XCircle, SlidersHorizontal, Loader2, AlertTriangle, ChevronDown,
+  Zap, Clock, CheckCircle2, XCircle, SlidersHorizontal, Loader2, AlertTriangle, ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,7 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
-import { useSignedUrl } from '@/hooks/useFiles'
+import { DosyaResim } from '@/components/shared/DosyaResim'
 import {
   computeRange, type Period, type PeriodKey,
   useRequestsMetric, useQuotesMetric, useInteractionsMetric, useActiveFunnel,
@@ -222,12 +222,7 @@ function MetricStrip({ period }: { period: Period }) {
 
 // ② Teklif bekliyor ─────────────────────────────────────────────────────
 function Thumb({ path }: { path: string | null | undefined }) {
-  const [noTx, setNoTx] = useState(false)
-  const url = useSignedUrl(path ? { bucket: 'documents', storage_path: path } : null, path && !noTx ? { width: 112, resize: 'contain' } : undefined)
-  if (!path) return <div className="bg-muted text-text-muted flex size-11 shrink-0 items-center justify-center rounded-md"><Shirt className="size-4" /></div>
-  return url.data
-    ? <img src={url.data} alt="" className="size-11 shrink-0 rounded-md bg-muted object-contain" loading="lazy" decoding="async" onError={() => { if (!noTx) setNoTx(true) }} />
-    : <div className="size-11 shrink-0 animate-pulse rounded-md bg-muted" />
+  return <DosyaResim path={path ?? null} alt="" genislik={112} contain className="size-11 shrink-0 rounded-md bg-muted" />
 }
 
 function PendingQuotesSection({ nowMs }: { nowMs: number }) {

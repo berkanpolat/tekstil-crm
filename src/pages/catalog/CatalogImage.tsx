@@ -1,25 +1,13 @@
-import { useState } from 'react'
-import { useSignedUrl } from '@/hooks/useFiles'
-import { cn } from '@/lib/utils'
-import { ImageOff } from 'lucide-react'
+import { DosyaResim } from '@/components/shared/DosyaResim'
 
 /**
- * Katalog görseli (QA#6). width verilirse thumbnail (Supabase transform) — ızgarada tam-boy
- * yerine küçük görsel yüklenir. Plan transform desteklemezse onError ile orijinale düşer.
- * contain=true → kart oranından bağımsız KIRPILMADAN sığar (karışık en/boy oranlı katalog).
+ * Katalog görseli. width verilirse hazır küçük resim (160/480) istenir.
+ * contain=true → kart oranından bağımsız KIRPILMADAN sığar.
+ *
+ * Eski `noTransform` yedek yolu kaldırıldı: küçük resimler artık yükleme
+ * anında üretiliyor, Worker bulamazsa kendisi orijinale düşüyor.
  */
 export function CatalogImage({ path, alt, className, width, contain }:
   { path: string | null; alt: string; className?: string; width?: number; contain?: boolean }) {
-  const [noTransform, setNoTransform] = useState(false)
-  const useTx = !!width && !noTransform
-  const url = useSignedUrl(
-    path ? { bucket: 'documents', storage_path: path } : null,
-    useTx ? { width, resize: contain ? 'contain' : 'cover' } : undefined,
-  )
-  if (!path) return <div className={cn('flex items-center justify-center bg-muted text-text-muted', className)}><ImageOff className="size-6" /></div>
-  return url.data
-    ? <img src={url.data} alt={alt} loading="lazy" decoding="async"
-        className={cn(contain ? 'object-contain' : 'object-cover', className)}
-        onError={() => { if (useTx) setNoTransform(true) }} />
-    : <div className={cn('animate-pulse bg-muted', className)} />
+  return <DosyaResim path={path} alt={alt} className={className} genislik={width} contain={contain} />
 }

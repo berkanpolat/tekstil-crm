@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, Shirt, HandHelping, GitMerge } from 'lucide-react'
-import { useSignedUrl } from '@/hooks/useFiles'
+import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, HandHelping, GitMerge } from 'lucide-react'
+import { DosyaResim } from '@/components/shared/DosyaResim'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
@@ -34,15 +34,9 @@ function teklifSuresiCell(iso: string | null) {
 function fmtDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 }
-/** Liste önizleme — küçük thumbnail (Supabase transform, katalogdaki yaklaşım). Görsel
- *  yoksa kırık ikon değil, nötr bir ürün (tekstil) yer tutucusu. */
+/** Liste önizleme — küçük thumbnail. Görsel yoksa yer tutucu gösterir. */
 function Thumb({ path }: { path: string | null }) {
-  const [noTx, setNoTx] = useState(false)
-  const url = useSignedUrl(path ? { bucket: 'documents', storage_path: path } : null, path && !noTx ? { width: 120, resize: 'contain' } : undefined)
-  if (!path) return <div className="bg-muted text-text-muted flex size-12 items-center justify-center rounded-md"><Shirt className="size-4" /></div>
-  return url.data
-    ? <img src={url.data} alt="" className="size-12 rounded-md bg-muted object-contain" loading="lazy" decoding="async" onError={() => { if (!noTx) setNoTx(true) }} />
-    : <div className="size-12 animate-pulse rounded-md bg-muted" />
+  return <DosyaResim path={path} alt="" genislik={120} contain className="size-12 rounded-md bg-muted" />
 }
 
 /** Talepler = operasyonlar. Sunucu tarafı liste/arama/filtre/sayfalama. */
