@@ -5,6 +5,7 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/auth.ts'
 import { fetchDogrulanmis, ssrfGuvenliUrl } from '../_shared/ssrf.ts'
+import { depolamayaYaz } from '../_shared/dosyaDepo.ts'
 
 const HEADERS = { ...corsHeaders, 'Access-Control-Allow-Headers': corsHeaders['Access-Control-Allow-Headers'] + ', x-intake-secret' }
 
@@ -52,11 +53,23 @@ Deno.serve(async (req) => {
   let filesSaved = 0
 
   async function store(bytes: Uint8Array, name: string, mime: string) {
-    const path = `intake/${opId}/${crypto.randomUUID()}-${name}`.slice(0, 200)
-    const up = await db.storage.from('documents').upload(path, bytes, { contentType: mime })
-    if (up.error) { notes.push(`dosya yüklenemedi: ${name}`); return }
+    // Ad, Worker'ın yolGecerli kuralından (^[a-zA-Z0-9_\-./]{1,200}$, ".." yok)
+    // geçecek şekilde temizlenir. Ardışık noktalar da "_" yapılır — aksi halde
+    // "a..b" gibi bir ad ".." alt dizisi bırakıp Worker'da reddedilirdi.
+    // original_name alanına HÂLÂ temizlenmemiş `name` yazılır (kullanıcı gerçek
+    // adı görsün); yalnız YOL'da güvenliAd kullanılır.
+    const guvenliAd = name.replace(/[^a-zA-Z0-9_\-.]/g, '_').replace(/\.{2,}/g, '_').slice(0, 80) || 'dosya'
+    const path = `intake/${opId}/${crypto.randomUUID()}-${guvenliAd}`.slice(0, 200)
+    const ortam = {
+      url: Deno.env.get('DOSYA_SERVIS_URL') ?? '',
+      sir: Deno.env.get('DOSYA_SERVIS_SIRRI') ?? '',
+    }
+    if (!(await depolamayaYaz(path, bytes, mime, ortam))) {
+      notes.push(`dosya yüklenemedi: ${name}`)
+      return
+    }
     await db.from('files').insert({
-      bucket: 'documents', storage_path: path, original_name: name, mime_type: mime,
+      bucket: 'r2', storage_path: path, original_name: name, mime_type: mime,
       size_bytes: bytes.byteLength, checksum: await sha256(bytes),
       category: mime.startsWith('image/') ? 'image' : 'document',   // görsel → image (liste önizlemesi bunu arar)
       entity_type: 'operation', entity_id: String(opId),
