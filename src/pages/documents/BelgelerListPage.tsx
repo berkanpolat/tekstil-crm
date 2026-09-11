@@ -33,6 +33,12 @@ async function openFile(storagePath: string | null, name: string | null, downloa
   else window.open(url, '_blank', 'noopener')
 }
 
+/** `openFile` çağırıp hatayı kullanıcıya bildirir (tıklama sessizce ölmesin). */
+async function handleOpenFile(storagePath: string | null, name: string | null, download: boolean) {
+  try { await openFile(storagePath, name, download) }
+  catch (err) { toast.error(await toUserMessage(err)) }
+}
+
 /** Belgeler menüsü — tüm üretilmiş belgeler, filtre + içerik araması + indir/önizle. */
 export function BelgelerListPage() {
   const navigate = useNavigate()
@@ -101,8 +107,8 @@ export function BelgelerListPage() {
     { key: 'actions', header: '', align: 'right', cell: (r) => (
       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
         <Button size="icon" variant="ghost" className="size-8" title="Düzenle / yeni sürüm" onClick={() => navigate(`/belgeler/${r.id}/duzenle`)}><FileEdit className="size-4" /></Button>
-        <Button size="icon" variant="ghost" className="size-8" title="Önizle" disabled={!r.storage_path} onClick={() => void openFile(r.storage_path, r.file_name, false)}><Eye className="size-4" /></Button>
-        <Button size="icon" variant="ghost" className="size-8" title="İndir" disabled={!r.storage_path} onClick={() => void openFile(r.storage_path, r.file_name, true)}><Download className="size-4" /></Button>
+        <Button size="icon" variant="ghost" className="size-8" title="Önizle" disabled={!r.storage_path} onClick={() => void handleOpenFile(r.storage_path, r.file_name, false)}><Eye className="size-4" /></Button>
+        <Button size="icon" variant="ghost" className="size-8" title="İndir" disabled={!r.storage_path} onClick={() => void handleOpenFile(r.storage_path, r.file_name, true)}><Download className="size-4" /></Button>
         <Button size="icon" variant="ghost" className="size-8 text-destructive" title="Sil" onClick={() => void deleteDoc(r)}><Trash2 className="size-4" /></Button>
       </div>
     ) },

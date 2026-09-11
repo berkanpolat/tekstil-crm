@@ -3,14 +3,57 @@ import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import type { Database } from '@/lib/database.types'
 import { dosyaUrl } from '@/lib/dosyaAdres'
-import { kucukResimUret } from '@/lib/kucukResim'
+import { kucukResimleriUret } from '@/lib/kucukResim'
 import { oturumTazele } from '@/lib/dosyaOturum'
-import { env } from '@/lib/env'
+import { env, hasDosyaServisi, DOSYA_UNAVAILABLE } from '@/lib/env'
 
 export type FileRow = Database['public']['Tables']['files']['Row']
 export type FileCategory = Database['public']['Enums']['file_category']
 /** 'documents'/'avatars' eski Supabase kovaları; 'r2' yeni dosya servisi. */
 export type FileBucket = 'documents' | 'avatars' | 'r2'
+
+/**
+ * Worker'ın izin listesiyle BİREBİR aynı (genel-kısıtlar.md, 13 tip).
+ * İstemci tarafında önden denetlemek için: kullanıcı 25 MB'lık dosyayı
+ * tamamen yükleyip sonra 415 almasın.
+ */
+const IZINLI_MIME = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'text/csv',
+  'text/plain',
+  'application/zip',
+])
+
+/** Worker'ın azami boyutuyla BİREBİR aynı (genel-kısıtlar.md). */
+const AZAMI_BAYT = 25 * 1024 * 1024
+
+/** Worker'ın `/y` hata gövdesi: `{ hata: '...' }` (services/dosya-worker/src/index.js). */
+interface WorkerHata { hata?: string }
+
+/** Ham HTTP durum koduna göre Türkçe, kullanıcıya gösterilebilir mesaj üretir. */
+function durumMesaji(durum: number): string {
+  switch (durum) {
+    case 401:
+      return 'Oturum doğrulanamadı. Sayfayı yenileyip tekrar deneyin.'
+    case 409:
+      return 'Bu dosya zaten yüklenmiş.'
+    case 413:
+      return 'Dosya çok büyük (en çok 25 MB).'
+    case 415:
+      return 'Bu dosya türü kabul edilmiyor.'
+    default:
+      return `Dosya yüklenemedi (${durum}).`
+  }
+}
 
 /** Tek bir nesneyi dosya servisine yükler. Çerez yoksa bir kez tazeleyip dener. */
 async function dosyaYukle(yol: string, govde: Blob, tip: string): Promise<void> {
@@ -26,7 +69,19 @@ async function dosyaYukle(yol: string, govde: Blob, tip: string): Promise<void> 
     await oturumTazele()
     r = await gonder()
   }
-  if (!r.ok) throw new Error(`Dosya yüklenemedi (${r.status}).`)
+  if (!r.ok) {
+    // Worker Türkçe gövde döndürür ({hata: '...'}); varsa onu kullan, yoksa
+    // duruma göre haritalanmış mesaja düş. Gövde okuma patlarsa (JSON değilse
+    // ya da akış zaten tüketilmişse) sessizce düş — kullanıcı yine mesaj görür.
+    let mesaj = durumMesaji(r.status)
+    try {
+      const govde = (await r.json()) as WorkerHata
+      if (govde?.hata) mesaj = govde.hata
+    } catch {
+      // gövde JSON değil ya da okunamadı: durum koduna göre haritalanmış mesaj yeterli
+    }
+    throw new Error(mesaj)
+  }
 }
 
 /**
@@ -84,6 +139,13 @@ export function useUploadFile() {
     mutationFn: async (input: UploadFileInput): Promise<FileRow> => {
       const { file, category } = input
 
+      if (!hasDosyaServisi) throw new Error(DOSYA_UNAVAILABLE)
+
+      // İstemci tarafı ön denetim: sunucuya 25 MB göndermeden ÖNCE reddet.
+      const tip = file.type || 'application/octet-stream'
+      if (!IZINLI_MIME.has(tip)) throw new Error('Bu dosya türü kabul edilmiyor.')
+      if (file.size > AZAMI_BAYT) throw new Error('Dosya çok büyük (en çok 25 MB).')
+
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -92,12 +154,24 @@ export function useUploadFile() {
       const checksum = await sha256(file)
       const path = `${category}/${crypto.randomUUID()}.${extensionOf(file.name)}`
 
-      // Orijinal + iki küçük resim R2'ye. Küçükler üretilemezse (PDF, HEIC)
-      // sessizce atlanır; Worker küçük bulamazsa orijinale düşer.
-      await dosyaYukle(path, file, file.type || 'application/octet-stream')
-      for (const boyut of [160, 480] as const) {
-        const kucuk = await kucukResimUret(file, boyut)
-        if (kucuk) await dosyaYukle(`k/${boyut}/${path}.webp`, kucuk, 'image/webp')
+      // Orijinal önce (bu başarısız olursa hiçbir şey yüklenmemiş sayılır,
+      // çağıran hatayı görür — yetim nesne yok).
+      await dosyaYukle(path, file, tip)
+
+      // Küçük resimler TEK kod çözümüyle (bkz. kucukResim.ts) üretilir.
+      // Üretilemezse (PDF, HEIC, canvas yok) o boyut haritada yok — sessizce
+      // atlanır, Worker küçük bulamazsa orijinale düşer.
+      const kucukler = await kucukResimleriUret(file, [160, 480])
+      for (const [boyut, kucuk] of kucukler) {
+        try {
+          await dosyaYukle(`k/${boyut}/${path}.webp`, kucuk, 'image/webp')
+        } catch (e) {
+          // Küçük resim en kötü ihtimalle EKSİK olur; Worker orijinale düşer.
+          // Orijinal zaten yüklendi — bunun için yüklemenin TAMAMINI
+          // başarısız saymak, yüklenmiş bir dosyayı "yüklenemedi" diye
+          // göstermek olurdu.
+          console.warn(`küçük resim yüklenemedi (${boyut}):`, e)
+        }
       }
 
       // Sürüm numarası: eski dosyanın üstüne +1
@@ -186,6 +260,10 @@ export async function getSignedUrl(
   downloadName?: string,
   transform?: ImgTransform,
 ): Promise<string> {
+  // Önce yapılandırma denetlenir: net "servis yok" mesajı, "yol geçersiz"
+  // mesajından daha isabetli olur (aksi hâlde her çağrı aynı belirsiz
+  // mesajı verir — ortam değişkeni eksikken kullanıcı yanlış şeyi sorgular).
+  if (!hasDosyaServisi) throw new Error(DOSYA_UNAVAILABLE)
   const url = dosyaUrl(path, { genislik: transform?.width, indirAdi: downloadName })
   if (!url) throw new Error('Dosya servisi kullanılamıyor ya da dosya yolu geçersiz.')
   return url
@@ -197,6 +275,10 @@ export async function getSignedUrl(
  * `dosyaUrl` boş dize dönerse (yapılandırma eksik ya da yol geçersiz)
  * `data: undefined` döner — boş dize DEĞİL: `<img src="">` sayfanın
  * kendisine istek atar, bu istenmez.
+ *
+ * ⚠️ DÖNEN NESNE HER ÇİZİMDE YENİDİR (eskiden React Query kararlıydı, artık
+ * düz obje). Bir `useEffect`/`useMemo` bağımlılık dizisine KOYMAYIN — sonsuz
+ * döngüye girer; bunun yerine `.data` alanını koyun.
  */
 export function useSignedUrl(file: Pick<FileRow, 'bucket' | 'storage_path'> | null, transform?: ImgTransform) {
   const url = file ? dosyaUrl(file.storage_path, { genislik: transform?.width }) : ''

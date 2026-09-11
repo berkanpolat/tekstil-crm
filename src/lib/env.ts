@@ -41,10 +41,20 @@ export const PDF_UNAVAILABLE = 'Belge servisi bu ortamda kullanılamıyor.'
 /** Dosya servisi bu ortamda yapılandırılmış mı? (yoksa görseller açılmaz) */
 export const hasDosyaServisi = Boolean(env.dosyaUrl)
 
+/** Dosya servisi yoksa kullanıcıya gösterilecek net mesaj (sessiz hata yerine). */
+export const DOSYA_UNAVAILABLE = 'Dosya servisi bu ortamda kullanılamıyor.'
+
 if (import.meta.env.DEV && !hasSupabaseConfig) {
   // Faz 0'da kimlik dogrulama gelene kadar giris sayfasi da olsa uyaralim.
   console.warn(
     '[env] VITE_SUPABASE_URL veya VITE_SUPABASE_ANON_KEY tanimli degil. ' +
       '.env dosyanizi .env.example uzerinden olusturun.',
+  )
+}
+
+if (import.meta.env.DEV && !hasDosyaServisi) {
+  console.warn(
+    '[env] VITE_DOSYA_URL tanimli degil. Dosya servisi bu ortamda calismayacak ' +
+      '(yukleme/onizleme/indirme basarisiz olur).',
   )
 }
