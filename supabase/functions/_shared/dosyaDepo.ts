@@ -10,6 +10,18 @@ export interface DepoOrtam {
   sir: string
 }
 
+/**
+ * Kullanıcıdan gelen dosya adını YOL'da kullanılabilir hâle getirir.
+ *
+ * İki aşama şart: izinsiz karakterler `_`ye çevrilir VE ardışık noktalar
+ * tekilleştirilir. İkincisi olmazsa `rapor..pdf` gibi bir ad Worker'ın
+ * `yolGecerli` kuralından geçmez (`..` alt dizi olarak her yerde yasak) ve
+ * talep girişindeki dosya SESSİZCE kaybolur.
+ */
+export function guvenliDosyaAdi(ad: string): string {
+  return ad.replace(/[^a-zA-Z0-9_\-.]/g, '_').replace(/\.{2,}/g, '_').slice(0, 80) || 'dosya'
+}
+
 /** @returns yazıldıysa true. ASLA fırlatmaz — talep girişi dosya yüzünden düşmemeli. */
 export async function depolamayaYaz(
   yol: string,
