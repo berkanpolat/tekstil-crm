@@ -155,6 +155,20 @@ describe('GET /d', () => {
     expect(r.headers.get('content-disposition')).toMatch(/^attachment/)
     await r.arrayBuffer()
   })
+
+  // Görev 10 düzeltme turu 1 — K1: video/ satir içi güvenli tipler listesine
+  // eklendi (satirIciGuvenli). Bugün Supabase imzalı URL'iyle oynatılıyor;
+  // attachment'a düşürmek davranış gerilemesi olurdu.
+  it('video tipini indir istenmese de satır içi verir (attachment DEĞİL)', async () => {
+    filesKaydi = { mime_type: 'video/mp4', original_name: 'tanitim.mp4' }
+    await env.KOVA.put('video/tanitim.mp4', new Uint8Array([1, 2, 3]))
+    const r = await SELF.fetch('https://dosya.tekstilas.com/d/video/tanitim.mp4', {
+      headers: { cookie: await gecerliCerez() },
+    })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-disposition')).toBeNull()
+    await r.arrayBuffer()
+  })
 })
 
 describe('PUT /y — servis sırrı', () => {
@@ -191,10 +205,50 @@ describe('PUT /y — servis sırrı', () => {
     await nesne.arrayBuffer()
   })
 
-  it('izin listesi dışı MIME reddeder', async () => {
+  it('izin listesi dışı MIME çerezle reddedilir (sıkı yol değişmedi)', async () => {
     const r = await SELF.fetch('https://dosya.tekstilas.com/y?yol=image/kotu.svg', {
       method: 'PUT',
-      headers: { 'content-type': 'image/svg+xml', 'x-servis-sirri': env.SERVIS_SIRRI },
+      headers: { 'content-type': 'image/svg+xml', cookie: await gecerliCerez() },
+      body: new Uint8Array([1, 2, 3]),
+    })
+    expect(r.status).toBe(415)
+  })
+
+  // --- Görev 10 düzeltme turu 1 — K1: servis sırrı yolunda MIME kısıtı yok ---
+  // (tarihsel veride 1 Eylül 2026 güvenlik göçünden önceki video/mp4 ve NULL
+  // mime'lı dosyalar taşınabilsin diye). Boyut ve yol denetimi HER İKİ YOLDA
+  // DA aynı kalıyor — yalnız MIME ayrıldı.
+
+  it('servis sırrıyla izin listesi dışı MIME (video/mp4) kabul edilir', async () => {
+    const r = await SELF.fetch('https://dosya.tekstilas.com/y?yol=video/a.mp4', {
+      method: 'PUT',
+      headers: { 'content-type': 'video/mp4', 'x-servis-sirri': env.SERVIS_SIRRI },
+      body: new Uint8Array([1, 2, 3]),
+    })
+    expect(r.status).toBe(201)
+    const nesne = await env.KOVA.get('video/a.mp4')
+    expect(nesne).not.toBeNull()
+    expect(nesne.httpMetadata.contentType).toBe('video/mp4')
+    await nesne.arrayBuffer()
+  })
+
+  it('servis sırrıyla content-type boşsa application/octet-stream olarak kaydeder (reddetmez)', async () => {
+    const r = await SELF.fetch('https://dosya.tekstilas.com/y?yol=belge/mimesiz.bin', {
+      method: 'PUT',
+      headers: { 'x-servis-sirri': env.SERVIS_SIRRI },
+      body: new Uint8Array([1, 2, 3]),
+    })
+    expect(r.status).toBe(201)
+    const nesne = await env.KOVA.get('belge/mimesiz.bin')
+    expect(nesne).not.toBeNull()
+    expect(nesne.httpMetadata.contentType).toBe('application/octet-stream')
+    await nesne.arrayBuffer()
+  })
+
+  it('ÇEREZLE video/mp4 hâlâ 415 ile reddedilir (sıkı yol bozulmadı)', async () => {
+    const r = await SELF.fetch('https://dosya.tekstilas.com/y?yol=video/kullanici.mp4', {
+      method: 'PUT',
+      headers: { 'content-type': 'video/mp4', cookie: await gecerliCerez() },
       body: new Uint8Array([1, 2, 3]),
     })
     expect(r.status).toBe(415)
@@ -213,6 +267,8 @@ describe('PUT /y — servis sırrı', () => {
     expect(r.status).toBe(413)
   })
 
+  // Bu test aynı zamanda Görev 10 düzeltme turu 1'in K1'ini de kanıtlıyor:
+  // servis sırrı yolunda yalnız MIME kısıtı kaldırıldı, boyut sınırı AYNI.
   it('GERÇEK gövde 25 MiB üstündeyse content-length yalan/eksik olsa da reddeder (K1 regresyonu)', async () => {
     const r = await SELF.fetch('https://dosya.tekstilas.com/y?yol=image/asiri.jpg', {
       method: 'PUT',
@@ -245,6 +301,8 @@ describe('PUT /y — servis sırrı', () => {
     await nesne.arrayBuffer()
   })
 
+  // Görev 10 düzeltme turu 1 — K1 regresyonu: servis sırrı yolunda yalnız
+  // MIME kısıtı kaldırıldı, yol denetimi AYNI kaldı.
   it('k/ önekiyle yol kaçışını 400 ile reddeder', async () => {
     const r = await SELF.fetch('https://dosya.tekstilas.com/y?yol=k/160/../../gizli.webp', {
       method: 'PUT',

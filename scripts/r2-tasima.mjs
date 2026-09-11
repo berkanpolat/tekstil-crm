@@ -4,11 +4,11 @@
 // UYGULAMA: Görev 10 brief'i + kontrolör kararları (K1-K6).
 //   .superpowers/sdd/2026-09-11-r2-dosya-katmani/gorev-10-brief.md
 //
-// KULLANIM
-//   node scripts/r2-tasima.mjs indir     # Supabase'den yerel klasöre
-//   node scripts/r2-tasima.mjs kucuk     # 160/480 WebP üret
-//   node scripts/r2-tasima.mjs yukle     # R2'ye (Worker /y ucundan)
-//   node scripts/r2-tasima.mjs dogrula   # sayı/boyut karşılaştır, R2 tarafını denetle
+// ÇALIŞTIRMA SIRASI (dördü de bağımsız komut, sırayla ve elle çalıştırılır):
+//   1. node scripts/r2-tasima.mjs indir     # Supabase'den yerel .tasima/ham'a indirir
+//   2. node scripts/r2-tasima.mjs kucuk     # yerelde görsellerden 160/480 WebP üretir
+//   3. node scripts/r2-tasima.mjs yukle     # yerelden R2'ye yükler (Worker /y ucundan)
+//   4. node scripts/r2-tasima.mjs dogrula   # sayı/boyut karşılaştırır, R2 tarafını denetler
 //
 // Her aşama YENİDEN BAŞLATILABİLİR: tamamlananlar .tasima-durum.json'da
 // tutulur, ikinci çalıştırma kaldığı yerden sürer. `yukle` aşaması ayrıca
@@ -24,6 +24,20 @@
 //   DOSYA_SERVIS_URL          — örn. https://dosya.tekstilas.com
 //   DOSYA_SERVIS_SIRRI        — Worker'a `wrangler secret put SERVIS_SIRRI` ile
 //                                konan değerle AYNI olmalı
+//
+// ⚠️ `kucukYolu()`'nun ürettiği anahtar biçimi Worker'daki `r2Anahtar`'dan
+// (services/dosya-worker/src/index.js) ELLE KOPYALANDI — otomatik paylaşım
+// yok (ayrı çalışma zamanları: bu betik Node, Worker Cloudflare Workers).
+// Worker'da bu biçim değişirse burası da elle güncellenmeli; ayrışırsa
+// `tests/unit/tasimaYol.test.ts` KIRILIR (bu kasıtlı bir erken uyarı —
+// brief'teki K2 gereği).
+//
+// ⚠️ [Görev 10 düzeltme turu 1 — K1] Bu betik MIME'ye göre KENDİ TARAFINDA
+// ön-ret YAPMAZ: Worker'ın `/y` ucu servis sırrı yolunda (yalnız bu betiğin
+// kullandığı yol) MIME kısıtı uygulamıyor — tarihsel veride bugünkü sıkı
+// listeye uymayan dosyalar (video/mp4, NULL mime) var ve taşınmak zorunda.
+// `reddedilen` sayacı yalnız Worker'dan GERÇEKTEN dönen 4xx yanıtları sayar,
+// betiğin kendi tahminiyle atlama YAPMAZ.
 
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
@@ -39,17 +53,12 @@ const DURUM = '.tasima-durum.json'
 const ESZAMAN = 6
 const BOYUTLAR = [160, 480]
 const KOVA = 'documents'
-// Worker'daki AZAMI_BAYT ile aynı (services/dosya-worker/src/index.js).
-const AZAMI_BAYT = 25 * 1024 * 1024
-// Worker'daki IZINLI_MIME ile aynı — genel-kisitlar.md.
-const IZINLI_MIME = new Set([
-  'application/pdf',
-  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'text/csv', 'text/plain', 'application/zip',
-])
+// NOT: burada bilerek ne bir AZAMI_BAYT ne de bir IZINLI_MIME listesi VAR —
+// yani betik boyut/tip için kendi tarafında YEREL ÖN-RET yapmıyor (K1,
+// düzeltme turu 1): Worker'ın servis-sırrı yolu (bu betiğin kullandığı yol)
+// MIME kısıtı uygulamıyor, boyut sınırı ise zaten Worker'da akış sırasında
+// gerçek bayt sayısıyla denetleniyor. Tek doğruluk kaynağı Worker'ın
+// kendisi; her nesne gönderilip GERÇEK yanıt sayılır.
 
 // ---------------------------------------------------------------------------
 // Ortam
@@ -169,8 +178,18 @@ async function guvenliMetin(r) {
 // Eşzamanlı kuyruk
 // ---------------------------------------------------------------------------
 
-/** İş listesini sınırlı eşzamanlılıkla işler; her iş kendi hatasını yakalar. */
-async function kuyruk(isler, calis) {
+/**
+ * İş listesini sınırlı eşzamanlılıkla işler; her iş kendi hatasını yakalar.
+ *
+ * @param araYaz — [Görev 10 düzeltme turu 1 — Ö1] isteğe bağlı, her 100 işte
+ *   bir çağrılan ara-kayıt geri çağrısı (ör. `() => durumYaz(durum)`). `yukle`
+ *   aşaması ~11.000 istekten oluşabiliyor; durum yalnız aşama SONUNDA
+ *   yazılırsa sona yakın bir çökme neredeyse tüm aşamanın tekrarlanmasına
+ *   yol açar (veri kaybı değil ama ciddi bir güven zayıflığı — Worker'ın
+ *   servis sırrıyla üzerine yazabilmesi zaten tekrarı ucuzlaştırıyor, ama
+ *   yine de gereksiz). Ara kayıt kendi hatasını yakalar, betiği DURDURMAZ.
+ */
+async function kuyruk(isler, calis, araYaz) {
   let sira = 0
   let bitti = 0
   let hataSayisi = 0
@@ -186,7 +205,16 @@ async function kuyruk(isler, calis) {
         hataSayisi++
         console.error(`  beklenmeyen hata: ${e.message}`)
       }
-      if (++bitti % 100 === 0) console.log(`  ${bitti}/${isler.length}`)
+      if (++bitti % 100 === 0) {
+        console.log(`  ${bitti}/${isler.length}`)
+        if (araYaz) {
+          try {
+            await araYaz()
+          } catch (e) {
+            console.error(`  ara durum kaydı başarısız (devam ediliyor): ${e.message}`)
+          }
+        }
+      }
     }
   }
   await Promise.all(Array.from({ length: ESZAMAN }, isci))
@@ -270,7 +298,7 @@ async function indir() {
       return
     }
     durum.indirilen.push(k.storage_path)
-  })
+  }, () => durumYaz(durum))
   await durumYaz(durum)
   console.log(`İndirilen toplam: ${durum.indirilen.length} · bu çalıştırmada başarısız: ${basarisiz}`)
 }
@@ -310,7 +338,7 @@ async function kucuk() {
     }
     if (hataVar) { basarisiz++; return }
     durum.kucuk.push(k.storage_path)
-  })
+  }, () => durumYaz(durum))
   await durumYaz(durum)
   console.log(`Küçültülen toplam: ${durum.kucuk.length} · bu çalıştırmada başarısız: ${basarisiz}`)
 }
@@ -347,25 +375,15 @@ async function yukle() {
       basarisiz++
       return
     }
-    if (i.mime.split(';')[0].trim().toLowerCase() !== 'image/webp' && !IZINLI_MIME.has(i.mime)) {
-      // Worker aynı denetimi yapar (415); burada erken tespit ederek boşuna
-      // ağ isteği atmayız.
-      console.error(`  tip Worker tarafından reddedilecek, atlanıyor: ${i.yol} (${i.mime})`)
-      reddedilen++
-      return
-    }
-
+    // BİLEREK yerel MIME/boyut ön-reddi YOK (K1, düzeltme turu 1): tek
+    // doğruluk kaynağı Worker'ın kendisidir — betik kendi tahminiyle
+    // atlama yapmaz, her nesneyi Worker'a gönderip GERÇEK yanıtı sayar.
     let govde
     try {
       govde = await readFile(kaynak)
     } catch (e) {
       console.error(`  okunamadı: ${i.yol} — ${e.message}`)
       basarisiz++
-      return
-    }
-    if (govde.byteLength > AZAMI_BAYT) {
-      console.error(`  boyut sınırı aşılıyor, atlanıyor: ${i.yol} (${govde.byteLength} bayt)`)
-      reddedilen++
       return
     }
 
@@ -399,7 +417,7 @@ async function yukle() {
       return
     }
     durum.yuklenen.push(i.yol)
-  })
+  }, () => durumYaz(durum))
   await durumYaz(durum)
   console.log(
     `Yüklenen toplam: ${durum.yuklenen.length} · bu çalıştırmada başarısız: ${basarisiz} · ` +

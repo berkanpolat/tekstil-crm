@@ -61,7 +61,10 @@ async function okuyucuDogrula(request, env) {
 // isteğin kurbanın oturumuyla HTML/SVG benzeri içerik "satır içi" sunması
 // veri sızıntısına açık kapı olurdu.
 function satirIciGuvenli(tip) {
-  return tip.startsWith('image/') || tip === 'application/pdf'
+  // `video/` eklendi: bugün Supabase imzalı URL'iyle video oynatılıyor,
+  // attachment'a düşürmek davranış gerilemesi olurdu. Video betik
+  // çalıştıramaz; `nosniff` + CSP `sandbox` zaten satır 103-104'te duruyor.
+  return tip.startsWith('image/') || tip.startsWith('video/') || tip === 'application/pdf'
 }
 
 async function dosyaVer(request, env, yol, url) {
@@ -183,11 +186,27 @@ async function dosyaYukle(request, env, url) {
     if (!kimlik) return json(request, env, { hata: 'yetki yok' }, 401)
   }
 
-  const tip = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-  if (!IZINLI_MIME.has(tip)) return json(request, env, { hata: 'tip kabul edilmiyor' }, 415)
+  const hamTip = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+  let tip
+  if (sirla) {
+    // ÜRETİM KARARI (Görev 10 düzeltme turu 1 — K1): servis sırrı yolu yalnız
+    // taşıma betiğine verilir (bkz. K3 — çerez yazamaz, sır üzerine yazabilir).
+    // Canlı veride 1 Eylül 2026 güvenlik göçünden ÖNCE yüklenmiş 30 dosya
+    // bugünkü sıkı `IZINLI_MIME` listesine uymuyor (video/mp4, NULL mime →
+    // content-type boş). Bu tarihsel veri taşınmak ZORUNDA; MIME kısıtı
+    // servis sırrı yolunda UYGULANMAZ. Boş/geçersiz content-type gelirse
+    // reddetmek yerine `application/octet-stream`e düşülür — gelecekteki
+    // (çerezli) kullanıcı yüklemeleri sıkı listeye tabi kalmaya devam eder,
+    // yalnız bu tek-seferlik taşıma yolu gevşek.
+    tip = hamTip || 'application/octet-stream'
+  } else {
+    if (!IZINLI_MIME.has(hamTip)) return json(request, env, { hata: 'tip kabul edilmiyor' }, 415)
+    tip = hamTip
+  }
 
   // Ucuz erken ret — tek dayanak DEĞİL, gerçek sınır aşağıda akış sırasında
   // uygulanır (content-length saldırganın elinde, yalan söyleyebilir).
+  // Boyut sınırı HER İKİ YOLDA DA (çerez/sır) aynı — yalnız MIME ayrıldı.
   const uzunluk = Number(request.headers.get('content-length') || 0)
   if (uzunluk > AZAMI_BAYT) return json(request, env, { hata: 'dosya çok büyük' }, 413)
 
