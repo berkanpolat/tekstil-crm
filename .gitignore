@@ -69,3 +69,8 @@ sast/
 
 # Wrangler yerel durum dizini (Cloudflare Worker gelistirme)
 .wrangler/
+
+# R2 tasima araci — yerel indirilen/kucultulmus dosyalar ve durum dosyasi
+# (canli musteri verisi + yeniden baslatma durumu — asla git'e girmez)
+.tasima/
+.tasima-durum.json
