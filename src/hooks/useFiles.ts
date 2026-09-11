@@ -39,20 +39,47 @@ const AZAMI_BAYT = 25 * 1024 * 1024
 /** Worker'ın `/y` hata gövdesi: `{ hata: '...' }` (services/dosya-worker/src/index.js). */
 interface WorkerHata { hata?: string }
 
-/** Ham HTTP durum koduna göre Türkçe, kullanıcıya gösterilebilir mesaj üretir. */
-function durumMesaji(durum: number): string {
-  switch (durum) {
-    case 401:
-      return 'Oturum doğrulanamadı. Sayfayı yenileyip tekrar deneyin.'
-    case 409:
-      return 'Bu dosya zaten yüklenmiş.'
-    case 413:
-      return 'Dosya çok büyük (en çok 25 MB).'
-    case 415:
-      return 'Bu dosya türü kabul edilmiyor.'
-    default:
-      return `Dosya yüklenemedi (${durum}).`
-  }
+/**
+ * Bilinen durum kodları için kullanıcıya gösterilebilir Türkçe mesaj.
+ * Bu haritadaki durumlar için Worker'ın gövdesi YOK SAYILIR (bkz. `hataMesajiUret`).
+ */
+const DURUM_MESAJLARI: Record<number, string> = {
+  401: 'Oturum doğrulanamadı. Sayfayı yenileyip tekrar deneyin.',
+  409: 'Bu dosya zaten yüklenmiş.',
+  413: 'Dosya çok büyük (en çok 25 MB).',
+  415: 'Bu dosya türü kabul edilmiyor.',
+}
+
+/**
+ * HTTP durumuna ve (varsa) Worker gövdesine göre kullanıcıya gösterilecek
+ * Türkçe mesajı üretir.
+ *
+ * ÖNCELİK: haritalı durumlar (401/409/413/415) için `DURUM_MESAJLARI` KAZANIR
+ * — Worker'ın `hata` alanı burada bilerek YOK SAYILIR. Worker HER hata
+ * yolunda bir `hata` gövdesi döndürdüğü için ("dosya çok büyük", "nesne
+ * zaten var", "tip kabul edilmiyor" gibi) bu alan aslında her zaman dolu
+ * gelir; ham hâliyle gösterilirse kullanıcı iç/teşhis metnini görür (örn.
+ * "nesne zaten var" iç semantiği sızdırır, "dosya çok büyük" sınırın 25 MB
+ * olduğunu söylemez). Haritada OLMAYAN durumlar (400/404/502/…) için Worker
+ * gövdesi teşhis amaçlı, durum koduyla SARMALANARAK eklenir — bu yollar
+ * öngörülemez olduğu için ham mesaj burada faydalıdır.
+ */
+export function hataMesajiUret(durum: number, govde: WorkerHata | null): string {
+  const haritali = DURUM_MESAJLARI[durum]
+  if (haritali !== undefined) return haritali
+  if (govde?.hata) return `Dosya yüklenemedi (${durum}): ${govde.hata}`
+  return `Dosya yüklenemedi (${durum}).`
+}
+
+/**
+ * MIME tipini Worker'ın normalizasyonuyla BİREBİR aynı şekilde sadeleştirir
+ * (services/dosya-worker/src/index.js:186 — `split(';')[0].trim().toLowerCase()`).
+ * Parametreli (`text/csv; charset=utf-8`) ya da büyük harfli bir tip, iki
+ * tarafta da AYNI sonuca varmalı; aksi hâlde istemci reddedip Worker'ın kabul
+ * edeceği (ya da tersi) bir dosya kullanıcıya yanlış mesaj verir.
+ */
+export function mimeNormallestir(tip: string): string {
+  return (tip.split(';')[0] ?? '').trim().toLowerCase()
 }
 
 /** Tek bir nesneyi dosya servisine yükler. Çerez yoksa bir kez tazeleyip dener. */
@@ -70,17 +97,15 @@ async function dosyaYukle(yol: string, govde: Blob, tip: string): Promise<void> 
     r = await gonder()
   }
   if (!r.ok) {
-    // Worker Türkçe gövde döndürür ({hata: '...'}); varsa onu kullan, yoksa
-    // duruma göre haritalanmış mesaja düş. Gövde okuma patlarsa (JSON değilse
-    // ya da akış zaten tüketilmişse) sessizce düş — kullanıcı yine mesaj görür.
-    let mesaj = durumMesaji(r.status)
+    // Gövde okuma patlarsa (JSON değilse ya da akış zaten tüketilmişse)
+    // sessizce düş — hataMesajiUret gövde olmadan da bir mesaj üretir.
+    let govdeJson: WorkerHata | null = null
     try {
-      const govde = (await r.json()) as WorkerHata
-      if (govde?.hata) mesaj = govde.hata
+      govdeJson = (await r.json()) as WorkerHata
     } catch {
-      // gövde JSON değil ya da okunamadı: durum koduna göre haritalanmış mesaj yeterli
+      // yoksay
     }
-    throw new Error(mesaj)
+    throw new Error(hataMesajiUret(r.status, govdeJson))
   }
 }
 
@@ -142,7 +167,7 @@ export function useUploadFile() {
       if (!hasDosyaServisi) throw new Error(DOSYA_UNAVAILABLE)
 
       // İstemci tarafı ön denetim: sunucuya 25 MB göndermeden ÖNCE reddet.
-      const tip = file.type || 'application/octet-stream'
+      const tip = mimeNormallestir(file.type || 'application/octet-stream')
       if (!IZINLI_MIME.has(tip)) throw new Error('Bu dosya türü kabul edilmiyor.')
       if (file.size > AZAMI_BAYT) throw new Error('Dosya çok büyük (en çok 25 MB).')
 
