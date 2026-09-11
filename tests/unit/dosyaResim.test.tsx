@@ -14,6 +14,16 @@ describe('DosyaResim', () => {
     expect(screen.queryByRole('img')).toBeNull()
   })
 
+  it('yol yoksa ve yerTutucu verilmemişse varsayılan ikonu gösterir', () => {
+    const { container } = render(<DosyaResim path={null} alt="kumaş" />)
+    expect(container.querySelector('.lucide-image-off')).not.toBeNull()
+  })
+
+  it('yol yoksa ve yerTutucu verilmişse onu gösterir', () => {
+    render(<DosyaResim path={null} alt="kumaş" yerTutucu={<span data-testid="ozel-yer-tutucu">boş</span>} />)
+    expect(screen.getByTestId('ozel-yer-tutucu')).not.toBeNull()
+  })
+
   it('adresi genişlikle kurar', () => {
     render(<DosyaResim path="image/a.jpg" alt="kumaş" genislik={400} />)
     expect(screen.getByRole('img').getAttribute('src')).toContain('w=480')

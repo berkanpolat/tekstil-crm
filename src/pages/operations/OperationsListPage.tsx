@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, HandHelping, GitMerge } from 'lucide-react'
+import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, Shirt, HandHelping, GitMerge } from 'lucide-react'
 import { DosyaResim } from '@/components/shared/DosyaResim'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
@@ -34,9 +34,12 @@ function teklifSuresiCell(iso: string | null) {
 function fmtDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 }
-/** Liste önizleme — küçük thumbnail. Görsel yoksa yer tutucu gösterir. */
+/** Liste önizleme — küçük thumbnail. Görsel yoksa nötr bir ürün (tekstil) yer tutucusu. */
 function Thumb({ path }: { path: string | null }) {
-  return <DosyaResim path={path} alt="" genislik={120} contain className="size-12 rounded-md bg-muted" />
+  return (
+    <DosyaResim path={path} alt="" genislik={120} contain
+      className="size-12 rounded-md bg-muted" yerTutucu={<Shirt className="size-4" />} />
+  )
 }
 
 /** Talepler = operasyonlar. Sunucu tarafı liste/arama/filtre/sayfalama. */

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ImageOff } from 'lucide-react'
 import { dosyaUrl } from '@/lib/dosyaAdres'
 import { oturumTazele } from '@/lib/dosyaOturum'
@@ -16,13 +16,15 @@ import { cn } from '@/lib/utils'
  * süresinin dolmasıdır.
  */
 export function DosyaResim({
-  path, alt, className, genislik, contain,
+  path, alt, className, genislik, contain, yerTutucu,
 }: {
   path: string | null
   alt: string
   className?: string
   genislik?: number
   contain?: boolean
+  /** Görsel yoksa gösterilecek içerik. Verilmezse genel "görsel yok" ikonu. */
+  yerTutucu?: ReactNode
 }) {
   const [damga, setDamga] = useState<number | null>(null)
   const [pes, setPes] = useState(false)
@@ -33,7 +35,7 @@ export function DosyaResim({
   if (!temel || pes) {
     return (
       <div className={cn('flex items-center justify-center bg-muted text-text-muted', className)}>
-        <ImageOff className="size-6" />
+        {yerTutucu ?? <ImageOff className="size-6" />}
       </div>
     )
   }
@@ -49,6 +51,8 @@ export function DosyaResim({
       className={cn(contain ? 'object-contain' : 'object-cover', className)}
       onError={() => {
         if (damga) { setPes(true); return }
+        // `.catch` savunma amaçlı: `oturumTazele` bugün fırlatmıyor ama ileride
+        // değişirse zincirde yakalanmamış bir promise reddi kalmasın diye.
         oturumTazele()
           .then(() => setDamga(Date.now()))
           .catch(() => setPes(true))

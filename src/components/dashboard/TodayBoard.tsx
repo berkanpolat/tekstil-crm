@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, FlaskConical, Package, BellRing, HandHelping,
-  Zap, Clock, CheckCircle2, XCircle, SlidersHorizontal, Loader2, AlertTriangle, ChevronDown,
+  Zap, Shirt, Clock, CheckCircle2, XCircle, SlidersHorizontal, Loader2, AlertTriangle, ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -222,7 +222,10 @@ function MetricStrip({ period }: { period: Period }) {
 
 // ② Teklif bekliyor ─────────────────────────────────────────────────────
 function Thumb({ path }: { path: string | null | undefined }) {
-  return <DosyaResim path={path ?? null} alt="" genislik={112} contain className="size-11 shrink-0 rounded-md bg-muted" />
+  return (
+    <DosyaResim path={path ?? null} alt="" genislik={112} contain
+      className="size-11 shrink-0 rounded-md bg-muted" yerTutucu={<Shirt className="size-4" />} />
+  )
 }
 
 function PendingQuotesSection({ nowMs }: { nowMs: number }) {
