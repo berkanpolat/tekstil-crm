@@ -2,10 +2,52 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import type { Database } from '@/lib/database.types'
+import { dosyaUrl } from '@/lib/dosyaAdres'
+import { kucukResimUret } from '@/lib/kucukResim'
+import { oturumTazele } from '@/lib/dosyaOturum'
+import { env } from '@/lib/env'
 
 export type FileRow = Database['public']['Tables']['files']['Row']
 export type FileCategory = Database['public']['Enums']['file_category']
-export type FileBucket = 'documents' | 'avatars'
+/** 'documents'/'avatars' eski Supabase kovaları; 'r2' yeni dosya servisi. */
+export type FileBucket = 'documents' | 'avatars' | 'r2'
+
+/** Tek bir nesneyi dosya servisine yükler. Çerez yoksa bir kez tazeleyip dener. */
+async function dosyaYukle(yol: string, govde: Blob, tip: string): Promise<void> {
+  const gonder = () =>
+    fetch(`${env.dosyaUrl}/y?yol=${encodeURIComponent(yol)}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'content-type': tip },
+      body: govde,
+    })
+  let r = await gonder()
+  if (r.status === 401) {
+    await oturumTazele()
+    r = await gonder()
+  }
+  if (!r.ok) throw new Error(`Dosya yüklenemedi (${r.status}).`)
+}
+
+/**
+ * Nesneleri (orijinal + küçükler) fiziksel siler.
+ *
+ * Worker'ın /s ucu servis sırrı ister ve sır tarayıcıya KONAMAZ; bu yüzden
+ * çağrı `dosya-sil` kenar işlevinden geçer. O işlev Görev 8'de yazılıp
+ * dağıtılacak — o zamana kadar bu çağrı sessizce başarısız olur (aşağıdaki
+ * try/catch bilerek yutuyor). Kabul edilebilir: yalnız nadir bir hata
+ * yolunda (files kaydı başarısız olduğunda) çalışır ve yetim nesneye
+ * `files` kaydı olmadığı için hiçbir kullanıcı erişemez.
+ */
+export async function dosyalariSil(yollar: string[]): Promise<void> {
+  const temiz = yollar.filter(Boolean)
+  if (!temiz.length) return
+  try {
+    await supabase.functions.invoke('dosya-sil', { body: { yollar: temiz } })
+  } catch {
+    // sessiz geç
+  }
+}
 
 /** Dosyanın SHA-256 sağlamasını hesaplar (mükerrer tespiti + bütünlük). */
 async function sha256(file: File): Promise<string> {
@@ -40,7 +82,7 @@ export function useUploadFile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: UploadFileInput): Promise<FileRow> => {
-      const { file, bucket, category } = input
+      const { file, category } = input
 
       const {
         data: { user },
@@ -50,11 +92,13 @@ export function useUploadFile() {
       const checksum = await sha256(file)
       const path = `${category}/${crypto.randomUUID()}.${extensionOf(file.name)}`
 
-      const upload = await supabase.storage.from(bucket).upload(path, file, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: false,
-      })
-      if (upload.error) throw upload.error
+      // Orijinal + iki küçük resim R2'ye. Küçükler üretilemezse (PDF, HEIC)
+      // sessizce atlanır; Worker küçük bulamazsa orijinale düşer.
+      await dosyaYukle(path, file, file.type || 'application/octet-stream')
+      for (const boyut of [160, 480] as const) {
+        const kucuk = await kucukResimUret(file, boyut)
+        if (kucuk) await dosyaYukle(`k/${boyut}/${path}.webp`, kucuk, 'image/webp')
+      }
 
       // Sürüm numarası: eski dosyanın üstüne +1
       let version = 1
@@ -70,7 +114,7 @@ export function useUploadFile() {
       const insert = await supabase
         .from('files')
         .insert({
-          bucket,
+          bucket: 'r2',
           storage_path: path,
           original_name: file.name,
           mime_type: file.type || null,
@@ -88,8 +132,8 @@ export function useUploadFile() {
         .single()
 
       if (insert.error) {
-        // files kaydı oluşmadıysa yarım nesneyi temizle (RLS izin verir: kayıt yok)
-        await supabase.storage.from(bucket).remove([path])
+        // files kaydı oluşmadıysa yarım nesneyi temizle (bkz. dosyalariSil JSDoc'u)
+        await dosyalariSil([path])
         throw insert.error
       }
       return insert.data
@@ -119,36 +163,44 @@ export function useEntityFiles(entityType: string | null, entityId: string | nul
   })
 }
 
-/** Görsel dönüşümü (thumbnail) — Supabase image transform. Plan desteklemezse çağıran onError ile düşer. */
+/** Görsel dönüşümü. Artık yalnız `width` kullanılır (hazır boyuta yuvarlanır). */
 export interface ImgTransform { width?: number; height?: number; resize?: 'cover' | 'contain' | 'fill' }
 
-/** İmzalı indirme/önizleme URL'i üretir (özel bucket'lar için tek erişim yolu). */
+/**
+ * Dosyanın adresi.
+ *
+ * ADI TARİHSELDİR: artık imza üretmez, KALICI adres döndürür. Kimlik oturum
+ * çerezinde taşınır. Adı korunuyor çünkü ~20 tüketici bu adı çağırıyor.
+ * `bucket` ve `expiresInSeconds` yok sayılır; imzasız adresin süresi yoktur.
+ *
+ * `dosyaUrl` yapılandırma eksikse ya da yol geçersizse boş dize döner
+ * (bkz. dosyaAdres.ts). Burada — indirme/önizleme yolunda kullanıldığı için —
+ * sessizce hiçbir şey yapmayan bir indirme, hata veren indirmeden daha kötü;
+ * bu yüzden boş dizede Türkçe bir hata fırlatılır.
+ */
 export async function getSignedUrl(
-  bucket: FileBucket,
+  _bucket: FileBucket,
   path: string,
-  expiresInSeconds = 60,
+  _expiresInSeconds = 60,
   /** Verilirse indirilebilir URL (Content-Disposition: attachment; filename). */
   downloadName?: string,
   transform?: ImgTransform,
 ): Promise<string> {
-  const opts: { download?: string; transform?: ImgTransform } = {}
-  if (downloadName) opts.download = downloadName
-  if (transform) opts.transform = transform
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(path, expiresInSeconds, Object.keys(opts).length ? opts : undefined)
-  if (error) throw error
-  return data.signedUrl
+  const url = dosyaUrl(path, { genislik: transform?.width, indirAdi: downloadName })
+  if (!url) throw new Error('Dosya servisi kullanılamıyor ya da dosya yolu geçersiz.')
+  return url
 }
 
-/** İmzalı URL'i React Query ile (önizleme bileşenleri için). transform verilirse thumbnail. */
+/**
+ * Dosya adresi. Ağ isteği YOKTUR — imza yenileme derdi kalktı.
+ *
+ * `dosyaUrl` boş dize dönerse (yapılandırma eksik ya da yol geçersiz)
+ * `data: undefined` döner — boş dize DEĞİL: `<img src="">` sayfanın
+ * kendisine istek atar, bu istenmez.
+ */
 export function useSignedUrl(file: Pick<FileRow, 'bucket' | 'storage_path'> | null, transform?: ImgTransform) {
-  return useQuery({
-    queryKey: ['signed-url', file?.bucket, file?.storage_path, transform?.width, transform?.height, transform?.resize],
-    enabled: !!file,
-    staleTime: 45_000, // 60sn imzadan biraz kısa
-    queryFn: () => getSignedUrl(file!.bucket as FileBucket, file!.storage_path, 60, undefined, transform),
-  })
+  const url = file ? dosyaUrl(file.storage_path, { genislik: transform?.width }) : ''
+  return { data: url || undefined, isLoading: false, isError: false as const }
 }
 
 /** Dosyayı MANTIKSAL siler (deleted_at/deleted_by). Fiziksel silme yok. */
