@@ -106,13 +106,42 @@ Dört uç. **Listeleme ucu yoktur** (kova içeriği sayılamaz).
 1. Çerez var mı, JWT imzası JWKS ile geçerli mi, `exp` geçmemiş mi.
    (Yalnız `/y` ucu ikinci bir yol kabul eder: servis sırrı başlığı — bkz. 5.4.)
 2. Yol biçimi: `^[a-z0-9_\-./]{1,200}$`, `..` ve ters bölü yasak.
-3. `files` kaydı var mı, `deleted_at is null` mı (kullanıcının jetonuyla, RLS).
+3. `files` kaydı var mı, `deleted_at is null` mı (kullanıcının jetonuyla, RLS
+   → iptal kontrolü buradadır). Sonuç **(kullanıcı, yol)** anahtarıyla 60 sn
+   kenarda tutulur.
 4. Yükleme ise: MIME izin listesinde mi, boyut ≤ 25 MiB mi.
 
 JWKS uç noktası doğrulandı (2026-09-11): proje asimetrik anahtar (ES256)
 kullanıyor, açık anahtar `/auth/v1/.well-known/jwks.json` adresinden alınır ve
 Worker'da 24 saat önbeklenir. **Paylaşılan sır yoktur** — 1 Eylül SAST
 kararıyla uyumlu.
+
+#### Yetki iptali — belge motoru kararıyla ilişki
+
+`services/pdf-worker/src/index.js` kimliği bilerek Supabase'e **sorarak**
+doğruluyor. Oradaki gerekçe yerinde: yalnız imza doğrulamak, çıkarılmış bir
+kullanıcıyı jeton süresi dolana dek (≈1 saat) içeri almaya devam eder.
+
+Bu Worker imzayı yerelde doğruluyor ama **iptal kontrolünü kaybetmiyor**,
+çünkü ikinci adım zaten canlı bir veritabanı sorgusu: `files` kaydı
+kullanıcının kendi jetonuyla sorulur ve `files` üzerindeki RLS
+`public.is_active_user()` çağırır. Çıkarılmış kullanıcının sorgusu orada
+boş döner. İmza doğrulaması yalnız **ucuz ilk kapıdır**; yetkinin kaynağı
+veritabanıdır.
+
+Önbellek bu yüzden **(kullanıcı, yol)** çiftine göre anahtarlanır, yalnız yola
+göre değil. Yola göre anahtarlansaydı bir kullanıcının olumlu sonucu
+diğerlerine servis edilir ve iptal tamamen devre dışı kalırdı.
+
+**İptal penceresi: en çok 60 saniye** (önbellek ömrü). Belge motorundaki 0
+saniyeye göre bir gevşeme, 1 saatlik saf yerel doğrulamaya göre büyük bir
+sıkılaşma. Görsel başına canlı sorgu yapmadan bir katalog ızgarasını taşımanın
+başka yolu yok; 60 saniye bilinçli ve belgelenmiş bir takastır.
+
+**Tarayıcı önbelleği ayrı bir konudur.** Kullanıcının daha önce indirdiği
+dosyalar diskinde kalır ve yetkisi kalksa da açılır. Bu her önbellek şemasında
+böyledir ve kabul edilmiştir: o dosyaları zaten indirmişti. Henüz görmediği
+bir dosya 60 saniye içinde kapanır.
 
 MIME ve boyut sınırları bugünkü `documents` kovasındakiyle birebir aynıdır
 (25 MiB; pdf, jpeg, png, webp, gif, heic, heif, xlsx, docx, xls, csv, txt, zip).
@@ -223,7 +252,7 @@ yapıştırmaz; `w` parametresine göre anahtarı kendisi kurar.
 | Kenar önbelleği (Worker Cache API) | R2 okuması yalnız ilk istekte |
 | ETag + koşullu istek | Yenilemede 304, gövde yok |
 | Önceden üretilmiş küçük resim | Liste görseli ~8 KB (bugün ~250 KB) |
-| `files` kaydı 60 sn kenarda | 40 görsellik ızgara = 1 DB sorgusu |
+| `files` kaydı 60 sn kenarda, (kullanıcı, yol) anahtarlı | ikinci açılışta DB sorgusu yok |
 
 Katalog ızgarası için kaba tahmin: bugün ~10 MB indirme, sonrasında ilk
 ziyarette ~320 KB, ikinci ziyarette 0.
