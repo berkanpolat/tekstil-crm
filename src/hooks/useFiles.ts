@@ -17,7 +17,7 @@ export type FileBucket = 'documents' | 'avatars' | 'r2'
  * İstemci tarafında önden denetlemek için: kullanıcı 25 MB'lık dosyayı
  * tamamen yükleyip sonra 415 almasın.
  */
-const IZINLI_MIME = new Set([
+export const IZINLI_MIME = new Set([
   'application/pdf',
   'image/jpeg',
   'image/png',
@@ -34,7 +34,7 @@ const IZINLI_MIME = new Set([
 ])
 
 /** Worker'ın azami boyutuyla BİREBİR aynı (genel-kısıtlar.md). */
-const AZAMI_BAYT = 25 * 1024 * 1024
+export const AZAMI_BAYT = 25 * 1024 * 1024
 
 /** Worker'ın `/y` hata gövdesi: `{ hata: '...' }` (services/dosya-worker/src/index.js). */
 interface WorkerHata { hata?: string }

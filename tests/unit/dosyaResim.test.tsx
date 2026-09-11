@@ -45,4 +45,21 @@ describe('DosyaResim', () => {
     await waitFor(() => expect(screen.queryByRole('img')).toBeNull())
     expect(tazele).toHaveBeenCalledTimes(1)
   })
+
+  it('pes ettikten SONRA path prop\'u değişirse (aynı örnekte, key YOK) tekrar <img> çizer', async () => {
+    // CatalogProductPage'deki galeri gibi: aynı DosyaResim örneğinde `path`
+    // değişiyor, `key` yok. Bir görsel pes ettikten sonra YENİ ve GEÇERLİ
+    // bir görsele geçilirse yer tutucuya kilitlenmemeli.
+    const { rerender } = render(<DosyaResim path="image/a.jpg" alt="kumaş" />)
+    fireEvent.error(screen.getByRole('img'))
+    await waitFor(() => expect(tazele).toHaveBeenCalledTimes(1))
+    fireEvent.error(screen.getByRole('img'))
+    await waitFor(() => expect(screen.queryByRole('img')).toBeNull())
+
+    // Aynı örnek üzerinde yeni bir path — key kullanılmıyor.
+    rerender(<DosyaResim path="image/b.jpg" alt="kumaş" />)
+
+    expect(screen.getByRole('img')).not.toBeNull()
+    expect(screen.getByRole('img').getAttribute('src')).toContain('b.jpg')
+  })
 })

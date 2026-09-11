@@ -10,6 +10,19 @@
 //   3. node scripts/r2-tasima.mjs yukle     # yerelden R2'ye yükler (Worker /y ucundan)
 //   4. node scripts/r2-tasima.mjs dogrula   # sayı/boyut karşılaştırır, R2 tarafını denetler
 //
+// BEŞİNCİ, BAĞIMSIZ komut — tek seferlik taşımanın parçası DEĞİL, SÜREKLİ:
+//   5. node scripts/r2-tasima.mjs kucuk-tamamla
+//      Talep girişi (intake-request) kenar işlevi görselleri Worker'ın /y
+//      ucuna DOĞRUDAN R2'ye yazıyor (bkz. tasarım §5.4) ve orada küçük resim
+//      ÜRETMİYOR — CPU/bağımlılık maliyeti ve "talep girişi asla görsel
+//      yüzünden düşmemeli" ilkesi yüzünden. Yani taşımadan SONRA gelen her
+//      yeni talep görseli küçüksüz kalır. Bu komut `files` tablosundaki
+//      görselleri tarar, küçüğü R2'de OLMAYANLARI bulur, yalnız onları
+//      indirip küçültüp yükler. NE ZAMAN ÇALIŞTIRILIR: talep girişi toplu
+//      geldikten sonra (ör. kampanya) ya da periyodik (günlük/haftalık cron).
+//      Ayrı bir durum anahtarı (`kucukTamamlanan`) kullanır — bkz. aşağıdaki
+//      "kucuk-tamamla" bölümündeki JSDoc.
+//
 // Her aşama YENİDEN BAŞLATILABİLİR: tamamlananlar .tasima-durum.json'da
 // tutulur, ikinci çalıştırma kaldığı yerden sürer. `yukle` aşaması ayrıca
 // Worker'ın `/y` ucunun servis sırrıyla ÜZERİNE YAZABİLMESİNE güvenir
@@ -39,12 +52,17 @@
 // `reddedilen` sayacı yalnız Worker'dan GERÇEKTEN dönen 4xx yanıtları sayar,
 // betiğin kendi tahminiyle atlama YAPMAZ.
 
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, stat, rm } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { pathToFileURL } from 'node:url'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import sharp from 'sharp'
 import { kucukYolu, gorselMi } from './r2-tasima-yardimci.mjs'
+
+const execFileAsync = promisify(execFile)
 
 export { kucukYolu, gorselMi }
 
@@ -103,7 +121,7 @@ function ortam() {
 // ---------------------------------------------------------------------------
 
 async function durumOku() {
-  if (!existsSync(DURUM)) return { indirilen: [], kucuk: [], yuklenen: [] }
+  if (!existsSync(DURUM)) return { indirilen: [], kucuk: [], yuklenen: [], kucukTamamlanan: [] }
   let ham
   try {
     ham = await readFile(DURUM, 'utf8')
@@ -116,6 +134,11 @@ async function durumOku() {
       indirilen: Array.isArray(d.indirilen) ? d.indirilen : [],
       kucuk: Array.isArray(d.kucuk) ? d.kucuk : [],
       yuklenen: Array.isArray(d.yuklenen) ? d.yuklenen : [],
+      // Ayrı anahtar (K3, madde C): `yuklenen` yalnız BU makinedeki tek
+      // seferlik taşımayı bilir. `kucuk-tamamla` sürekli/periyodik çalışır
+      // ve gerçeği R2'nin kendisinden sorar (bkz. kucukTamamla()); bu liste
+      // yalnız zaten denetlenmiş kayıtları TEKRAR denetlememek için önbellektir.
+      kucukTamamlanan: Array.isArray(d.kucukTamamlanan) ? d.kucukTamamlanan : [],
     }
   } catch (e) {
     throw new Error(
@@ -307,6 +330,31 @@ async function indir() {
 // Aşama 2: kucuk
 // ---------------------------------------------------------------------------
 
+/**
+ * Yerelde duran bir orijinalden 160/480 WebP küçükleri üretip `.tasima/ham`
+ * altına yazar. `kucuk()` VE `kucukTamamla()` bu fonksiyonu PAYLAŞIR — iki
+ * ayrı kopya tutmamak için buraya çıkarıldı.
+ *
+ * @returns true → ikisi de üretildi, false → en az biri başarısız (çağıran loglar).
+ */
+async function kucukleriUretVeKaydet(kaynakDosya, orijinalYol) {
+  let hataVar = false
+  for (const boyut of BOYUTLAR) {
+    const hedef = path.join(KLASOR, 'ham', kucukYolu(orijinalYol, boyut))
+    try {
+      await mkdir(path.dirname(hedef), { recursive: true })
+      await sharp(kaynakDosya)
+        .resize({ width: boyut, withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toFile(hedef)
+    } catch (e) {
+      console.error(`  küçültülemedi (${boyut}): ${orijinalYol} — ${e.message}`)
+      hataVar = true
+    }
+  }
+  return !hataVar
+}
+
 async function kucuk() {
   const o = ortam()
   const durum = await durumOku()
@@ -322,21 +370,8 @@ async function kucuk() {
       basarisiz++
       return
     }
-    let hataVar = false
-    for (const boyut of BOYUTLAR) {
-      const hedef = path.join(KLASOR, 'ham', kucukYolu(k.storage_path, boyut))
-      try {
-        await mkdir(path.dirname(hedef), { recursive: true })
-        await sharp(kaynak)
-          .resize({ width: boyut, withoutEnlargement: true })
-          .webp({ quality: 82 })
-          .toFile(hedef)
-      } catch (e) {
-        console.error(`  küçültülemedi (${boyut}): ${k.storage_path} — ${e.message}`)
-        hataVar = true
-      }
-    }
-    if (hataVar) { basarisiz++; return }
+    const tamamMi = await kucukleriUretVeKaydet(kaynak, k.storage_path)
+    if (!tamamMi) { basarisiz++; return }
     durum.kucuk.push(k.storage_path)
   }, () => durumYaz(durum))
   await durumYaz(durum)
@@ -346,6 +381,40 @@ async function kucuk() {
 // ---------------------------------------------------------------------------
 // Aşama 3: yukle
 // ---------------------------------------------------------------------------
+
+/**
+ * Bir nesneyi Worker'ın `/y` ucuna servis sırrıyla PUT eder. `yukle()` VE
+ * `kucukTamamla()` bu fonksiyonu PAYLAŞIR — Worker'a giden çağrı biçimi
+ * (başlıklar, sır) tek yerde tutulur, iki kopya ayrışma riski taşımaz.
+ *
+ * ASLA fırlatmaz: ağ hatası da bir { ok:false } sonucuna çevrilir, çağıran
+ * kendi sayaçlarını (başarısız/reddedilen) buna göre güncelleyebilir.
+ */
+async function nesneYuklePUT(o, yol, mime, govde) {
+  let r
+  try {
+    r = await fetch(`${o.dosyaUrl}/y?yol=${encodeURIComponent(yol)}`, {
+      method: 'PUT',
+      headers: {
+        'content-type': mime,
+        'content-length': String(govde.byteLength),
+        'x-servis-sirri': o.sir,
+      },
+      body: govde,
+    })
+  } catch (e) {
+    return { ok: false, agHatasi: true, mesaj: e.message }
+  }
+  if (r.ok) return { ok: true, status: r.status }
+  // Worker hata gövdesi { hata: '<kısa metin>' } biçimindedir (bkz. K4).
+  let hata = ''
+  try {
+    hata = (await r.json())?.hata || ''
+  } catch {
+    // Gövde JSON değilse yok say; durum kodu yeterli bilgi verir.
+  }
+  return { ok: false, status: r.status, hata }
+}
 
 async function yukle() {
   const o = ortam()
@@ -387,32 +456,15 @@ async function yukle() {
       return
     }
 
-    let r
-    try {
-      r = await fetch(`${o.dosyaUrl}/y?yol=${encodeURIComponent(i.yol)}`, {
-        method: 'PUT',
-        headers: {
-          'content-type': i.mime,
-          'content-length': String(govde.byteLength),
-          'x-servis-sirri': o.sir,
-        },
-        body: govde,
-      })
-    } catch (e) {
-      console.error(`  yükleme isteği başarısız (ağ): ${i.yol} — ${e.message}`)
-      basarisiz++
-      return
-    }
-    if (!r.ok) {
-      // Worker hata gövdesi { hata: '<kısa metin>' } biçimindedir (bkz. K4).
-      let hata = ''
-      try {
-        hata = (await r.json())?.hata || ''
-      } catch {
-        // Gövde JSON değilse yok say; durum kodu yeterli bilgi verir.
+    const sonuc = await nesneYuklePUT(o, i.yol, i.mime, govde)
+    if (!sonuc.ok) {
+      if (sonuc.agHatasi) {
+        console.error(`  yükleme isteği başarısız (ağ): ${i.yol} — ${sonuc.mesaj}`)
+        basarisiz++
+        return
       }
-      console.error(`  yüklenemedi: ${i.yol} (HTTP ${r.status}${hata ? ` — ${hata}` : ''})`)
-      if (r.status === 415 || r.status === 413 || r.status === 400) reddedilen++
+      console.error(`  yüklenemedi: ${i.yol} (HTTP ${sonuc.status}${sonuc.hata ? ` — ${sonuc.hata}` : ''})`)
+      if (sonuc.status === 415 || sonuc.status === 413 || sonuc.status === 400) reddedilen++
       else basarisiz++
       return
     }
@@ -502,6 +554,162 @@ async function dogrula() {
 }
 
 // ---------------------------------------------------------------------------
+// Aşama 5 (bağımsız, sürekli): kucuk-tamamla
+// ---------------------------------------------------------------------------
+
+// services/dosya-worker/wrangler.jsonc → r2_buckets[0].bucket_name — ELLE
+// KOPYALANDI (ayrı çalışma zamanları, otomatik paylaşım yok — bkz. dosya
+// başındaki `kucukYolu` notu). Orada değişirse burası da elle güncellenmeli.
+const R2_KOVA = 'tekstil-crm-dosya'
+// wrangler r2 komutları proje köküne göre değil, Worker paketine göre
+// çalışır (auth + binding config orada). --remote: gerçek/canlı R2 kovası.
+const WRANGLER_CWD = path.resolve('services/dosya-worker')
+
+/**
+ * R2'den bir nesneyi doğrudan Cloudflare'ın `wrangler r2 object get` CLI'ı
+ * ile indirir (Worker'ın kendisi ÜZERİNDEN DEĞİL — bkz. aşağıdaki neden).
+ *
+ * NEDEN Worker /d ÜZERİNDEN DEĞİL: Worker'ın okuma ucu (`/d/<yol>`) BİLEREK
+ * yalnız kullanıcı oturum çerezini kabul eder, servis sırrını KABUL ETMEZ
+ * (bkz. services/dosya-worker/src/index.js → okuyucuDogrula, ve
+ * `dosya.test.js` → "servis sırrıyla OKUMA yapılamaz"). Bu betiğin insan
+ * oturumu yok; Worker'ın yetki modelini bu script için gevşetmek (servis
+ * sırrına okuma da açmak) tasarımın kasıtlı ayrımını bozar ve bu görevin
+ * kapsamı dışındadır. `wrangler r2 object get`, Cloudflare hesap kimlik
+ * doğrulamasıyla (bu makinede `wrangler login` yapılmış olmalı) DOĞRUDAN
+ * R2 API'sine gider — Worker'ın HTTP yüzeyini hiç kullanmaz, dolayısıyla
+ * Worker'ın yetki modelini değiştirmeye gerek kalmaz.
+ *
+ * @returns true → indirildi, false → nesne yok ya da komut başarısız (loglanır).
+ */
+async function r2NesneIndir(anahtar, hedefYol) {
+  try {
+    await mkdir(path.dirname(hedefYol), { recursive: true })
+    await execFileAsync(
+      'npx',
+      ['wrangler', 'r2', 'object', 'get', `${R2_KOVA}/${anahtar}`, '--remote', '--file', hedefYol],
+      { cwd: WRANGLER_CWD },
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** R2'de bir anahtarın var olup olmadığını denetler (geçici dosyaya indirip siler). */
+async function r2NesneVarMi(anahtar) {
+  const gecici = path.join(os.tmpdir(), `r2-varmi-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  const varMi = await r2NesneIndir(anahtar, gecici)
+  if (varMi) {
+    try {
+      await rm(gecici)
+    } catch {
+      // temizlik başarısız olsa da sonuç geçerli — yok sayılır
+    }
+  }
+  return varMi
+}
+
+/**
+ * Talep girişi (ve genel olarak) görsellerinden küçüğü R2'de OLMAYANLARI
+ * bulur, yalnız onları indirip küçültüp yükler.
+ *
+ * BAĞIMSIZ ve SÜREKLİ bir komuttur — taşımanın (indir/kucuk/yukle/dogrula)
+ * bir parçası DEĞİLDİR, ondan SONRA ve periyodik olarak çalıştırılır
+ * (bkz. dosya başı yorumu). `yuklenen` durum anahtarını KULLANMAZ (o yalnız
+ * bu makinedeki tek seferlik taşımayı bilir); bunun yerine her kaydın küçüğü
+ * gerçekten R2'de var mı diye R2'nin KENDİSİNE sorar (`r2NesneVarMi`) —
+ * gerçeğin tek kaynağı budur. `kucukTamamlanan` yalnız zaten denetlenmiş
+ * (var bulunmuş ya da bu çalıştırmada üretilmiş) kayıtları bir SONRAKİ
+ * çalıştırmada tekrar denetlememek için bir önbellektir; hiçbir zaman
+ * "bilmiyoruz, atla" anlamına gelmez.
+ *
+ * Mevcut `kucukleriUretVeKaydet` ve `nesneYuklePUT` yardımcıları YENİDEN
+ * KULLANILIR (kucuk()/yukle() ile aynı kod yolu) — kopyalama yok.
+ */
+async function kucukTamamla() {
+  const o = ortam()
+  const durum = await durumOku()
+  const tamam = new Set(durum.kucukTamamlanan)
+  const kayit = (await kayitlar(o)).filter((k) => gorselMi(k.mime_type) && !tamam.has(k.storage_path))
+  console.log(`Denetlenecek görsel: ${kayit.length} (daha önce bu betikle denetlenip tamam bulunanlar hariç)`)
+
+  let islendi = 0
+  let atlandi = 0
+  let basarisiz = 0
+
+  await kuyruk(kayit, async (k) => {
+    // 1) R2'de küçük zaten var mı? 160'ı yeterli sinyal sayıyoruz — kucuk()
+    //    ve bu fonksiyon ikisini de HER ZAMAN birlikte üretip birlikte
+    //    yüklüyor, biri varsa öbürü de vardır (aksi hâlde yarım kalmış bir
+    //    önceki çalıştırmadır ve aşağıdaki üretim/yükleme adımı ikisini de
+    //    yeniden yazar — zararsız, servis sırrı üzerine yazabiliyor).
+    const varMi = await r2NesneVarMi(kucukYolu(k.storage_path, BOYUTLAR[0]))
+    if (varMi) {
+      atlandi++
+      durum.kucukTamamlanan.push(k.storage_path)
+      return
+    }
+
+    // 2) Orijinali edin: önce yerelde (.tasima/ham) kalmış mı bak — önceki
+    //    tam taşımadan kalmış olabilir — yoksa R2'den indir (bu görsel
+    //    taşımadan SONRA doğrudan R2'ye yazılmış olabilir, hiç Supabase'te
+    //    olmamış olabilir; bkz. tasarım §5.4).
+    const yerelKaynak = path.join(KLASOR, 'ham', k.storage_path)
+    if (!existsSync(yerelKaynak)) {
+      const indirildi = await r2NesneIndir(k.storage_path, yerelKaynak)
+      if (!indirildi) {
+        console.error(`  orijinal ne yerelde ne R2'de bulunamadı: ${k.storage_path}`)
+        basarisiz++
+        return
+      }
+    }
+
+    // 3) Küçükleri üret (kucuk() ile PAYLAŞILAN kod yolu).
+    const uretildi = await kucukleriUretVeKaydet(yerelKaynak, k.storage_path)
+    if (!uretildi) {
+      basarisiz++
+      return
+    }
+
+    // 4) Yükle (yukle() ile PAYLAŞILAN kod yolu).
+    let hataVar = false
+    for (const boyut of BOYUTLAR) {
+      const kYol = kucukYolu(k.storage_path, boyut)
+      const kDosya = path.join(KLASOR, 'ham', kYol)
+      let govde
+      try {
+        govde = await readFile(kDosya)
+      } catch (e) {
+        console.error(`  üretilen küçük okunamadı: ${kYol} — ${e.message}`)
+        hataVar = true
+        continue
+      }
+      const sonuc = await nesneYuklePUT(o, kYol, 'image/webp', govde)
+      if (!sonuc.ok) {
+        console.error(
+          `  yüklenemedi: ${kYol} (${sonuc.agHatasi ? `ağ hatası — ${sonuc.mesaj}` : `HTTP ${sonuc.status}${sonuc.hata ? ` — ${sonuc.hata}` : ''}`})`,
+        )
+        hataVar = true
+      }
+    }
+    if (hataVar) {
+      basarisiz++
+      return
+    }
+
+    islendi++
+    durum.kucukTamamlanan.push(k.storage_path)
+  }, () => durumYaz(durum))
+
+  await durumYaz(durum)
+  console.log(
+    `\nDenetlenen: ${kayit.length} · yeni üretilip yüklenen: ${islendi} · ` +
+      `zaten vardı (atlandı): ${atlandi} · başarısız: ${basarisiz}`,
+  )
+}
+
+// ---------------------------------------------------------------------------
 // CLI — YALNIZ doğrudan çalıştırıldığında işler. Testler `r2-tasima-yardimci.mjs`
 // dosyasından kucukYolu/gorselMi içe aktarır; bu dosyanın import edilmesi
 // sırasında taşıma başlamamalı.
@@ -509,9 +717,9 @@ async function dogrula() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const komut = process.argv[2]
-  const komutlar = { indir, kucuk, yukle, dogrula }
+  const komutlar = { indir, kucuk, yukle, dogrula, 'kucuk-tamamla': kucukTamamla }
   if (!komutlar[komut]) {
-    console.error('Kullanım: node scripts/r2-tasima.mjs <indir|kucuk|yukle|dogrula>')
+    console.error('Kullanım: node scripts/r2-tasima.mjs <indir|kucuk|yukle|dogrula|kucuk-tamamla>')
     process.exit(1)
   }
   try {

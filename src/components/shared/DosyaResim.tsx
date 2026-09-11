@@ -28,6 +28,19 @@ export function DosyaResim({
 }) {
   const [damga, setDamga] = useState<number | null>(null)
   const [pes, setPes] = useState(false)
+  // Prop değişince durumu sıfırla. Bileşen çağrı yerlerinde `key` ile
+  // remount edilmiyor (ör. CatalogProductPage'deki galeri aynı örnekte
+  // `path` değiştiriyor); sıfırlamazsak bir kez pes etmiş bileşen YENİ ve
+  // GEÇERLİ bir görsel için de yer tutucu gösterir. Bu, React'in resmi
+  // "türetilmiş durum" kalıbıdır — çizim sırasında durum güncellemesi,
+  // fazladan bir çizim turu yaratan useEffect'ten daha doğrudur.
+  const [oncekiAnahtar, setOncekiAnahtar] = useState(`${path}|${genislik}`)
+  const anahtar = `${path}|${genislik}`
+  if (anahtar !== oncekiAnahtar) {
+    setOncekiAnahtar(anahtar)
+    setDamga(null)
+    setPes(false)
+  }
 
   const temel = path ? dosyaUrl(path, { genislik }) : ''
   // dosyaUrl yapılandırma eksikse ya da yol geçersizse boş dize döner; bunu
