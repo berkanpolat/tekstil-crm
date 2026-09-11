@@ -5,7 +5,10 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: { configPath: './wrangler.jsonc' },
-        miniflare: { r2Buckets: ['KOVA'] },
+        miniflare: {
+          r2Buckets: ['KOVA'],
+          bindings: { SERVIS_SIRRI: 'test-sirri' },
+        },
       },
     },
   },
