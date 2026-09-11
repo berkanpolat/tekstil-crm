@@ -10,6 +10,8 @@ interface AppEnv {
   isDev: boolean
   /** Belge motoru PDF servisi (Faz 4A). Dev'de yerel; üretimde dağıtılan URL. */
   pdfServiceUrl: string
+  /** Dosya servisi (R2 + Worker). Dev'de yerel wrangler; üretimde dağıtılan URL. */
+  dosyaUrl: string
 }
 
 function read(key: string): string {
@@ -24,6 +26,7 @@ export const env: AppEnv = {
   // Dev'de yerel servis varsayılır; ÜRETİMDE değişken yoksa boş → belge motoru
   // devre dışı (Netlify gibi statik ortamda PDF servisi olmayabilir).
   pdfServiceUrl: read('VITE_PDF_SERVICE_URL') || (import.meta.env.DEV ? 'http://localhost:4046' : ''),
+  dosyaUrl: read('VITE_DOSYA_URL') || (import.meta.env.DEV ? 'http://localhost:8787' : ''),
 }
 
 /** Supabase baglantisi icin gerekli degiskenler tanimli mi? */
@@ -34,6 +37,9 @@ export const hasPdfService = Boolean(env.pdfServiceUrl)
 
 /** Belge servisi yoksa kullanıcıya gösterilecek net mesaj (sessiz hata yerine). */
 export const PDF_UNAVAILABLE = 'Belge servisi bu ortamda kullanılamıyor.'
+
+/** Dosya servisi bu ortamda yapılandırılmış mı? (yoksa görseller açılmaz) */
+export const hasDosyaServisi = Boolean(env.dosyaUrl)
 
 if (import.meta.env.DEV && !hasSupabaseConfig) {
   // Faz 0'da kimlik dogrulama gelene kadar giris sayfasi da olsa uyaralim.
