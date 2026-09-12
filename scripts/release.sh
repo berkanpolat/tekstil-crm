@@ -85,6 +85,15 @@ fi
 echo ""
 echo "═══ [3/6] Build ═══"
 npm run build 2>&1 | tail -3
+
+# GUVENLIK: derlemeye yerel dosya servisi adresi gomulmemeli. .env gelistirmede
+# localhost:8787 gosteriyor (cerez ayni-site olmak zorunda); .env.production
+# bunu ezer. Ezmezse her tarayici dosyalari KENDI makinesinden istemeye calisir.
+if grep -rq "localhost:8787" dist/ 2>/dev/null; then
+  echo "HATA: derlemede localhost:8787 var — .env.production eksik veya okunmadi."
+  exit 1
+fi
+
 printf '{"surum":"%s","tarih":"%s","commit":"%s"}\n' \
   "$SURUM" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git rev-parse --short HEAD 2>/dev/null || echo '-')" \
   > dist/version.json
