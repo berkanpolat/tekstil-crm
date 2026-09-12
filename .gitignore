@@ -74,3 +74,5 @@ sast/
 # (canli musteri verisi + yeniden baslatma durumu — asla git'e girmez)
 .tasima/
 .tasima-durum.json
+
+.ice-aktarma-rapor.json
