@@ -97,7 +97,7 @@ async function siteUrunleri() {
  * boşluk/ayraç `_`. `fabric_types` ve `product_categories` kayıtları TEK bu
  * fonksiyonla anahtarlanır — iki ayrı yerde kopyalanmaz.
  */
-function anahtarla(s) {
+export function anahtarla(s) {
   return s.toLocaleLowerCase('tr')
     .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i')
     .replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
@@ -112,7 +112,7 @@ function anahtarla(s) {
  * bu tahmin değil, mevcut veriyle tutarlılıktır. Hiçbiri ya da birden fazlası
  * kullanımdaysa etiket belirsiz kalır (liste olduğu gibi bırakılır).
  */
-function kullanimaGoreTekille(sozluk, kullanilanIdler) {
+export function kullanimaGoreTekille(sozluk, kullanilanIdler) {
   const cozulen = new Map()
   for (const [etiket, idler] of sozluk) {
     if (idler.length === 1) { cozulen.set(etiket, idler); continue }
