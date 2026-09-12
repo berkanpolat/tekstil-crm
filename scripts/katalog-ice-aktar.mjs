@@ -102,6 +102,24 @@ function anahtarla(s) {
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 }
 
+/**
+ * Çift kayıtlı etiketleri mevcut KULLANIMA bakarak teke indirir.
+ *
+ * Aynı etiket birden çok satırda olabiliyor (Polyester 4, Saten 3…).
+ * Satırlardan TAM OLARAK BİRİ mevcut ürünlerce kullanılıyorsa onu seçeriz —
+ * bu tahmin değil, mevcut veriyle tutarlılıktır. Hiçbiri ya da birden fazlası
+ * kullanımdaysa etiket belirsiz kalır (liste olduğu gibi bırakılır).
+ */
+function kullanimaGoreTekille(sozluk, kullanilanIdler) {
+  const cozulen = new Map()
+  for (const [etiket, idler] of sozluk) {
+    if (idler.length === 1) { cozulen.set(etiket, idler); continue }
+    const kullanilan = idler.filter((id) => kullanilanIdler.has(id))
+    cozulen.set(etiket, kullanilan.length === 1 ? kullanilan : idler)
+  }
+  return cozulen
+}
+
 /** Etiket → id listesi. Çift kayıtlı etiketler birden fazla id taşır. */
 function sozlukKur(satirlar, alan = 'label') {
   const m = new Map()
@@ -224,6 +242,16 @@ async function yaz() {
     turler: sozlukKur(await oku(o, `product_categories?select=id,label&parent_id=eq.${TUR_DALI}`)),
     kumaslar: sozlukKur(await oku(o, 'fabric_types?select=id,label')),
   }
+
+  // 3b) Çift kayıtlı etiketleri mevcut KULLANIMA bakarak çöz. Kural simetrik
+  // uygulanır (tür tarafında bugün belirsizlik yok ama aynı mantık geçerli).
+  const kullanilanKumas = new Set(
+    (await oku(o, 'catalog_products?select=fabric_type_id')).map((x) => x.fabric_type_id).filter(Boolean))
+  const kullanilanTur = new Set(
+    (await oku(o, 'catalog_products?select=category_id')).map((x) => x.category_id).filter(Boolean))
+  sozluk.kumaslar = kullanimaGoreTekille(sozluk.kumaslar, kullanilanKumas)
+  sozluk.turler = kullanimaGoreTekille(sozluk.turler, kullanilanTur)
+
   const urunler = await siteUrunleri()
   const mevcutKodlar = new Set((await oku(o, 'catalog_products?select=code')).map((x) => x.code))
   const mevcutSite = new Set((await oku(o, 'catalog_products?select=site_code')).map((x) => x.site_code))
@@ -231,10 +259,15 @@ async function yaz() {
   const satirlar = []
   const atlanan = []
   const belirsiz = []
+  let kumassiz = 0
   for (const u of urunler) {
     if (mevcutSite.has(u.code)) { atlanan.push(u.code); continue }
-    const e = esitle(u, sozluk)
+    // Yalnız kumaş eksik/belirsizse ürün yine eklenir, fabric_type_id null
+    // kalır — rastgele satır seçmek yanlış maliyet demektir; boş alan
+    // dürüsttür ve CRM arayüzünden tek seferde doldurulabilir.
+    const e = esitle(u, sozluk, { kumassizKabul: true })
     if (!e.ok) { belirsiz.push({ site_code: u.code, eksik: e.eksik }); continue }
+    if (e.kayit.fabric_type_id === null) kumassiz++
     satirlar.push({ catalog_id: katalog.id, code: icKodUret(mevcutKodlar), ...e.kayit })
   }
 
@@ -243,7 +276,7 @@ async function yaz() {
     // PostgREST tek istekteki dizinin tamamını TEK işlemde yazar:
     // biri düşerse hiçbiri yazılmaz.
     await yazSatir(o, 'catalog_products', satirlar)
-    console.log(`   ${satirlar.length} ürün eklendi`)
+    console.log(`   ${satirlar.length} ürün eklendi (${kumassiz} tanesi kumaşsız — fabric_type_id null)`)
   }
   console.log(`   zaten vardı: ${atlanan.length} · belirsiz kaldı: ${belirsiz.length}`)
   for (const b of belirsiz.slice(0, 10)) console.log(`     · ${b.site_code}: ${b.eksik.map((x) => x.alan + '=' + x.deger).join(', ')}`)

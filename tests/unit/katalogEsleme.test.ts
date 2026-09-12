@@ -67,6 +67,41 @@ describe('esitle', () => {
   })
 })
 
+describe('esitle — kumassizKabul seçeneği', () => {
+  const urun = { name: 'Test Elbise', slug: 'test-elbise', code: 'TES-ELB-001',
+                 cat: 'tesettur', type: 'Elbise', fabric: 'Pamuk Keten' }
+
+  it('varsayılan davranış DEĞİŞMEZ: seçenek verilmezse kumaş eksikliği ok:false yapar', () => {
+    const r = esitle({ ...urun, fabric: 'İpek Saten' }, SOZLUK)
+    expect(r.ok).toBe(false)
+  })
+
+  it('seçenek açıkken YALNIZ kumaş eksikse ürün ok:true, fabric_type_id null döner', () => {
+    const r = esitle({ ...urun, fabric: 'İpek Saten' }, SOZLUK, { kumassizKabul: true })
+    expect(r.ok).toBe(true)
+    expect(r.kayit.fabric_type_id).toBeNull()
+    expect(r.kayit).toMatchObject({ collection_id: 7, category_id: 11 })
+  })
+
+  it('seçenek açıkken çift kayıtlı (belirsiz) kumaş da kumassız kabul edilir', () => {
+    const sozlukCift = { ...SOZLUK, kumaslar: new Map([...SOZLUK.kumaslar, ['Saten', [1, 2]]]) }
+    const r = esitle({ ...urun, fabric: 'Saten' }, sozlukCift, { kumassizKabul: true })
+    expect(r.ok).toBe(true)
+    expect(r.kayit.fabric_type_id).toBeNull()
+  })
+
+  it('seçenek açık olsa da BAŞKA bir alan (tür) eksikse ürün yine ok:false', () => {
+    const r = esitle({ ...urun, fabric: 'İpek Saten', type: 'Yok Böyle Tür' }, SOZLUK, { kumassizKabul: true })
+    expect(r.ok).toBe(false)
+    expect(r.eksik.map((e) => e.alan)).toContain('tur')
+  })
+
+  it('seçenek açık olsa da koleksiyon eksikse ürün yine ok:false', () => {
+    const r = esitle({ ...urun, fabric: 'İpek Saten', cat: 'yok' }, SOZLUK, { kumassizKabul: true })
+    expect(r.ok).toBe(false)
+  })
+})
+
 describe('TUR_ES_ADLAR', () => {
   it('yalnız bilinen yazım farklarını taşır', () => {
     expect(TUR_ES_ADLAR).toEqual({ 'Tişört': 'T-Shirt' })

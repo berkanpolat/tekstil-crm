@@ -36,9 +36,14 @@ export function icKodUret(mevcutKodlar) {
  * Çift kayıtlı tür etiketi de belirsizdir — hangi satırın seçileceğine
  * insan karar verir.
  *
+ * @param secenek.kumassizKabul true ise SADECE kumaş eksik/belirsizse ürün
+ *   yine `ok:true` döner ve `fabric_type_id` null bırakılır (rastgele satır
+ *   seçmek yanlış maliyet demektir; boş alan dürüsttür). Koleksiyon veya
+ *   tür eksikse bu seçenek devrede olsa da `ok:false` döner — varsayılan
+ *   davranış (seçeneksiz çağrı) DEĞİŞMEZ.
  * @returns {{ok: true, kayit: object} | {ok: false, eksik: object[]}}
  */
-export function esitle(urun, sozluk) {
+export function esitle(urun, sozluk, secenek = {}) {
   const eksik = []
 
   const collection_id = KOLEKSIYON[urun.cat]
@@ -52,10 +57,14 @@ export function esitle(urun, sozluk) {
   else category_id = turAdaylari[0]
 
   let fabric_type_id = null
+  const kumasEksik = []
   const kumasAdaylari = sozluk.kumaslar.get(urun.fabric)
-  if (!kumasAdaylari) eksik.push({ alan: 'kumas', deger: urun.fabric ?? null })
-  else if (kumasAdaylari.length > 1) eksik.push({ alan: 'kumas', deger: urun.fabric, adaylar: kumasAdaylari })
+  if (!kumasAdaylari) kumasEksik.push({ alan: 'kumas', deger: urun.fabric ?? null })
+  else if (kumasAdaylari.length > 1) kumasEksik.push({ alan: 'kumas', deger: urun.fabric, adaylar: kumasAdaylari })
   else fabric_type_id = kumasAdaylari[0]
+
+  const kumassizGecerli = secenek.kumassizKabul && kumasEksik.length > 0 && eksik.length === 0
+  if (!kumassizGecerli) eksik.push(...kumasEksik)
 
   if (eksik.length) return { ok: false, eksik }
 
