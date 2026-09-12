@@ -13,6 +13,8 @@
 //                      DOSYA_SERVIS_URL, DOSYA_SERVIS_SIRRI
 import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
+import sharp from 'sharp'
 import { KOLEKSIYON, icKodUret, esitle, raporOzeti } from './katalog-ice-aktar-esleme.mjs'
 
 const SEZON = 'sk2627'
@@ -139,6 +141,15 @@ async function rapor() {
     turler: sozlukKur(await oku(o, `product_categories?select=id,label&parent_id=eq.${TUR_DALI}`)),
     kumaslar: sozlukKur(await oku(o, 'fabric_types?select=id,label')),
   }
+  // `yaz` komutuyla AYNI tekilleştirme — yoksa `rapor` gerçeği yansıtmaz
+  // (bkz. Görev 4 Ek 2): "hazır" sayısı `yaz`'ın gerçekte ekleyeceğinden
+  // düşük çıkar çünkü çift kayıtlı etiketler burada hâlâ belirsiz sayılır.
+  const kullanilanKumas = new Set(
+    (await oku(o, 'catalog_products?select=fabric_type_id')).map((x) => x.fabric_type_id).filter(Boolean))
+  const kullanilanTur = new Set(
+    (await oku(o, 'catalog_products?select=category_id')).map((x) => x.category_id).filter(Boolean))
+  sozluk.kumaslar = kullanimaGoreTekille(sozluk.kumaslar, kullanilanKumas)
+  sozluk.turler = kullanimaGoreTekille(sozluk.turler, kullanilanTur)
   const mevcut = new Set((await oku(o, 'catalog_products?select=site_code')).map((r) => r.site_code))
 
   const sonuclar = urunler.map((u) => ({ ...esitle(u, sozluk), slug: u.slug, site_code: u.code, zatenVar: mevcut.has(u.code) }))
@@ -282,7 +293,106 @@ async function yaz() {
   for (const b of belirsiz.slice(0, 10)) console.log(`     · ${b.site_code}: ${b.eksik.map((x) => x.alan + '=' + x.deger).join(', ')}`)
 }
 
-const komutlar = { rapor, yaz }
+const BOYUTLAR = [160, 480]
+
+/** Worker'ın r2Anahtar'ıyla AYNI biçim. Ayrışırsa küçükler bulunamaz. */
+const kucukAnahtar = (yol, boyut) => `k/${boyut}/${yol}.webp`
+
+const bekle = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Ağ isteğini bir kez dener, 429/5xx alırsa kısa bekleyip BİR KEZ daha dener.
+ * Sıralı taşımada (Ek 3) tekstilas.com'un hız sınırına takılmamak için.
+ */
+async function tekYenidenDeneyerek(istekci) {
+  const r = await istekci()
+  if (r.ok || (r.status !== 429 && r.status < 500)) return r
+  await bekle(1500)
+  return istekci()
+}
+
+async function r2Yaz(url, sir, yol, govde, mime) {
+  const istekci = () => fetch(`${url}/y?yol=${encodeURIComponent(yol)}`, {
+    method: 'PUT',
+    headers: { 'content-type': mime, 'content-length': String(govde.byteLength), 'x-servis-sirri': sir },
+    body: govde,
+  })
+  const r = await tekYenidenDeneyerek(istekci)
+  if (!r.ok) throw new Error(`R2 yazılamadı (${r.status}): ${yol}`)
+}
+
+async function siteGorseliAl(sy) {
+  const istekci = () => fetch(`https://tekstilas.com/katalog-media/${sy}`)
+  const r = await tekYenidenDeneyerek(istekci)
+  if (!r.ok) throw new Error(`site görseli alınamadı (${r.status}): ${sy}`)
+  return Buffer.from(await r.arrayBuffer())
+}
+
+async function gorsel() {
+  const o = ortam()
+  const url = process.env.DOSYA_SERVIS_URL
+  const sir = process.env.DOSYA_SERVIS_SIRRI
+  if (!url || !sir) throw new Error('DOSYA_SERVIS_URL / DOSYA_SERVIS_SIRRI tanımlı değil.')
+
+  const urunler = await siteUrunleri()
+  const siteHaritasi = new Map(urunler.map((u) => [u.code, u]))
+  const katalog = (await oku(o, `catalogs?select=id&name=eq.${encodeURIComponent(KATALOG_ADI)}`))[0]
+  if (!katalog) throw new Error('Katalog bulunamadı — önce "yaz" çalıştırın.')
+
+  const kayitlar = await oku(o, `catalog_products?select=id,code,site_code&catalog_id=eq.${katalog.id}`)
+  const gorselliler = new Set((await oku(o, 'catalog_product_images?select=product_id')).map((x) => x.product_id))
+
+  let eklenen = 0, atlanan = 0, basarisiz = 0
+  const basarisizlar = []
+  // Sıralı (eşzamanlı DEĞİL) — dün benzer bir taşımada art arda istekler
+  // 429 (hız sınırı) döndürmüştü (Ek 3). Betik tek bir görsel yüzünden
+  // durmaz; hatayı sayar ve devam eder.
+  for (const p of kayitlar) {
+    if (gorselliler.has(p.id)) { atlanan++; continue }
+    const u = siteHaritasi.get(p.site_code)
+    const yollar = (u?.catalog_product_images ?? []).map((g) => g.storage_path)
+    if (!yollar.length) { atlanan++; continue }
+
+    try {
+      let sira = 0
+      for (const sy of yollar) {
+        const bayt = await siteGorseliAl(sy)
+        const hedef = `catalog/${p.code}/${sira + 1}.webp`
+
+        await r2Yaz(url, sir, hedef, bayt, 'image/webp')
+        for (const b of BOYUTLAR) {
+          const k = await sharp(bayt).resize({ width: b, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
+          await r2Yaz(url, sir, kucukAnahtar(hedef, b), k, 'image/webp')
+        }
+
+        const sha = createHash('sha256').update(bayt).digest('hex')
+        // İki ayrı yazma: PostgREST tek istekte iki tabloya yazamaz. Sıra
+        // önemli — dosya kaydı olmadan görsel bağı yetim kalır. Ters sırada
+        // bir arıza olursa `files` kaydı bağsız kalır; zararsızdır ve
+        // idempotenslik denetimi (gorselliler kümesi) onu yakalar.
+        const dosya = (await yazSatir(o, 'files', {
+          bucket: 'r2', storage_path: hedef, original_name: sy.split('/').pop(),
+          mime_type: 'image/webp', size_bytes: bayt.byteLength, checksum: sha, category: 'image',
+        }, true))[0]
+        await yazSatir(o, 'catalog_product_images', {
+          product_id: p.id, file_id: dosya.id,
+          image_type: sira === 0 ? 'ana' : 'diger', sort_order: sira,
+        })
+        sira++
+      }
+      eklenen++
+      if (eklenen % 50 === 0) console.log(`  ${eklenen}/${kayitlar.length}`)
+    } catch (e) {
+      console.error(`  başarısız: ${p.site_code} — ${e.message}`)
+      basarisiz++
+      basarisizlar.push(p.site_code)
+    }
+  }
+  console.log(`\nGörsel: eklenen ${eklenen} · atlanan ${atlanan} · başarısız ${basarisiz}`)
+  if (basarisizlar.length) console.log(`  başarısız kodlar: ${basarisizlar.join(', ')}`)
+}
+
+const komutlar = { rapor, yaz, gorsel }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const k = process.argv[2]
   if (!komutlar[k]) {

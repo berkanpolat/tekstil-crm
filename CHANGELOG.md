@@ -13,6 +13,25 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.38.0] — 2026-09-12
+
+### Katalog içe aktarma: görseller R2'ye taşındı (Görev 4)
+
+Sonbahar/Kış 26-27 kataloğunun (id=5, 619 ürün) görselleri tekstilas.com'dan
+indirilip Cloudflare R2'ye taşındı; `files` ve `catalog_product_images`
+kayıtları açıldı. `scripts/katalog-ice-aktar.mjs`'e `gorsel` komutu eklendi.
+
+- Küçük resim anahtarı Worker'ın `r2Anahtar` fonksiyonuyla birebir:
+  `k/<boyut>/<tam yol>.webp` (çift `.webp` uzantısı doğrudur).
+- `rapor` komutuna `yaz`'daki `kullanimaGoreTekille` tekilleştirmesi eklendi
+  — iki komut artık aynı "hazır" sayısını raporluyor.
+- Sıralı indirme (eşzamanlı değil) + 429/5xx için bir kez yeniden deneme;
+  tek görsel arızası betiği durdurmuyor, sayılıp özette raporlanıyor.
+- Sonuç: 619 ürün eklendi, 0 atlanan, 0 başarısız (ilk çalıştırma); ikinci
+  çalıştırmada 619 atlanan, 0 eklenen (idempotenslik doğrulandı).
+
+---
+
 ## [1.37.0] — 2026-09-12
 
 ### Dosya katmanı Cloudflare R2'ye taşındı
