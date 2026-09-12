@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { KOLEKSIYON, icKodUret, esitle, raporOzeti } from '../../scripts/katalog-ice-aktar-esleme.mjs'
+import { KOLEKSIYON, icKodUret, esitle, raporOzeti, TUR_ES_ADLAR } from '../../scripts/katalog-ice-aktar-esleme.mjs'
 
 const SOZLUK = {
   // etiket → id listesi (çift kayıtlı etiketler birden fazla id taşır)
-  turler: new Map([['Elbise', [11]], ['Gömlek', [12, 99]]]),
+  turler: new Map([['Elbise', [11]], ['Gömlek', [12, 99]], ['T-Shirt', [21]]]),
   kumaslar: new Map([['Pamuk Keten', [5]]]),
 }
 
@@ -58,6 +58,18 @@ describe('esitle', () => {
   it('birden çok eksiği birlikte bildirir', () => {
     const r = esitle({ ...urun, fabric: 'Jarse', cat: 'yok' }, SOZLUK)
     expect(r.eksik).toHaveLength(2)
+  })
+
+  it('eş adı olan türü CRM etiketiyle eşler (Tişört → T-Shirt)', () => {
+    const r = esitle({ ...urun, type: 'Tişört' }, SOZLUK)
+    expect(r.ok).toBe(true)
+    expect(r.kayit.category_id).toBe(21)
+  })
+})
+
+describe('TUR_ES_ADLAR', () => {
+  it('yalnız bilinen yazım farklarını taşır', () => {
+    expect(TUR_ES_ADLAR).toEqual({ 'Tişört': 'T-Shirt' })
   })
 })
 

@@ -20,6 +20,11 @@ const KATALOG_ADI = 'Sonbahar/Kış 26-27'
 const RAPOR = '.ice-aktarma-rapor.json'
 const SITE = 'https://tekstilas.com/products.json'
 
+// Yeni Sezon tür dalı. product_categories bir ağaçtır ve aynı etiket farklı
+// dallarda tekrar eder ("Sweatshirt" 12 satır). Mevcut 672 ürünün TAMAMI bu
+// dalı kullanıyor ve dal içinde etiketler TEKİL — eşleştirme burada yapılır.
+const TUR_DALI = 358
+
 function ortam() {
   const g = (k) => {
     const v = process.env[k]
@@ -87,7 +92,7 @@ async function rapor() {
   const o = ortam()
   const urunler = await siteUrunleri()
   const sozluk = {
-    turler: sozlukKur(await oku(o, 'product_categories?select=id,label')),
+    turler: sozlukKur(await oku(o, `product_categories?select=id,label&parent_id=eq.${TUR_DALI}`)),
     kumaslar: sozlukKur(await oku(o, 'fabric_types?select=id,label')),
   }
   const mevcut = new Set((await oku(o, 'catalog_products?select=site_code')).map((r) => r.site_code))
@@ -98,8 +103,11 @@ async function rapor() {
 
   const eksikKumaslar = [...new Set(sonuclar.flatMap((s) => (s.eksik ?? []).filter((e) => e.alan === 'kumas' && !e.adaylar).map((e) => e.deger)))]
   const belirsizTurler = [...new Set(sonuclar.flatMap((s) => (s.eksik ?? []).filter((e) => e.alan === 'tur' && e.adaylar).map((e) => `${e.deger} → ${e.adaylar.join('|')}`)))]
+  // TUR_DALI'nda hiç karşılığı olmayan etiketler — belirsiz değil, tamamen YOK.
+  // `yaz` komutunda yeni product_categories satırı olarak açılacak (Görev 3).
+  const eksikTurler = [...new Set(sonuclar.flatMap((s) => (s.eksik ?? []).filter((e) => e.alan === 'tur' && !e.adaylar).map((e) => e.deger)))]
 
-  writeFileSync(RAPOR, JSON.stringify({ ozet, zatenVar, eksikKumaslar, belirsizTurler, sonuclar }, null, 2))
+  writeFileSync(RAPOR, JSON.stringify({ ozet, zatenVar, eksikKumaslar, belirsizTurler, eksikTurler, sonuclar }, null, 2))
 
   console.log(`── ${SEZON}: ${ozet.toplam} ürün`)
   console.log(`   hazır          : ${ozet.hazir}`)
@@ -109,6 +117,8 @@ async function rapor() {
   if (eksikKumaslar.length > 10) console.log(`     … ve ${eksikKumaslar.length - 10} tane daha`)
   console.log(`   belirsiz tür   : ${belirsizTurler.length}`)
   for (const t of belirsizTurler) console.log(`     · ${t}`)
+  console.log(`   eksik tür      : ${eksikTurler.length} farklı değer`)
+  for (const t of eksikTurler) console.log(`     · ${t}`)
   console.log(`\nRapor: ${RAPOR}`)
   console.log('Bu komut canlıya HİÇBİR ŞEY YAZMADI.')
 }

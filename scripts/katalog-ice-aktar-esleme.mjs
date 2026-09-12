@@ -6,6 +6,12 @@
 /** Sitedeki koleksiyon kodu → CRM catalog_collections.id. Birebir hazır. */
 export const KOLEKSIYON = { tesettur: 7, casual: 8, premium: 9 }
 
+/**
+ * Site etiketi → CRM etiketi. YALNIZ yazım farkları; anlam eşleştirmesi DEĞİL.
+ * Her girdi tek tek doğrulanmıştır. Buraya "benzer" bir şey eklenmez.
+ */
+export const TUR_ES_ADLAR = { 'Tişört': 'T-Shirt' }
+
 const HARFLER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 /**
@@ -39,7 +45,8 @@ export function esitle(urun, sozluk) {
   if (!collection_id) eksik.push({ alan: 'koleksiyon', deger: urun.cat ?? null })
 
   let category_id = null
-  const turAdaylari = sozluk.turler.get(urun.type)
+  const turEtiket = TUR_ES_ADLAR[urun.type] ?? urun.type
+  const turAdaylari = sozluk.turler.get(turEtiket)
   if (!turAdaylari) eksik.push({ alan: 'tur', deger: urun.type ?? null })
   else if (turAdaylari.length > 1) eksik.push({ alan: 'tur', deger: urun.type, adaylar: turAdaylari })
   else category_id = turAdaylari[0]
