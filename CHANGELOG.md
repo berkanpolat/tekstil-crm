@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.37.0] — 2026-09-12
+
+### Dosya katmanı Cloudflare R2'ye taşındı
+
+Supabase Storage 1 GB sınırına dayanmıştı (854 MB, 3.794 nesne) ve görsel
+dönüşümü ücretli olduğu için katalog ızgarası tam boy görsel indiriyordu.
+
+- **Yeni servis:** `services/dosya-worker/` — Cloudflare Worker + R2,
+  `dosya.tekstilas.com`. Kova dışarıya kapalı, tek giriş Worker.
+- **Kimlik:** oturum çerezi (aynı-site). İmzalı URL kalktı; adresler kalıcı
+  olduğu için tarayıcı önbelleği artık çalışıyor.
+- **Yetki:** `files` kaydı kullanıcının kendi jetonuyla sorulur (RLS
+  `is_active_user`), önbellek (kullanıcı, yol) anahtarlı. İptal penceresi ≤60 sn.
+- **Küçük resimler:** yükleme anında tarayıcıda üretilip R2'ye konuyor
+  (160/480 WebP). Cloudflare Image Resizing KULLANILMIYOR — ücretli.
+- **Sertleştirme:** `nosniff`, CSP `sandbox`, satır içi yalnız görsel/PDF/video;
+  çerezle üzerine yazma yasak (409), gerçek bayt sayısıyla 25 MiB sınırı.
+- **Taşıma:** `scripts/r2-tasima.mjs` (indir/kucuk/yukle/dogrula/kucuk-tamamla).
+  10.603 nesne taşındı, Worker kural reddi 0.
+- **Göç:** `20260911200000_r2_gecis.sql` — 3.805 kayıt `bucket='r2'`.
+  `intake-pending` olan 27 kayıt dokunulmadı (lead içe aktarımı yer tutucuları,
+  dosyaları hiç olmamış).
+- `.env.production` eklendi; `release.sh` derlemede yerel adres kalırsa durur.
+
+Ayrıntı: `docs/superpowers/specs/2026-09-11-r2-dosya-katmani-design.md`
+
 ## [1.36.0] — 2026-09-02
 
 ### Belge motoru yeniden ayakta — Cloudflare Browser Run
