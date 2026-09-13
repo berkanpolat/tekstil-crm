@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath,
-  buildQuoteProducts, TEKLIF_ADET_KADEMELERI,
+  buildQuoteProducts, quantitiesFromTiers, TEKLIF_ADET_KADEMELERI_FALLBACK,
   type DraftLineInput,
 } from './draftQuoteBridge'
 import type { MarginTier } from './pricing'
@@ -92,9 +92,18 @@ describe('buildQuoteProducts — ürün-grubu yapı + 3 kademe', () => {
     expect(p.kademeler.map((k) => k.tutar)).toEqual(['700.00', '2600.00', '6250.00'])
   })
 
-  it('adet verilmezse varsayılan kademelere düşer', () => {
+  it('adet verilmezse kademeler margin_tiers.min_quantity’den türetilir (3’e sabit değil)', () => {
     const { products } = buildQuoteProducts({ lines: [{ urun: 'X', kod: 'X', unitCostUsd: 10, customMargin: null }], tiers: TIERS_PROD })
-    expect(products[0]!.kademeler.map((k) => k.adet)).toEqual([...TEKLIF_ADET_KADEMELERI])
+    expect(products[0]!.kademeler.map((k) => k.adet)).toEqual([50, 200, 500])
+  })
+
+  it('4 kademe eklenirse belge 4 kademeyle üretilir (dinamik)', () => {
+    const tiers4: MarginTier[] = [...TIERS_PROD, { min_quantity: 1000, margin_percent: 20 }]
+    const { products } = buildQuoteProducts({ lines: [{ urun: 'X', kod: 'X', unitCostUsd: 10, customMargin: null }], tiers: tiers4 })
+    expect(products[0]!.kademeler.map((k) => k.adet)).toEqual([50, 200, 500, 1000])
+    expect(products[0]!.kademeler.map((k) => k.marj)).toEqual([40, 30, 25, 20])
+    // 1000 adet → %20 → 10×1.2 = 12.00
+    expect(products[0]!.kademeler[3]!.birim).toBe('12.00')
   })
 
   it('recommendedQty verilen kademeyi öner işaretler; verilmezse hiçbiri', () => {
@@ -110,6 +119,16 @@ describe('buildQuoteProducts — ürün-grubu yapı + 3 kademe', () => {
     const { products } = buildQuoteProducts({ lines, tiers: TIERS_PROD })
     expect(products[0]!.kademeler.map((k) => k.marj)).toEqual([20, 20, 20])
     expect(products[0]!.kademeler.map((k) => k.birim)).toEqual(['12.00', '12.00', '12.00'])
+  })
+})
+
+describe('quantitiesFromTiers — kademeler canlı margin_tiers’tan', () => {
+  it('min_quantity’leri benzersiz + artan döndürür', () => {
+    expect(quantitiesFromTiers(TIERS_PROD)).toEqual([50, 200, 500])
+    expect(quantitiesFromTiers([{ min_quantity: 500, margin_percent: 25 }, { min_quantity: 50, margin_percent: 40 }, { min_quantity: 50, margin_percent: 40 }])).toEqual([50, 500])
+  })
+  it('tiers boşsa fallback kademelere düşer', () => {
+    expect(quantitiesFromTiers([])).toEqual([...TEKLIF_ADET_KADEMELERI_FALLBACK])
   })
 })
 

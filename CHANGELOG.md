@@ -13,6 +13,30 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.42.0] — 2026-09-13
+
+### Otomatik teklif — B2: fiyat_teklifi PDF şablonu (ürün başına sayfa)
+Fiyat teklifi belgesi otomatik teklif veri yapısını (`tkS.urunler`) destekler:
+**her ürün ayrı sayfa**, o sayfada **tüm marj kademeleri yan yana** (10 ürün → 10 sayfa).
+
+- `services/pdf-renderer/templates/studio.html` → `tkProductBlock()` + `tkQuoteDoc()`
+  dallanması: `tkS.urunler` doluysa ürün-başı sayfa düzeni; değilse **eski düz `opts`
+  tablosu geriye-uyumlu** çalışır (mevcut belgeler bozulmaz).
+- **Kademe sayısı/oranları veriden gelir, şablona GÖMÜLÜ DEĞİL** — Ayarlar →
+  Fiyatlandırma'dan kademe eklenince/değişince belge otomatik yeni kademelerle üretilir
+  (3'e sabit değil; 4 kademe eklendiğinde 4 kolon basar).
+- Her sayfada **ürün görseli** + ad/kod/kumaş. Müşteriye **adet + fiyat** gösterilir;
+  **marj (%) müşteriye sızdırılmaz** (maliyet gizli).
+- **Maliyet eksik ürün:** fiyat yerine görünür **"Maliyet girilmedi"** + kırmızı uyarı
+  bandı (sessiz boşluk yok).
+- Sayfalama v1.21.0 mantığı: `.qbulk`/`.qsheet` sayfa kırma + `qxFitSheet` hafif ölçek.
+- `src/lib/draftQuoteBridge.ts`: `TEKLIF_ADET_KADEMELERI` → `_FALLBACK` (yalnız
+  margin_tiers boşsa); yeni `quantitiesFromTiers()` kademeleri **canlı** türetir;
+  `buildQuoteProducts` adetleri tiers'tan alır.
+- `TEMPLATE_VERSIONS.fiyat_teklifi` **1 → 2** (şablon değişti; önbellek yenilenir).
+- Doğrulama: `services/pdf-renderer/render-test-b2.mjs` — 1/5/10 ürün (sayfa=ürün,
+  kırpma yok), kısmi eksik uyarı, kademe değişince fiyatın yansıması. DB'ye yazmaz.
+
 ## [1.41.0] — 2026-09-13
 
 ### Otomatik teklif — B1: veri/fiyat çekirdeği (saf fonksiyon)

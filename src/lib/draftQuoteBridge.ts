@@ -97,8 +97,21 @@ export function draftMissingNote(missingProducts: string[]): string {
 //  • Hepsi maliyetli → otomatik oluşur ('all_costed').
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Otomatik teklifin sabit adet kademeleri. Marj oranları margin_tiers'tan okunur. */
-export const TEKLIF_ADET_KADEMELERI = [50, 200, 500] as const
+/**
+ * Son çare adet kademeleri — YALNIZCA margin_tiers boş/okunamaz olduğunda kullanılır.
+ * Normal akışta adet kademeleri margin_tiers.min_quantity'den CANLI türetilir
+ * (`quantitiesFromTiers`), böylece Ayarlar → Fiyatlandırma'dan kademe eklenince/değişince
+ * teklif otomatik yeni kademelerle üretilir (sayı 3'e sabit DEĞİL).
+ */
+export const TEKLIF_ADET_KADEMELERI_FALLBACK = [50, 200, 500] as const
+
+/** margin_tiers → adet kademeleri: her kademenin min_quantity'si bir adet kolonu olur (benzersiz, artan). */
+export function quantitiesFromTiers(tiers: MarginTier[]): number[] {
+  const qs = [...new Set((tiers ?? []).map((t) => t.min_quantity))]
+    .filter((q) => Number.isFinite(q) && q > 0)
+    .sort((a, b) => a - b)
+  return qs.length ? qs : [...TEKLIF_ADET_KADEMELERI_FALLBACK]
+}
 
 /** Bir ürün sayfasındaki tek marj kademesi satırı. */
 export interface QuoteTier {
@@ -146,7 +159,7 @@ export interface CostGate {
 
 export interface BuildQuoteProductsInput {
   lines: DraftLineInput[]
-  /** Adet kademeleri (varsayılan TEKLIF_ADET_KADEMELERI). */
+  /** Adet kademeleri. Verilmezse margin_tiers'tan türetilir (quantitiesFromTiers). */
   quantities?: number[]
   tiers: MarginTier[]
   /** "Önerilen" işaretlenecek adet (opsiyonel; verilmezse hiçbiri önerilmez). */
@@ -158,10 +171,11 @@ export interface BuildQuoteProductsResult {
   gate: CostGate
 }
 
-/** Girdi adetlerini benzersizleştir + geçerli (>0) + artan sırala; boşsa sabit kademelere düş. */
-function normalizeQuantities(quantities?: number[]): number[] {
-  const qs = [...new Set(quantities ?? TEKLIF_ADET_KADEMELERI)].filter((q) => Number.isFinite(q) && q > 0).sort((a, b) => a - b)
-  return qs.length ? qs : [...TEKLIF_ADET_KADEMELERI]
+/** Adetleri belirle: verilmişse benzersiz+artan; verilmemişse margin_tiers'tan türet. */
+function resolveQuantities(quantities: number[] | undefined, tiers: MarginTier[]): number[] {
+  if (quantities == null) return quantitiesFromTiers(tiers)
+  const qs = [...new Set(quantities)].filter((q) => Number.isFinite(q) && q > 0).sort((a, b) => a - b)
+  return qs.length ? qs : quantitiesFromTiers(tiers)
 }
 
 /**
@@ -170,7 +184,7 @@ function normalizeQuantities(quantities?: number[]): number[] {
  * o ürünün tüm kademelerinde birim/tutar '' gelir ve ürün gate.missingProducts'a girer.
  */
 export function buildQuoteProducts(input: BuildQuoteProductsInput): BuildQuoteProductsResult {
-  const qtys = normalizeQuantities(input.quantities)
+  const qtys = resolveQuantities(input.quantities, input.tiers)
   const products: QuoteProduct[] = []
   const missing: string[] = []
   const costed: string[] = []

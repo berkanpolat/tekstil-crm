@@ -300,7 +300,8 @@ export function useDocumentForEdit(id: number | null) {
 // Şablon sürümleri — data_hash'e girer. Bir şablonu düzeltirsek burayı artır ki
 // eski önbellek dönmesin (kullanıcı düzeltmesi: hash = veri + dil + şablon sürümü).
 export const TEMPLATE_VERSIONS: Record<DocumentTypeKey, string> = {
-  fiyat_teklifi: '1', siparis_onay: '1', numune_etiketi: '1', siparis_formu: '1', koli_ustu: '1',
+  // fiyat_teklifi v2 (B2): ürün başına sayfa + marj kademeleri yan yana + ürün görseli.
+  fiyat_teklifi: '2', siparis_onay: '1', numune_etiketi: '1', siparis_formu: '1', koli_ustu: '1',
 }
 
 async function sha256hex(str: string): Promise<string> {
