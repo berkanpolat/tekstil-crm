@@ -7,7 +7,7 @@
 //  1) Katalog ürünü eşleşmemişse görsel yok → belge görselsiz açılır (firstImagePath → null).
 //  2) Maliyeti eksik ürün → fiyat satırı BOŞ ('' ) gelir; ASLA sessizce 0 yazılmaz. Ürün adı
 //     missingProducts'a girer, belgeye uyarı notu düşer (draftMissingNote).
-import { priceForQuantity, type MarginTier } from './pricing'
+import { priceForQuantity, marginForQuantity, type MarginTier } from './pricing'
 
 /** Köprüye giren tek ürün satırı (taslak + katalog türevi). */
 export interface DraftLineInput {
@@ -81,6 +81,131 @@ export function buildDraftOpts(input: BuildOptsInput): BuildOptsResult {
 export function draftMissingNote(missingProducts: string[]): string {
   if (!missingProducts.length) return ''
   return `⚠ Şu ürüne/ürünlere maliyet çalışılmamış: ${missingProducts.join(', ')}. Birim fiyat elle girilmelidir.`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B1 — Otomatik teklif: ÜRÜN-GRUBU veri yapısı + maliyet kapısı (saf çekirdek).
+//
+// Eski `opts` düz listesiydi (her ürün×adet ayrı satır, gruplama yok). Otomatik
+// teklifte belge "her ürün ayrı sayfa, o sayfada 3 marj kademesi birlikte" olacak
+// (B2 şablonu). Bu yüzden veri de ürün-gruplu tutulur: her ürün = bir grup, altında
+// sabit 3 kademe (50/%40, 200/%30, 500/%25 — marj DB'deki margin_tiers'tan gelir).
+//
+// Maliyet kapısı (proje sahibi kararı, Q6):
+//  • Hepsi eksik → teklif OLUŞMAZ ('none').
+//  • Kısmi eksik → UYAR, çalışan seçsin ('partial'); eksik ürünler adıyla döner.
+//  • Hepsi maliyetli → otomatik oluşur ('all_costed').
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Otomatik teklifin sabit adet kademeleri. Marj oranları margin_tiers'tan okunur. */
+export const TEKLIF_ADET_KADEMELERI = [50, 200, 500] as const
+
+/** Bir ürün sayfasındaki tek marj kademesi satırı. */
+export interface QuoteTier {
+  adet: number
+  /** Bu adete uygulanan marj (%). */
+  marj: number
+  /** Birim fiyat (USD, string). Maliyet eksikse '' — 0 DEĞİL. */
+  birim: string
+  /** Kademe toplamı (USD, string) = birim × adet. Maliyet eksikse ''. */
+  tutar: string
+  /** "Önerilen" kademe (opsiyonel vurgu). */
+  oner: boolean
+}
+
+/** Belgede bir ürün grubu (kendi sayfası + 3 kademe). */
+export interface QuoteProduct {
+  urun: string
+  kod: string | null
+  /** Kumaş/kompozisyon (varsa). */
+  kumas: string
+  /** Görsel (data URL) + en/boy oranı — async katmanda doldurulur (saf çekirdek boş bırakır). */
+  foto?: string
+  fotoAR?: number
+  /** Bu ürünün maliyeti çalışılmamış (kademelerde birim '' gelir). */
+  maliyetEksik: boolean
+  kademeler: QuoteTier[]
+}
+
+export type CostGateStatus = 'all_costed' | 'partial' | 'none'
+
+/** Maliyet kapısı sonucu — UI kararı (üret / uyar-seç / durdur) buna dayanır. */
+export interface CostGate {
+  status: CostGateStatus
+  /** Toplam ürün sayısı. */
+  total: number
+  /** Maliyeti olan ürün sayısı. */
+  costedCount: number
+  /** Maliyeti eksik ürün sayısı. */
+  missingCount: number
+  /** Maliyeti eksik ürün adları (kullanıcıya adıyla gösterilir). */
+  missingProducts: string[]
+  /** Maliyeti olan ürün adları. */
+  costedProducts: string[]
+}
+
+export interface BuildQuoteProductsInput {
+  lines: DraftLineInput[]
+  /** Adet kademeleri (varsayılan TEKLIF_ADET_KADEMELERI). */
+  quantities?: number[]
+  tiers: MarginTier[]
+  /** "Önerilen" işaretlenecek adet (opsiyonel; verilmezse hiçbiri önerilmez). */
+  recommendedQty?: number | null
+}
+
+export interface BuildQuoteProductsResult {
+  products: QuoteProduct[]
+  gate: CostGate
+}
+
+/** Girdi adetlerini benzersizleştir + geçerli (>0) + artan sırala; boşsa sabit kademelere düş. */
+function normalizeQuantities(quantities?: number[]): number[] {
+  const qs = [...new Set(quantities ?? TEKLIF_ADET_KADEMELERI)].filter((q) => Number.isFinite(q) && q > 0).sort((a, b) => a - b)
+  return qs.length ? qs : [...TEKLIF_ADET_KADEMELERI]
+}
+
+/**
+ * Taslak kalemleri → ürün-gruplu teklif verisi + maliyet kapısı.
+ * Her ürün için her adet kademesinde marj (marginForQuantity) uygulanır; maliyet eksikse
+ * o ürünün tüm kademelerinde birim/tutar '' gelir ve ürün gate.missingProducts'a girer.
+ */
+export function buildQuoteProducts(input: BuildQuoteProductsInput): BuildQuoteProductsResult {
+  const qtys = normalizeQuantities(input.quantities)
+  const products: QuoteProduct[] = []
+  const missing: string[] = []
+  const costed: string[] = []
+
+  for (const line of input.lines) {
+    const costMissing = line.unitCostUsd == null || !Number.isFinite(line.unitCostUsd)
+    if (costMissing) missing.push(line.urun)
+    else costed.push(line.urun)
+
+    const kademeler: QuoteTier[] = qtys.map((qty) => {
+      if (costMissing) {
+        return { adet: qty, marj: marginForQuantity(qty, input.tiers, line.customMargin), birim: '', tutar: '', oner: false }
+      }
+      const p = priceForQuantity(line.unitCostUsd as number, qty, input.tiers, line.customMargin)
+      return {
+        adet: qty,
+        marj: p.marginPercent,
+        birim: p.unitPrice.toFixed(2),
+        tutar: p.total.toFixed(2),
+        oner: input.recommendedQty != null && qty === input.recommendedQty,
+      }
+    })
+
+    products.push({ urun: line.urun, kod: line.kod, kumas: '', maliyetEksik: costMissing, kademeler })
+  }
+
+  const total = input.lines.length
+  const missingCount = missing.length
+  const status: CostGateStatus =
+    total === 0 || missingCount === total ? 'none' : missingCount > 0 ? 'partial' : 'all_costed'
+
+  return {
+    products,
+    gate: { status, total, costedCount: costed.length, missingCount, missingProducts: missing, costedProducts: costed },
+  }
 }
 
 /**

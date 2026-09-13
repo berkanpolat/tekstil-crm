@@ -13,6 +13,23 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.41.0] — 2026-09-13
+
+### Otomatik teklif — B1: veri/fiyat çekirdeği (saf fonksiyon)
+Katalogdan gelen taleplerde teklifin otomatik hazırlanması için veri katmanının ilk
+parçası. Bu sürüm yalnız **saf çekirdek + testtir** (UI/PDF/tetikleyici sonraki paketler).
+
+- `src/lib/draftQuoteBridge.ts` → yeni `buildQuoteProducts()`: eski düz `opts` listesi
+  yerine **ürün-grubu** yapı üretir — her ürün bir grup, altında sabit **3 kademe**
+  (50/%40, 200/%30, 500/%25; marj oranları canlı `margin_tiers`'tan). Kademede
+  `{adet, marj, birim, tutar, oner}`. `TEKLIF_ADET_KADEMELERI = [50,200,500]`.
+- **Maliyet kapısı (Q6 kararı):** `CostGate.status` → `all_costed` (otomatik oluşur) /
+  `partial` (uyar + çalışan seçsin; eksik ürünler **adıyla** döner) / `none`
+  (hepsi eksik veya ürün yok → teklif oluşmaz). Maliyet eksik üründe birim/tutar `''`
+  (asla sessizce 0 değil); marj kademesi yine görünür.
+- Eski `buildDraftOpts` (düz liste) geriye-uyum için korundu (mevcut editör akışı).
+- 12 yeni birim testi (toplam bu dosyada 20). Migration yok.
+
 ## [1.40.1] — 2026-09-13
 
 ### Belge indirme dosya adı düzeltmesi

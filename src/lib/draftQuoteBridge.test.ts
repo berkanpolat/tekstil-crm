@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath,
+  buildQuoteProducts, TEKLIF_ADET_KADEMELERI,
   type DraftLineInput,
 } from './draftQuoteBridge'
 import type { MarginTier } from './pricing'
@@ -9,6 +10,13 @@ import type { MarginTier } from './pricing'
 const TIERS: MarginTier[] = [
   { min_quantity: 1, margin_percent: 100 },
   { min_quantity: 200, margin_percent: 50 },
+]
+
+// Otomatik teklifin üretim kademeleri: 50/%40, 200/%30, 500/%25 (canlı margin_tiers).
+const TIERS_PROD: MarginTier[] = [
+  { min_quantity: 50, margin_percent: 40 },
+  { min_quantity: 200, margin_percent: 30 },
+  { min_quantity: 500, margin_percent: 25 },
 ]
 
 describe('buildDraftOpts — normal fiyatlama', () => {
@@ -66,6 +74,83 @@ describe('buildDraftOpts — maliyeti eksik ürün (Kural 2)', () => {
     const note = draftMissingNote(['Kaban', 'Mont'])
     expect(note).toContain('Kaban, Mont')
     expect(note).toContain('maliyet')
+  })
+})
+
+// B1 — Otomatik teklif: ürün-grubu veri yapısı + maliyet kapısı.
+describe('buildQuoteProducts — ürün-grubu yapı + 3 kademe', () => {
+  it('her ürün için sabit 3 kademe (50/%40, 200/%30, 500/%25) üretir', () => {
+    const lines: DraftLineInput[] = [{ urun: 'Gömlek', kod: 'GML', unitCostUsd: 10, customMargin: null }]
+    const { products } = buildQuoteProducts({ lines, tiers: TIERS_PROD })
+    expect(products).toHaveLength(1)
+    const p = products[0]!
+    expect(p.maliyetEksik).toBe(false)
+    expect(p.kademeler.map((k) => k.adet)).toEqual([50, 200, 500])
+    expect(p.kademeler.map((k) => k.marj)).toEqual([40, 30, 25])
+    // 50→10×1.4=14.00 (700), 200→10×1.3=13.00 (2600), 500→10×1.25=12.50 (6250)
+    expect(p.kademeler.map((k) => k.birim)).toEqual(['14.00', '13.00', '12.50'])
+    expect(p.kademeler.map((k) => k.tutar)).toEqual(['700.00', '2600.00', '6250.00'])
+  })
+
+  it('adet verilmezse varsayılan kademelere düşer', () => {
+    const { products } = buildQuoteProducts({ lines: [{ urun: 'X', kod: 'X', unitCostUsd: 10, customMargin: null }], tiers: TIERS_PROD })
+    expect(products[0]!.kademeler.map((k) => k.adet)).toEqual([...TEKLIF_ADET_KADEMELERI])
+  })
+
+  it('recommendedQty verilen kademeyi öner işaretler; verilmezse hiçbiri', () => {
+    const lines: DraftLineInput[] = [{ urun: 'X', kod: 'X', unitCostUsd: 10, customMargin: null }]
+    const withRec = buildQuoteProducts({ lines, tiers: TIERS_PROD, recommendedQty: 200 })
+    expect(withRec.products[0]!.kademeler.map((k) => k.oner)).toEqual([false, true, false])
+    const noRec = buildQuoteProducts({ lines, tiers: TIERS_PROD })
+    expect(noRec.products[0]!.kademeler.every((k) => !k.oner)).toBe(true)
+  })
+
+  it('ürüne özel marj tüm kademeleri ezer', () => {
+    const lines: DraftLineInput[] = [{ urun: 'X', kod: 'X', unitCostUsd: 10, customMargin: 20 }]
+    const { products } = buildQuoteProducts({ lines, tiers: TIERS_PROD })
+    expect(products[0]!.kademeler.map((k) => k.marj)).toEqual([20, 20, 20])
+    expect(products[0]!.kademeler.map((k) => k.birim)).toEqual(['12.00', '12.00', '12.00'])
+  })
+})
+
+describe('buildQuoteProducts — maliyet kapısı (Q6)', () => {
+  it('hepsi maliyetli → all_costed', () => {
+    const { gate } = buildQuoteProducts({ lines: [
+      { urun: 'A', kod: 'A', unitCostUsd: 10, customMargin: null },
+      { urun: 'B', kod: 'B', unitCostUsd: 5, customMargin: null },
+    ], tiers: TIERS_PROD })
+    expect(gate.status).toBe('all_costed')
+    expect(gate).toMatchObject({ total: 2, costedCount: 2, missingCount: 0, missingProducts: [] })
+  })
+
+  it('kısmi eksik → partial + eksik ürün adıyla döner, kademeleri boş', () => {
+    const { products, gate } = buildQuoteProducts({ lines: [
+      { urun: 'A', kod: 'A', unitCostUsd: 10, customMargin: null },
+      { urun: 'Kaban', kod: 'KBN', unitCostUsd: null, customMargin: null },
+    ], tiers: TIERS_PROD })
+    expect(gate.status).toBe('partial')
+    expect(gate.missingProducts).toEqual(['Kaban'])
+    expect(gate.costedProducts).toEqual(['A'])
+    const kaban = products.find((p) => p.urun === 'Kaban')!
+    expect(kaban.maliyetEksik).toBe(true)
+    // Maliyet eksik → birim/tutar '' (0 DEĞİL), ama marj kademesi yine görünür
+    for (const k of kaban.kademeler) { expect(k.birim).toBe(''); expect(k.tutar).toBe(''); expect(k.birim).not.toBe('0.00') }
+    expect(kaban.kademeler.map((k) => k.marj)).toEqual([40, 30, 25])
+  })
+
+  it('hepsi eksik → none (teklif oluşmaz)', () => {
+    const { gate } = buildQuoteProducts({ lines: [
+      { urun: 'A', kod: 'A', unitCostUsd: null, customMargin: null },
+      { urun: 'B', kod: 'B', unitCostUsd: null, customMargin: null },
+    ], tiers: TIERS_PROD })
+    expect(gate.status).toBe('none')
+    expect(gate.missingProducts).toEqual(['A', 'B'])
+  })
+
+  it('ürün yok → none (counts 0)', () => {
+    const { products, gate } = buildQuoteProducts({ lines: [], tiers: TIERS_PROD })
+    expect(products).toEqual([])
+    expect(gate).toMatchObject({ status: 'none', total: 0, costedCount: 0, missingCount: 0 })
   })
 })
 
