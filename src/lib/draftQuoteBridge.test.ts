@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath,
-  buildQuoteProducts, quantitiesFromTiers, TEKLIF_ADET_KADEMELERI_FALLBACK,
+  buildQuoteProducts, quantitiesFromTiers, selectQuoteProducts, TEKLIF_ADET_KADEMELERI_FALLBACK,
   type DraftLineInput,
 } from './draftQuoteBridge'
 import type { MarginTier } from './pricing'
@@ -170,6 +170,25 @@ describe('buildQuoteProducts — maliyet kapısı (Q6)', () => {
     const { products, gate } = buildQuoteProducts({ lines: [], tiers: TIERS_PROD })
     expect(products).toEqual([])
     expect(gate).toMatchObject({ status: 'none', total: 0, costedCount: 0, missingCount: 0 })
+  })
+})
+
+// B3 — tek-tuş üretim: "eksikleri atla" süzgeci.
+describe('selectQuoteProducts — skipMissing süzgeci', () => {
+  const build = () => buildQuoteProducts({ lines: [
+    { urun: 'A', kod: 'A', unitCostUsd: 10, customMargin: null },
+    { urun: 'Kaban', kod: 'KBN', unitCostUsd: null, customMargin: null },
+    { urun: 'B', kod: 'B', unitCostUsd: 5, customMargin: null },
+  ], tiers: TIERS_PROD }).products
+
+  it('skipMissing=false → hepsi kalır', () => {
+    expect(selectQuoteProducts(build(), false).map((p) => p.urun)).toEqual(['A', 'Kaban', 'B'])
+  })
+  it('skipMissing=true → maliyeti eksikler çıkar, sıra korunur', () => {
+    expect(selectQuoteProducts(build(), true).map((p) => p.urun)).toEqual(['A', 'B'])
+  })
+  it('varsayılan (skipMissing verilmez) → hepsi kalır', () => {
+    expect(selectQuoteProducts(build()).length).toBe(3)
   })
 })
 

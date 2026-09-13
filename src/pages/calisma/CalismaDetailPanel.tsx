@@ -16,6 +16,7 @@ import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DatePicker } from '@/components/shared/DatePicker'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
+import { AutoQuoteButton } from '@/pages/operations/AutoQuoteButton'
 import { useCustomer } from '@/hooks/useCustomers'
 import { useContactPoints, type ContactPoint, type ContactType } from '@/hooks/useContactPoints'
 import { useChannelOptions, useOutcomeOptions } from '@/hooks/useInteractions'
@@ -318,6 +319,11 @@ export function CalismaDetailPanel({ row, onOpenChange, onNavigate, hasPrev, has
 
           {/* 3) TEKLİFLER */}
           <Section title="Teklifler" icon={Receipt} count={quotes.data?.length}>
+            {operationId != null && (
+              <div className="mb-2">
+                <AutoQuoteButton operationId={operationId} />
+              </div>
+            )}
             {(quotes.data ?? []).length === 0 ? <p className="text-text-muted text-xs">Teklif yok.</p> : (
               <ul className="space-y-2">
                 {quotes.data!.map((q) => {

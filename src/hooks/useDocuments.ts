@@ -4,7 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
 import { ensureRows } from '@/lib/errors'
 import { useUploadFile, getSignedUrl } from './useFiles'
-import { buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath, type DraftLineInput } from '@/lib/draftQuoteBridge'
+import {
+  buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath, buildQuoteProducts, selectQuoteProducts,
+  type DraftLineInput, type QuoteProduct, type CostGate,
+} from '@/lib/draftQuoteBridge'
 import { buildDocumentFileName } from '@/lib/documentName'
 import type { MarginTier } from '@/lib/pricing'
 
@@ -195,18 +198,18 @@ interface OciCatalogRow {
   catalog_products: { custom_margin_percent: number | null; images: { sort_order: number; files: { storage_path: string } | null }[] } | null
 }
 
+interface CatalogInfo { custom_margin_percent: number | null; images: { sort_order: number; storage_path: string | null }[] }
+
 /**
- * P8A — Taslak teklif → fiyat_teklifi belgesi köprüsü (async orkestrasyon).
- * Operasyondan temel alanları (build_document_data), taslaktan ürün/fiyatı, katalogdan görseli
- * toplar; saf buildDraftOpts ile seçili adetlere göre fiyat satırları üretir. Sonuç DocumentEditorPage'e
- * router state.prefill olarak verilir → belge dolu ve DÜZENLENEBİLİR açılır.
+ * Ortak toplama (iki köprü de kullanır): operasyon temel alanları + taslak satırları +
+ * katalog özel-marj/görselleri + kur kademeleri → saf çekirdeğe hazır DraftLineInput[].
+ * unitCostUsd, taslak birim fiyatından (security-definer) draftMargin ile geri türetilir
+ * → costs.view RLS'ine takılmadan maliyet-var/yok ayrımı korunur.
  */
-export async function buildDraftQuotePrefill(
-  operationId: number,
-  draftData: Record<string, unknown>,
-  quantities: number[],
-): Promise<{ tkS: Record<string, unknown> }> {
-  // 1) Operasyondan temel alanlar (talep no ← code, müşteri, grup/tür). Başarısız olursa boş devam.
+async function collectQuoteInputs(operationId: number, draftData: Record<string, unknown>): Promise<{
+  baseTkS: Record<string, unknown>; satirlar: DraftSatir[]; byCode: Map<string, CatalogInfo>
+  tiers: MarginTier[]; lines: DraftLineInput[]; recommendedQty: number
+}> {
   let baseTkS: Record<string, unknown> = {}
   try {
     const base = await buildDocumentData(operationId, 'fiyat_teklifi', 'tr')
@@ -216,11 +219,10 @@ export async function buildDraftQuotePrefill(
   const satirlar = (draftData.satirlar as DraftSatir[] | undefined) ?? []
   const recommendedQty = Number(draftData.adet_kademesi ?? 50) || 50
 
-  // 2) Katalog kalemleri: özel marj + görsel (koda göre eşle). Görsel/marj için costs.view gerekmez.
   const { data: ociData } = await supabase.from('operation_catalog_items')
     .select('catalog_product_code, label, catalog_product_id, catalog_products(custom_margin_percent, images:catalog_product_images(sort_order, files(storage_path)))')
     .eq('operation_id', operationId)
-  const byCode = new Map<string, { custom_margin_percent: number | null; images: { sort_order: number; storage_path: string | null }[] }>()
+  const byCode = new Map<string, CatalogInfo>()
   for (const r of (ociData ?? []) as unknown as OciCatalogRow[]) {
     const cp = r.catalog_products
     byCode.set(String(r.catalog_product_code ?? ''), {
@@ -229,13 +231,11 @@ export async function buildDraftQuotePrefill(
     })
   }
 
-  // 3) Varsayılan taslak marjı (birim fiyattan ham maliyet türetmek için) + marj kademeleri.
   const { data: setRow } = await supabase.from('settings').select('value').eq('key', 'intake.draft_margin_percent').maybeSingle()
   const draftMargin = Number((setRow?.value as unknown) ?? 40) || 40
   const { data: tierData } = await supabase.from('margin_tiers').select('min_quantity, margin_percent').eq('is_active', true).order('min_quantity')
   const tiers = (tierData ?? []) as MarginTier[]
 
-  // 4) Satırlar → saf köprü.
   const lines: DraftLineInput[] = satirlar.map((s) => {
     const info = byCode.get(String(s.kod ?? ''))
     return {
@@ -245,9 +245,36 @@ export async function buildDraftQuotePrefill(
       customMargin: info?.custom_margin_percent ?? null,
     }
   })
+  return { baseTkS, satirlar, byCode, tiers, lines, recommendedQty }
+}
+
+/** Otomatik teklif temel alanları (blankData ile aynı alanlar; para USD, teslimat bugün+7). */
+function autoQuoteBase(baseTkS: Record<string, unknown>, not: string): Record<string, unknown> {
+  return {
+    talep: baseTkS.talep ?? '', musteri: baseTkS.musteri ?? '', grup: baseTkS.grup ?? '', tur: baseTkS.tur ?? '',
+    gecerli: (baseTkS.gecerli as string) || '7 Gün',
+    teslimat: new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10),
+    odeme: '%50 Ön Ödeme, %50 Sevkiyat Öncesi',
+    para: 'USD', kdv: (baseTkS.kdv as string) ?? '20', indirim: '0',
+    not, dil: 'tr',
+  }
+}
+
+/**
+ * P8A — Taslak teklif → fiyat_teklifi belgesi köprüsü (async orkestrasyon).
+ * Operasyondan temel alanları (build_document_data), taslaktan ürün/fiyatı, katalogdan görseli
+ * toplar; saf buildDraftOpts ile seçili adetlere göre fiyat satırları üretir. Sonuç DocumentEditorPage'e
+ * router state.prefill olarak verilir → belge dolu ve DÜZENLENEBİLİR açılır. (Eski düz opts yapısı.)
+ */
+export async function buildDraftQuotePrefill(
+  operationId: number,
+  draftData: Record<string, unknown>,
+  quantities: number[],
+): Promise<{ tkS: Record<string, unknown> }> {
+  const { baseTkS, satirlar, byCode, tiers, lines, recommendedQty } = await collectQuoteInputs(operationId, draftData)
   const { opts, missingProducts } = buildDraftOpts({ lines, quantities, tiers, recommendedQty })
 
-  // 5) Görsel: ilk katalog ürününün ilk görseli (Kural 1 — yoksa görselsiz açılır, hata yok).
+  // Görsel: ilk katalog ürününün ilk görseli (Kural 1 — yoksa görselsiz açılır, hata yok).
   let foto: string | undefined; let fotoAR: number | undefined
   for (const s of satirlar) {
     const path = firstImagePath(byCode.get(String(s.kod ?? ''))?.images)
@@ -256,19 +283,54 @@ export async function buildDraftQuotePrefill(
     if (p) { foto = p.foto; fotoAR = p.ar; break }
   }
 
-  // 6) Tam tkS (blankData ile aynı alanlar; DocumentEditorPage prefill'i tkS'yi toptan değiştirir).
-  const tkS: Record<string, unknown> = {
-    talep: baseTkS.talep ?? '', musteri: baseTkS.musteri ?? '', grup: baseTkS.grup ?? '', tur: baseTkS.tur ?? '',
-    gecerli: (baseTkS.gecerli as string) || '7 Gün',
-    teslimat: new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10), // öngörülen teslimat = bugün + 7 gün
-    odeme: '%50 Ön Ödeme, %50 Sevkiyat Öncesi',
-    para: 'USD', // taslak maliyet/fiyatı USD; editörde değiştirilebilir
-    kdv: (baseTkS.kdv as string) ?? '20', indirim: '0',
-    not: draftMissingNote(missingProducts), dil: 'tr',
-    opts,
-  }
+  const tkS: Record<string, unknown> = { ...autoQuoteBase(baseTkS, draftMissingNote(missingProducts)), opts }
   if (foto) { tkS.foto = foto; tkS.fotoAR = fotoAR }
   return { tkS }
+}
+
+export interface AutoQuoteData {
+  gate: CostGate
+  /** Ürün-grubu (her ürün kendi görselli); B2 şablonu her birini ayrı sayfa basar. */
+  products: QuoteProduct[]
+  /** tkS temel alanları (urunler HARİÇ). */
+  base: Record<string, unknown>
+  /** TL karşılığı için canlı kur (yoksa null). */
+  rates: { USD: number | null; EUR: number | null; GBP: number | null; date: string; source: string } | null
+}
+
+/**
+ * B3 — Operasyondan OTOMATİK teklif verisi + maliyet kapısı (tek-tuş üretim için).
+ * Kademe sayısı/oranları margin_tiers'tan CANLI (buildQuoteProducts adetleri tiers'tan türetir).
+ * Her ürüne kendi katalog görseli eklenir (yoksa görselsiz — Kural 1). Fiyat üretmez; sadece
+ * veriyi + gate'i döndürür → çağıran gate'e göre üretir/uyarır/durur.
+ */
+export async function buildAutoQuote(operationId: number, draftData: Record<string, unknown>): Promise<AutoQuoteData> {
+  const { baseTkS, satirlar, byCode, tiers, lines, recommendedQty } = await collectQuoteInputs(operationId, draftData)
+  const { products, gate } = buildQuoteProducts({ lines, tiers, recommendedQty })
+
+  // Her ürüne kendi görseli (satirlar ile products aynı sırada). Aynı path bir kez indirilir.
+  const cache = new Map<string, { foto: string; ar: number } | null>()
+  for (let i = 0; i < products.length; i++) {
+    const path = firstImagePath(byCode.get(String(satirlar[i]?.kod ?? ''))?.images)
+    if (!path) continue
+    if (!cache.has(path)) cache.set(path, await storagePathToDataUrl(path))
+    const img = cache.get(path)
+    if (img) { products[i]!.foto = img.foto; products[i]!.fotoAR = img.ar }
+  }
+
+  const rates = await fetchRates().catch(() => null)
+  return { gate, products, base: autoQuoteBase(baseTkS, ''), rates }
+}
+
+/**
+ * Saf: AutoQuoteData → belge üretimi için docData ({tkS:{...,urunler}, rates?}).
+ * skipMissing → maliyeti eksik ürünler çıkarılır (partial akışta "eksikleri atla").
+ */
+export function autoQuoteDocData(d: AutoQuoteData, opts?: { skipMissing?: boolean }): { tkS: Record<string, unknown>; rates?: unknown } {
+  const urunler = selectQuoteProducts(d.products, opts?.skipMissing)
+  const docData: { tkS: Record<string, unknown>; rates?: unknown } = { tkS: { ...d.base, urunler } }
+  if (d.rates) docData.rates = d.rates
+  return docData
 }
 
 export type DocumentTypeKey = 'fiyat_teklifi' | 'siparis_onay' | 'numune_etiketi' | 'siparis_formu' | 'koli_ustu'

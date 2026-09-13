@@ -17,6 +17,7 @@ import { DatePicker } from '@/components/shared/DatePicker'
 import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
 import { getSignedUrl } from '@/hooks/useFiles'
 import { GenerateDocButton } from './GenerateDocButton'
+import { AutoQuoteButton } from './AutoQuoteButton'
 import { buildDraftQuotePrefill } from '@/hooks/useDocuments'
 import {
   useOperationQuotes, useUploadQuoteFile, useSetQuoteResult, useDeleteQuote, useAdvanceStage,
@@ -73,8 +74,9 @@ export function QuotesTab({ operationId }: { operationId: number }) {
           <p className="text-text-muted text-xs">PDF/Excel yükleyin — durum otomatik "Teklif İletildi" olur. Dilerseniz sistemden fiyat teklifi belgesi de üretebilirsiniz.</p>
         </div>
         <input ref={inputRef} type="file" accept=".pdf,.xls,.xlsx,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onPick} />
-        <div className="flex gap-2">
-          <GenerateDocButton operationId={operationId} typeKey="fiyat_teklifi" />
+        <div className="flex flex-wrap items-center gap-2">
+          {draft.data && <AutoQuoteButton operationId={operationId} />}
+          <GenerateDocButton operationId={operationId} typeKey="fiyat_teklifi" variant="outline" />
           <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()} disabled={upload.isPending}>
             {upload.isPending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />} Dosya yükle
           </Button>

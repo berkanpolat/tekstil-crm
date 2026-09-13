@@ -211,7 +211,16 @@ export function buildQuoteProducts(input: BuildQuoteProductsInput): BuildQuotePr
     products.push({ urun: line.urun, kod: line.kod, kumas: '', maliyetEksik: costMissing, kademeler })
   }
 
-  const total = input.lines.length
+  return finalizeQuoteProducts(products, input.lines.length, missing, costed)
+}
+
+/** Ürün listesini maliyet durumuna göre süz: skipMissing → maliyeti eksikler çıkarılır. */
+export function selectQuoteProducts(products: QuoteProduct[], skipMissing?: boolean): QuoteProduct[] {
+  return skipMissing ? products.filter((p) => !p.maliyetEksik) : products
+}
+
+/** products + eksik/dolu listelerinden gate'i kurar (buildQuoteProducts sonu). */
+function finalizeQuoteProducts(products: QuoteProduct[], total: number, missing: string[], costed: string[]): BuildQuoteProductsResult {
   const missingCount = missing.length
   const status: CostGateStatus =
     total === 0 || missingCount === total ? 'none' : missingCount > 0 ? 'partial' : 'all_costed'

@@ -13,6 +13,30 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.43.0] — 2026-09-13
+
+### Otomatik teklif — B3: tek-tuş üretim + maliyet kapısı
+Talep ekranında editörsüz **"Teklif oluştur ve indir"** butonu (`AutoQuoteButton`).
+Maliyet kapısına (`buildAutoQuote` → `CostGate`) göre:
+- **all_costed** → doğrudan üretir + indirir (ara ekran yok).
+- **partial** → uyarı diyaloğu; **eksik ürünler adıyla** listelenir → "Eksikleri atla,
+  gerisini üret" / "Vazgeç".
+- **none** → teklif oluşmaz; hangi ürünlerin maliyeti eksik olduğu gösterilir.
+
+- `src/hooks/useDocuments.ts`: `buildAutoQuote(operationId, draftData)` — taslak +
+  katalog + canlı `margin_tiers`'ten ürün-grubu veri (her ürüne kendi görseli) + gate
+  üretir; kademeler B2'deki gibi tiers'ten CANLI. `autoQuoteDocData()` (saf süzgeç
+  `selectQuoteProducts` ile) belge verisini kurar; TL karşılığı için canlı kur eklenir.
+  Ortak toplama `collectQuoteInputs()`'a çıkarıldı (buildDraftQuotePrefill ile paylaşımlı).
+- **Dosya adı v1.40.1 kuralı:** üretimde `MüşteriAdı-FiyatTeklifi.pdf` damgalanır; buton
+  indirmede bu adı kullanır.
+- **Önizleme opsiyonel:** "Önizle" butonu PDF servisinden HTML önizlemeyi yeni sekmede
+  açar (varsayılan akış yine tek tuş).
+- **Buton yerleşimi:** talep detayı → Teklifler sekmesi (birincil) **ve** Hızlı Çalışma
+  işlem merkezi (`CalismaDetailPanel` → Teklifler bölümü). Katalog taslağı olmayan
+  taleplerde buton pasiftir (açıklayıcı ipucu ile).
+- 6 yeni birim testi (`selectQuoteProducts`). Migration yok.
+
 ## [1.42.0] — 2026-09-13
 
 ### Otomatik teklif — B2: fiyat_teklifi PDF şablonu (ürün başına sayfa)
