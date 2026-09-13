@@ -13,6 +13,26 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.40.1] — 2026-09-13
+
+### Belge indirme dosya adı düzeltmesi
+Üretilen belgeler artık anlamsız `koli_ustu-1788872505660.pdf` yerine **müşteri adı +
+belge türü** ile iner (ör. `PolatCetiner-FiyatTeklifi.pdf`). Müşteri yoksa (bağımsız
+belge) talep kodu kullanılır (`TAS-XCVWME-FiyatTeklifi.pdf`).
+
+- Yeni ortak kural: `src/lib/documentName.ts` (`buildDocumentFileName`) — Türkçe
+  karakterleri ASCII'ye katlar (ç→c, ğ→g, ı→i, İ→I, ö→o, ş→s, ü→u), boşluk/noktalamayı
+  kaldırır, kelime başlarını büyütür. 12 birim testi.
+- **Üretim (tek kaynak):** `useGenerateDocument` dosyayı bu adla kaydeder; operasyona
+  bağlı belgede müşteri/kod DB'den, bağımsız belgede render verisinden okunur.
+- **İndirme yolları aynı kurala bağlandı:** Müşteri → Dosyalar sekmesi
+  (`CustomerFilesTab`) ve Belgeler listesi (`BelgelerListPage`, tekli + toplu indirme)
+  adı satır bilgisinden yeniden üretir → eski belgeler de anlamlı iner.
+- Teklif/Sipariş sekmelerindeki (`QuotesTab`/`OrdersTab`) indirmeler **kullanıcının
+  yüklediği** dosyalar olduğundan özgün ad korunur; oradaki üretilmiş fiyat teklifi
+  ise üretim düzeltmesiyle zaten anlamlı adı taşır.
+- Migration yok.
+
 ## [1.40.0] — 2026-09-09
 
 ### Hızlı Çalışma — özet kartları + RPC iş listesi + talep-bazlı takip

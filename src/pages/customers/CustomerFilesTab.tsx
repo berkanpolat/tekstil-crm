@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { useDocumentsList, type DocumentListRow } from '@/hooks/useDocumentsList'
 import { getSignedUrl } from '@/hooks/useFiles'
+import { buildDocumentFileName } from '@/lib/documentName'
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—'
@@ -23,7 +24,8 @@ export function CustomerFilesTab({ customerId }: { customerId: number }) {
     if (!d.storage_path) return
     setDownloading(d.id)
     try {
-      const name = d.file_name ?? `${d.type_label}.pdf`
+      // İndirme adı her zaman anlamlı üretilir (eski belgelerde depodaki ad anlamsız olabilir).
+      const name = buildDocumentFileName({ typeKey: d.type_key, customerName: d.customer_name, operationCode: d.operation_code })
       const url = await getSignedUrl('documents', d.storage_path, 60, name)
       const a = document.createElement('a')
       a.href = url

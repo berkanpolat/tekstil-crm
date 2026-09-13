@@ -16,7 +16,18 @@ import { getSignedUrl } from '@/hooks/useFiles'
 import { useAllCustomerOptions } from '@/hooks/useOperations'
 import { useDocumentsList, type DocumentListRow } from '@/hooks/useDocumentsList'
 import { useDeleteDocument } from '@/hooks/useDocuments'
+import { buildDocumentFileName } from '@/lib/documentName'
 import { NewDocumentButton } from './NewDocumentButton'
+
+/** Satır → anlamlı indirme adı. Operasyona bağlıysa müşteri+kod (tek kural); bağımsız
+ *  belgede depodaki ad (üretimde artık anlamlı yazılıyor), yoksa müşteri/tür. */
+function downloadNameFor(r: DocumentListRow): string {
+  if (r.operation_id != null) {
+    return buildDocumentFileName({ typeKey: r.type_key, customerName: r.customer_name, operationCode: r.operation_code })
+  }
+  if (r.file_name) return r.file_name
+  return buildDocumentFileName({ typeKey: r.type_key, customerName: r.customer_name })
+}
 
 function useDocumentTypeOptions() {
   return useQuery({
@@ -82,7 +93,7 @@ export function BelgelerListPage() {
     if (!rows.length) { toast.error('İndirilecek belge seçilmedi.'); return }
     setBulkBusy(true)
     try {
-      for (const r of rows) { await openFile(r.storage_path, r.file_name, true); await new Promise((res) => setTimeout(res, 250)) }
+      for (const r of rows) { await openFile(r.storage_path, downloadNameFor(r), true); await new Promise((res) => setTimeout(res, 250)) }
       toast.success(`${rows.length} belge indirildi.`)
     } catch (err) { toast.error(await toUserMessage(err)) } finally { setBulkBusy(false) }
   }
@@ -102,7 +113,7 @@ export function BelgelerListPage() {
       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
         <Button size="icon" variant="ghost" className="size-8" title="Düzenle / yeni sürüm" onClick={() => navigate(`/belgeler/${r.id}/duzenle`)}><FileEdit className="size-4" /></Button>
         <Button size="icon" variant="ghost" className="size-8" title="Önizle" disabled={!r.storage_path} onClick={() => void openFile(r.storage_path, r.file_name, false)}><Eye className="size-4" /></Button>
-        <Button size="icon" variant="ghost" className="size-8" title="İndir" disabled={!r.storage_path} onClick={() => void openFile(r.storage_path, r.file_name, true)}><Download className="size-4" /></Button>
+        <Button size="icon" variant="ghost" className="size-8" title="İndir" disabled={!r.storage_path} onClick={() => void openFile(r.storage_path, downloadNameFor(r), true)}><Download className="size-4" /></Button>
         <Button size="icon" variant="ghost" className="size-8 text-destructive" title="Sil" onClick={() => void deleteDoc(r)}><Trash2 className="size-4" /></Button>
       </div>
     ) },

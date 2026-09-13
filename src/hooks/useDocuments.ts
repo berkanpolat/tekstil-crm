@@ -5,6 +5,7 @@ import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
 import { ensureRows } from '@/lib/errors'
 import { useUploadFile, getSignedUrl } from './useFiles'
 import { buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath, type DraftLineInput } from '@/lib/draftQuoteBridge'
+import { buildDocumentFileName } from '@/lib/documentName'
 import type { MarginTier } from '@/lib/pricing'
 
 /** 1.9 — Operasyonun (talebin) birincil görselini data URL + en/boy oranıyla getir.
@@ -375,6 +376,34 @@ export function useDeleteDocument() {
   })
 }
 
+/**
+ * Bağımsız belgede (operationId yok) müşteri/kod bilgisini render verisinden çıkarır.
+ * Alanlar belge türüne göre farklı sarmalayıcıda (tkS/soS/norder/sip/order). Operasyona
+ * bağlı belgelerde bu değerler DB'den (operations + customers) daha güvenilir okunur.
+ */
+function extractNamePartsFromData(typeKey: DocumentTypeKey, data: Record<string, unknown>): { customerName: string | null; code: string | null } {
+  const g = <T = unknown>(obj: unknown, key: string): T | undefined =>
+    obj && typeof obj === 'object' ? (obj as Record<string, unknown>)[key] as T : undefined
+  const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  switch (typeKey) {
+    case 'fiyat_teklifi': { const s = data.tkS; return { customerName: str(g(s, 'musteri')), code: str(g(s, 'talep')) } }
+    case 'siparis_onay': { const s = data.soS; return { customerName: str(g(s, 'musteri')), code: str(g(s, 'kod')) } }
+    case 'siparis_formu': { const s = data.sip; return { customerName: str(g(g(s, 'alici'), 'unvan')), code: str(g(s, 'no6')) } }
+    case 'numune_etiketi': { const n = data.norder; const first = (g<unknown[]>(data, 'numuneler') ?? [])[0]
+      return { customerName: str(g(n, 'musteri')) ?? str(g(first, 'musteri')), code: str(g(n, 'urunkodu')) ?? str(g(first, 'urunkodu')) } }
+    case 'koli_ustu': { const s = data.order; return { customerName: str(g(s, 'musteri')), code: null } }
+    default: return { customerName: null, code: null }
+  }
+}
+
+/** Operasyona bağlı belgede müşteri adı + TAS kodunu DB'den getirir (indirme adı için). */
+async function fetchOperationNameParts(operationId: number): Promise<{ customerName: string | null; code: string | null }> {
+  const { data } = await supabase.from('operations')
+    .select('code, customers(company_name, full_name)').eq('id', operationId).maybeSingle()
+  const row = data as { code: string | null; customers: { company_name: string | null; full_name: string | null } | null } | null
+  return { customerName: row?.customers?.company_name ?? row?.customers?.full_name ?? null, code: row?.code ?? null }
+}
+
 export interface GenerateResult { document_id: number; file_id: number | null; idempotent: boolean }
 
 /**
@@ -417,7 +446,13 @@ export function useGenerateDocument() {
       })
       if (!res.ok) throw new Error(`PDF servisi hatası (${res.status}). Servis çalışıyor mu? (${env.pdfServiceUrl})`)
       const blob = await res.blob()
-      const file = new File([blob], `${typeKey}-${operationId ?? Date.now()}.pdf`, { type: 'application/pdf' })
+      // İndirme adı anlamlı olsun: müşteri adı + belge türü (yoksa TAS kodu). Operasyona bağlıysa
+      // müşteri/kod DB'den, bağımsız belgede render verisinden okunur (tek kural: buildDocumentFileName).
+      const nameParts = operationId != null
+        ? await fetchOperationNameParts(operationId)
+        : extractNamePartsFromData(typeKey, docData)
+      const fileName = buildDocumentFileName({ typeKey, customerName: nameParts.customerName, operationCode: nameParts.code })
+      const file = new File([blob], fileName, { type: 'application/pdf' })
       // 6. Storage + files
       const uploaded = await upload.mutateAsync({ file, bucket: 'documents', category: 'document', entityType: 'operation', entityId: operationId != null ? String(operationId) : 'bagimsiz' })
       // 7. documents kaydı
