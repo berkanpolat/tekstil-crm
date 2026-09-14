@@ -16,12 +16,20 @@ const SABLON_DIZINI = join(__dirname, 'templates')
 const IZINLI_CDN_HOSTLARI = new Set(['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'unpkg.com'])
 const SECRET = process.env.PDF_SECRET || ''
 
+// YEREL GELİŞTİRME BYPASS'ı (v1.45.1): YALNIZCA NODE_ENV==='development' VE PDF_SECRET boşsa
+// koruma devre dışı kalır → `node server.mjs` ile edge fn kurmadan belge testi yapılabilir.
+// Üretimde ASLA atlanmaz: NODE_ENV production ise (veya tanımsızsa) DEV=false → koruma zorunlu.
+// Bypass yalnız secret YOKKEN geçerli; secret varsa dev'de de doğrulama yapılır.
+const DEV = process.env.NODE_ENV === 'development'
+const DEV_KORUMA_KAPALI = DEV && !SECRET
+
 // GÜVENLİK (SAST 1 Eyl 2026 — Kritik): kimlik denetimi `if (SECRET && ...)`
 // kalıbındaydı; PDF_SECRET tanımlı DEĞİLSE koruma SESSİZCE KAPANIYORDU ve /render
 // internete kimliksiz açılıyordu. Güvenli varsayılan tam tersidir: sır yoksa
 // servis iş görmez. (Önyüz zaten x-pdf-secret göndermiyordu — yani pratikte
-// koruma hiç devrede değildi.)
+// koruma hiç devrede değildi.) İSTİSNA: yalnız açık DEV_KORUMA_KAPALI (yukarı).
 function yetkiKontrol(req, res) {
+  if (DEV_KORUMA_KAPALI) return true // yalnız NODE_ENV=development + secret yok
   if (!SECRET) {
     res.status(503).json({
       error: 'yapilandirma_eksik',
@@ -232,5 +240,9 @@ app.get('/rate-on-date', async (req, res) => {
   }
 })
 
+if (DEV_KORUMA_KAPALI) {
+  console.warn('\n\x1b[43m\x1b[30m ⚠  UYARI \x1b[0m \x1b[33mPDF koruması KAPALI — yalnız yerel geliştirme (NODE_ENV=development, PDF_SECRET yok).\x1b[0m')
+  console.warn('\x1b[33m   /render ve /preview kimliksiz açık. Üretimde ASLA bu modda çalıştırma.\x1b[0m\n')
+}
 boot().then(() => app.listen(PORT, () => console.log(`[pdf] hazır → http://localhost:${PORT}`)))
   .catch((e) => { console.error('[pdf] boot hatası', e); process.exit(1) })

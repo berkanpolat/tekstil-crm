@@ -13,6 +13,21 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.45.1] — 2026-09-14
+
+### PDF servisi — güvenli yerel geliştirme bypass'ı
+Yerelde belge testi için: edge fn kurmadan `node server.mjs` ile çalışabilme.
+
+- `services/pdf-renderer/server.mjs`: **YALNIZCA** `NODE_ENV==='development'` **VE**
+  `PDF_SECRET` boşsa `x-pdf-secret` koruması devre dışı (`DEV_KORUMA_KAPALI`).
+  Başlangıçta **belirgin sarı uyarı** basar ("PDF koruması KAPALI — yalnız yerel geliştirme").
+- **Üretim etkilenmez:** `NODE_ENV=production` (veya tanımsız) → koruma zorunlu; secret
+  yoksa 503, yanlışsa 401. Bypass yalnız secret YOKKEN + development'ta; secret varsa
+  dev'de de doğrulama sürer.
+- Doğrulama matrisi (yerel): dev+secret yok→200+uyarı; prod+secret yok→503;
+  NODE_ENV tanımsız+secret yok→503; dev+secret var başlıksız→401. Hepsi geçti.
+- Yalnız PDF servisi (`server.mjs`) değişti; istemci/canlı davranışı aynı. Migration yok.
+
 ## [1.45.0] — 2026-09-14
 
 ### PDF servisi güvenli proxy — `generate-document` Edge Function
