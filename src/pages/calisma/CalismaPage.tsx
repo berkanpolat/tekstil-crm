@@ -15,6 +15,7 @@ import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useAssigneeOptions } from '@/hooks/useLeads'
 import { useOperationList, useChannelOptions, type OperationRow } from '@/hooks/useOperations'
+import { MultiAutoQuoteBar } from '@/pages/operations/MultiAutoQuoteBar'
 import { useLastNotes, useWorklist, type WorklistBucket } from '@/hooks/useCalisma'
 import { CalismaDetailPanel } from './CalismaDetailPanel'
 import { tabStorageKey, formatWaiting, formatRelative, isStale, stepIndex } from './calismaUtils'
@@ -80,6 +81,7 @@ export function CalismaPage() {
   const [pageSize, setPageSize] = useState(50)
   const [sort, setSort] = useState<SortState | null>({ key: 'created_at', dir: 'desc' })
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set()) // B4 — çoklu birleştirme onay kutuları
 
   const owners = useAssigneeOptions()
   const channels = useChannelOptions()
@@ -104,6 +106,10 @@ export function CalismaPage() {
   }, [data?.rows, bucket, pageIds])
 
   const loading = (bucket ? worklist.isLoading : false) || isLoading || isFetching
+
+  // B4 — seçili talepler (çoklu birleştirme); görünen satırlardan çözülür.
+  const selectedRows = rows.filter((r) => checked.has(String(r.id)))
+    .map((r) => ({ id: r.id, customerId: r.customer_id, customerName: r.customer_name }))
 
   // Son aksiyon + bekleme — sayfadaki operasyonlar için toplu tek sorgu.
   const opIds = useMemo(() => rows.map((r) => r.id), [rows])
@@ -241,9 +247,12 @@ export function CalismaPage() {
         </FilterBar>
       )}
 
+      <MultiAutoQuoteBar selected={selectedRows} onClear={() => setChecked(new Set())} />
+
       <DataTable
         columns={columns} data={rows} rowKey={(r) => String(r.id)}
         loading={loading} columnToggle={false}
+        selectable selectedKeys={checked} onSelectedChange={setChecked}
         onRowClick={(r) => setSelectedId(r.id)}
         rowClassName={(r) => (r.id === selectedId ? 'bg-accent-pale/60 hover:bg-accent-pale/60' : undefined)}
         page={page} pageSize={pageSize} total={bucket ? (total ?? 0) : (data?.total ?? 0)}

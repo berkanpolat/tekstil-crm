@@ -604,6 +604,8 @@ svg.fy-leaders{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:
 .qpphoto{align-self:start;border:1px solid #e7ebf3;border-radius:12px;background:#f7f9fd;padding:7px;line-height:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .qpphoto img{display:block;object-fit:cover;border-radius:7px}
 .qpmain{min-width:0}
+.qptalep{font-size:8.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#8b94a9;margin-bottom:6px}
+.qptalep b{color:#1f2f57}
 .qpname{font-size:22px;font-weight:800;color:#1f2f57;line-height:1.15;overflow-wrap:anywhere}
 .qpcode{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#ef7e1d;margin-top:5px;text-transform:uppercase}
 .qpkumas{font-size:12px;color:#7d8699;font-weight:600;margin-top:9px}
@@ -3080,8 +3082,10 @@ function tkProductBlock(p,ctx){
       '<div class="qt-adet">'+T.thAdet+'</div><div class="qt-adetn">'+adetTxt+'</div>'+body+'</div>';
   }).join('');
   var warn=p.maliyetEksik?'<div class="qwarn">⚠ '+T.costMissing+' — '+T.costMissingHint+'.</div>':'';
+  /* B4 — çoklu talep birleştirmede her ürün sayfası kendi TALEP kodunu taşır (bölüm göstergesi). */
+  var talepBadge=(p.talep&&String(p.talep).trim())?'<div class="qptalep">'+T.talep+': <b>'+H(String(p.talep))+'</b></div>':'';
   return '<div class="qprod'+(hasPhoto?'':' no-photo')+'">'+photo+
-    '<div class="qpmain"><div class="qpname">'+tkMv(p.urun)+'</div>'+
+    '<div class="qpmain">'+talepBadge+'<div class="qpname">'+tkMv(p.urun)+'</div>'+
     (p.kod?'<div class="qpcode">'+H(String(p.kod))+'</div>':'')+
     (p.kumas&&String(p.kumas).trim()?'<div class="qpkumas">'+H(String(p.kumas))+'</div>':'')+
     warn+'<div class="qtiers">'+tiers+'</div></div></div>';

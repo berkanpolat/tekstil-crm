@@ -6,6 +6,7 @@ import { ensureRows } from '@/lib/errors'
 import { useUploadFile, getSignedUrl } from './useFiles'
 import {
   buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath, buildQuoteProducts, selectQuoteProducts,
+  combineQuoteSources, type QuoteSource,
   type DraftLineInput, type QuoteProduct, type CostGate,
 } from '@/lib/draftQuoteBridge'
 import { buildDocumentFileName } from '@/lib/documentName'
@@ -331,6 +332,67 @@ export function autoQuoteDocData(d: AutoQuoteData, opts?: { skipMissing?: boolea
   const docData: { tkS: Record<string, unknown>; rates?: unknown } = { tkS: { ...d.base, urunler } }
   if (d.rates) docData.rates = d.rates
   return docData
+}
+
+/** Operasyonun onay bekleyen taslak teklif verisini getir (yoksa null). */
+async function fetchDraftQuoteData(operationId: number): Promise<Record<string, unknown> | null> {
+  const { data } = await supabase.from('documents')
+    .select('data, document_types!inner(key)')
+    .eq('operation_id', operationId).eq('is_draft' as never, true as never)
+    .eq('document_types.key', 'fiyat_teklifi').is('deleted_at', null)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  return data ? ((data as { data: Record<string, unknown> }).data ?? {}) : null
+}
+
+/** Birden çok operasyonun müşteri/kod bilgisi — birleştirme öncesi aynı-müşteri kontrolü + etiketleme. */
+export interface QuoteOperationInfo { id: number; code: string; customerId: number; customerName: string | null }
+export async function fetchQuoteOperationsInfo(operationIds: number[]): Promise<QuoteOperationInfo[]> {
+  if (!operationIds.length) return []
+  const { data } = await supabase.from('operations')
+    .select('id, code, customer_id, customers(company_name, full_name)').in('id', operationIds)
+  const rows = (data ?? []) as unknown as { id: number; code: string; customer_id: number; customers: { company_name: string | null; full_name: string | null } | null }[]
+  return rows.map((r) => ({ id: r.id, code: r.code, customerId: r.customer_id, customerName: r.customers?.company_name ?? r.customers?.full_name ?? null }))
+}
+
+/** Seçili operasyonlar tek müşteriye mi ait? (Birleştirme yalnız aynı müşteride.) */
+export function sameCustomer(infos: QuoteOperationInfo[]): boolean {
+  if (infos.length === 0) return false
+  const first = infos[0]!.customerId
+  return infos.every((o) => o.customerId === first)
+}
+
+export class MixedCustomerError extends Error {
+  constructor() { super('Farklı müşterilere ait talepler birleştirilemez. Lütfen tek müşterinin taleplerini seçin.'); this.name = 'MixedCustomerError' }
+}
+
+/**
+ * B4 — Çoklu talebi TEK otomatik teklife birleştirir (aynı müşteri).
+ * Her talep için buildAutoQuote çalışır; ürünler talep koduyla etiketlenip birleştirilir
+ * (B2 yapısı korunur: her ürün kendi sayfası). Maliyet kapısı tüm talepler için birlikte;
+ * eksik ürünler "TALEP_KODU — Ürün" biçiminde. Farklı müşteri → MixedCustomerError.
+ * Üretim BAĞIMSIZ belge olarak yapılır (tek operasyona bağlanmaz); dosya adı müşteri adından gelir.
+ */
+export async function buildMultiAutoQuote(operationIds: number[]): Promise<AutoQuoteData> {
+  const infos = await fetchQuoteOperationsInfo(operationIds)
+  if (!sameCustomer(infos)) throw new MixedCustomerError()
+  const byId = new Map(infos.map((o) => [o.id, o]))
+  const customerName = infos[0]?.customerName ?? null
+
+  const sources: QuoteSource[] = []
+  let base: Record<string, unknown> | null = null
+  let rates: AutoQuoteData['rates'] = null
+  // Seçim sırasını koru: verilen operationIds sırasıyla dolaş.
+  for (const opId of operationIds) {
+    const draftData = await fetchDraftQuoteData(opId)
+    if (!draftData) continue // taslağı olmayan (katalog dışı) talep birleşime katılmaz
+    const d = await buildAutoQuote(opId, draftData)
+    if (!base) { base = d.base; rates = d.rates }
+    sources.push({ code: byId.get(opId)?.code ?? String(opId), products: d.products })
+  }
+
+  const { products, gate } = combineQuoteSources(sources)
+  const finalBase: Record<string, unknown> = { ...(base ?? autoQuoteBase({}, '')), musteri: customerName ?? (base?.musteri ?? ''), talep: '' }
+  return { gate, products, base: finalBase, rates }
 }
 
 export type DocumentTypeKey = 'fiyat_teklifi' | 'siparis_onay' | 'numune_etiketi' | 'siparis_formu' | 'koli_ustu'

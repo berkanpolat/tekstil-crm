@@ -18,6 +18,7 @@ import {
   useOperationList, useOperationStageOptions, useRequestStatusOptions, useChannelOptions, useClaimOperation, type OperationRow,
 } from '@/hooks/useOperations'
 import { OperationFormDialog } from './OperationFormDialog'
+import { MultiAutoQuoteBar } from './MultiAutoQuoteBar'
 
 const toneClass = (c: string | null): string =>
   c && (['success', 'warning', 'danger', 'info', 'neutral'] as string[]).includes(c)
@@ -63,6 +64,7 @@ export function OperationsListPage() {
   const [pageSize, setPageSize] = useState(25)
   const [sort, setSort] = useState<SortState | null>({ key: 'created_at', dir: 'desc' })
   const [formOpen, setFormOpen] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const stages = useOperationStageOptions()
   const statuses = useRequestStatusOptions()
@@ -88,6 +90,9 @@ export function OperationsListPage() {
     ownerId: ownerId === 'me' ? (me?.id ?? null) : ownerId, slaState, page, pageSize, sort,
   }
   const { data, isLoading, isFetching } = useOperationList(filters)
+  // B4 — seçili talepler (çoklu birleştirme). Sadece görünen sayfadaki satırlardan çözülür.
+  const selectedRows = (data?.rows ?? []).filter((r) => selected.has(String(r.id)))
+    .map((r) => ({ id: r.id, customerId: r.customer_id, customerName: r.customer_name }))
   const hasFilters = !!search || !!stageId || !!statusId || !!channelId || !!ownerId || !!slaState
   const clearAll = () => { setSearch(''); setStageId(null); setStatusId(null); setChannelId(null); setOwnerId(null); setSlaState(null); resetPage() }
 
@@ -158,9 +163,12 @@ export function OperationsListPage() {
         <SearchableSelect options={[{ value: 'unassigned', label: 'Atanmamış' }, ...(owners.data ?? []).map((u) => ({ value: u.id, label: u.full_name }))]} value={ownerId} onChange={(v) => { setOwnerId(v); resetPage() }} placeholder="Sorumlu" clearable className="w-44" />
       </FilterBar>
 
+      <MultiAutoQuoteBar selected={selectedRows} onClear={() => setSelected(new Set())} />
+
       <DataTable
         columns={columns} data={data?.rows ?? []} rowKey={(r) => String(r.id)}
         loading={isLoading || isFetching} columnToggle
+        selectable selectedKeys={selected} onSelectedChange={setSelected}
         onRowClick={(r) => navigate(`/talepler/${r.id}`)}
         rowClassName={overdueRow}
         renderMobileCard={(r) => (

@@ -97,6 +97,20 @@ for (const n of [1, 5, 10]) {
   check('4 kademe eklenince belge 4 kademe basar (dinamik)', tierCols === 4 && sheetCount(html4) === 1, `kademe=${tierCols}, sheet=${sheetCount(html4)}`)
 }
 
+// 4) B4 — çoklu talep birleştirme: her ürün kendi sayfası + kendi talep rozeti (B2 yapısı korunur)
+{
+  const mk = (urun, kod, talep, c) => ({ urun, kod, talep, kumas: 'Keten', maliyetEksik: false,
+    kademeler: TIERS.map((t) => ({ adet: t.min_quantity, marj: t.margin_percent, birim: (c * (1 + t.margin_percent / 100)).toFixed(2), tutar: (c * (1 + t.margin_percent / 100) * t.min_quantity).toFixed(2), oner: t.min_quantity === 200 })) })
+  const urunler = [mk('Gömlek', 'G1', 'TAS-AAA111', 9), mk('Bluz', 'G2', 'TAS-AAA111', 7), mk('Pantolon', 'P1', 'TAS-BBB222', 11)]
+  const data = { tkS: { talep: '', musteri: 'Polat Çetiner Tekstil', grup: 'Kadın', tur: 'Karışık', para: 'USD', kdv: '10', indirim: '0', gecerli: '7 Gün', odeme: 'x', urunler }, rates: { USD: 41.5, status: 'ok' } }
+  const html = await renderPreview(page, { template: 'fiyat_teklifi', data, language: 'tr' })
+  const pdf = await renderDocument(page, { template: 'fiyat_teklifi', data, language: 'tr' })
+  writeFileSync('/tmp/b4-teklif-birlesik.pdf', pdf)
+  check('2 talep / 3 ürün → 3 sayfa', sheetCount(html) === 3 && pdfPageCount(pdf) === 3, `sheet=${sheetCount(html)}, pdf=${pdfPageCount(pdf)}`)
+  check('her ürün sayfasında talep rozeti', (html.match(/class="qptalep"/g) || []).length === 3)
+  check('her iki talep kodu görünür', html.includes('TAS-AAA111') && html.includes('TAS-BBB222'))
+}
+
 await browser.close()
 console.log(ok ? '\nTÜM KONTROLLER GEÇTİ' : '\nBAZI KONTROLLER BAŞARISIZ')
 process.exit(ok ? 0 : 1)

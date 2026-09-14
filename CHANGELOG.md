@@ -13,6 +13,27 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.44.0] — 2026-09-14
+
+### Otomatik teklif — B4: çoklu talep birleştirme
+Talep listesinde ve Hızlı Çalışma listesinde **onay kutusuyla** birden çok talep seçilip
+**tek PDF'te** birleştirilebilir. Seçim çubuğu (`MultiAutoQuoteBar`) seçilenleri gösterir.
+
+- **Yalnız aynı müşteri:** farklı müşteri seçilirse çubukta uyarı çıkar ve üret pasif olur
+  (`sameCustomer` istemci tarafı + `buildMultiAutoQuote` sunucu tarafı `MixedCustomerError`).
+- **B2 yapısı korunur:** her talep kendi bölümü, **her ürün kendi sayfası**; her ürün
+  sayfası ait olduğu **talep kodunu** rozet olarak taşır (`tkProductBlock` + `qptalep`).
+- **Maliyet kapısı tüm talepler için birlikte:** bir üründe maliyet eksikse uyarı
+  **"TALEP_KODU — Ürün Adı"** biçiminde o talebin adıyla çıkar
+  (`combineQuoteSources` → `CostGate`). partial → eksikleri atla/vazgeç; none → üretilemez.
+- **Üretim BAĞIMSIZ belge** (tek operasyona bağlanmaz); tek müşteri olduğu için dosya adı
+  `MüşteriAdı-FiyatTeklifi.pdf` (v1.40.1 kuralı, üretimde `tkS.musteri`'den).
+- Ortak yürütücü `useQuoteRunner` + `QuoteGateDialog` tek/çoklu akışta paylaşılır
+  (B3 `AutoQuoteButton` de bu ortak parçalara taşındı).
+- Yeni saf çekirdek `combineQuoteSources` + `QuoteProduct.talep`; 5 yeni birim testi.
+  `services/pdf-renderer/render-test-b2.mjs`'e çoklu-talep render kontrolü eklendi.
+- Migration yok.
+
 ## [1.43.0] — 2026-09-13
 
 ### Otomatik teklif — B3: tek-tuş üretim + maliyet kapısı

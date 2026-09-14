@@ -130,6 +130,8 @@ export interface QuoteTier {
 export interface QuoteProduct {
   urun: string
   kod: string | null
+  /** Ait olduğu talep kodu — çoklu talep birleştirmede sayfa bölüm göstergesi (B4). Tek talepte boş. */
+  talep?: string
   /** Kumaş/kompozisyon (varsa). */
   kumas: string
   /** Görsel (data URL) + en/boy oranı — async katmanda doldurulur (saf çekirdek boş bırakır). */
@@ -217,6 +219,30 @@ export function buildQuoteProducts(input: BuildQuoteProductsInput): BuildQuotePr
 /** Ürün listesini maliyet durumuna göre süz: skipMissing → maliyeti eksikler çıkarılır. */
 export function selectQuoteProducts(products: QuoteProduct[], skipMissing?: boolean): QuoteProduct[] {
   return skipMissing ? products.filter((p) => !p.maliyetEksik) : products
+}
+
+/** B4 — bir talebin ürünleri (kod = talep kodu; birleştirmede bölüm + eksik-uyarı etiketinde kullanılır). */
+export interface QuoteSource { code: string; products: QuoteProduct[] }
+
+/**
+ * Çoklu talebi TEK teklife birleştirir (saf). Her ürün kendi talep koduyla etiketlenir
+ * (sayfa bölüm göstergesi). Maliyet kapısı TÜM talepler için birlikte çalışır; eksik/dolu
+ * ürünler "TALEP_KODU — Ürün Adı" biçiminde raporlanır (uyarı o talebin adıyla çıksın).
+ * Seçim/talep sırası korunur.
+ */
+export function combineQuoteSources(sources: QuoteSource[]): BuildQuoteProductsResult {
+  const products: QuoteProduct[] = []
+  const missing: string[] = []
+  const costed: string[] = []
+  for (const s of sources) {
+    for (const p of s.products) {
+      products.push({ ...p, talep: s.code })
+      const label = `${s.code} — ${p.urun}`
+      if (p.maliyetEksik) missing.push(label)
+      else costed.push(label)
+    }
+  }
+  return finalizeQuoteProducts(products, products.length, missing, costed)
 }
 
 /** products + eksik/dolu listelerinden gate'i kurar (buildQuoteProducts sonu). */

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildDraftOpts, draftMissingNote, deriveUnitCost, firstImagePath,
-  buildQuoteProducts, quantitiesFromTiers, selectQuoteProducts, TEKLIF_ADET_KADEMELERI_FALLBACK,
-  type DraftLineInput,
+  buildQuoteProducts, quantitiesFromTiers, selectQuoteProducts, combineQuoteSources, TEKLIF_ADET_KADEMELERI_FALLBACK,
+  type DraftLineInput, type QuoteSource,
 } from './draftQuoteBridge'
 import type { MarginTier } from './pricing'
 
@@ -189,6 +189,57 @@ describe('selectQuoteProducts — skipMissing süzgeci', () => {
   })
   it('varsayılan (skipMissing verilmez) → hepsi kalır', () => {
     expect(selectQuoteProducts(build()).length).toBe(3)
+  })
+})
+
+// B4 — çoklu talep birleştirme.
+describe('combineQuoteSources — çoklu talebi tek teklife birleştir', () => {
+  const src = (code: string, lines: DraftLineInput[]): QuoteSource =>
+    ({ code, products: buildQuoteProducts({ lines, tiers: TIERS_PROD }).products })
+
+  it('her ürünü talep koduyla etiketler, sırayı korur', () => {
+    const { products } = combineQuoteSources([
+      src('TAS-AAA111', [{ urun: 'Gömlek', kod: 'G', unitCostUsd: 10, customMargin: null }]),
+      src('TAS-BBB222', [{ urun: 'Pantolon', kod: 'P', unitCostUsd: 8, customMargin: null }]),
+    ])
+    expect(products.map((p) => [p.talep, p.urun])).toEqual([
+      ['TAS-AAA111', 'Gömlek'], ['TAS-BBB222', 'Pantolon'],
+    ])
+  })
+
+  it('maliyet kapısı tüm talepler için birlikte; eksik ürün TALEP_KODU — Ad ile raporlanır', () => {
+    const { gate } = combineQuoteSources([
+      src('TAS-AAA111', [{ urun: 'Gömlek', kod: 'G', unitCostUsd: 10, customMargin: null }]),
+      src('TAS-BBB222', [
+        { urun: 'Kaban', kod: 'K', unitCostUsd: null, customMargin: null },
+        { urun: 'Mont', kod: 'M', unitCostUsd: 5, customMargin: null },
+      ]),
+    ])
+    expect(gate.status).toBe('partial')
+    expect(gate.missingProducts).toEqual(['TAS-BBB222 — Kaban'])
+    expect(gate.costedProducts).toEqual(['TAS-AAA111 — Gömlek', 'TAS-BBB222 — Mont'])
+    expect(gate.total).toBe(3)
+  })
+
+  it('tüm taleplerde tüm ürünler eksikse → none', () => {
+    const { gate } = combineQuoteSources([
+      src('TAS-AAA111', [{ urun: 'A', kod: 'A', unitCostUsd: null, customMargin: null }]),
+      src('TAS-BBB222', [{ urun: 'B', kod: 'B', unitCostUsd: null, customMargin: null }]),
+    ])
+    expect(gate.status).toBe('none')
+    expect(gate.missingProducts).toEqual(['TAS-AAA111 — A', 'TAS-BBB222 — B'])
+  })
+
+  it('hepsi maliyetli → all_costed, kademeler korunur (B2 yapısı)', () => {
+    const { products, gate } = combineQuoteSources([
+      src('TAS-AAA111', [{ urun: 'A', kod: 'A', unitCostUsd: 10, customMargin: null }]),
+    ])
+    expect(gate.status).toBe('all_costed')
+    expect(products[0]!.kademeler.map((k) => k.adet)).toEqual([50, 200, 500])
+  })
+
+  it('boş kaynak → none (üretilecek talep yok)', () => {
+    expect(combineQuoteSources([]).gate.status).toBe('none')
   })
 })
 
