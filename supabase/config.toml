@@ -410,6 +410,12 @@ verify_jwt = true
 [functions.intake-request]
 verify_jwt = false
 
+# generate-document: PDF servisi (render/preview) güvenli proxy'si. verify_jwt = true →
+# yalnız geçerli oturum; fonksiyon içinde ayrıca aktif-kullanıcı kapısı. PDF_SECRET'i
+# sunucu tarafında ekler (istemciye inmez). Gerekli secret'lar: PDF_SERVICE_URL, PDF_SECRET.
+[functions.generate-document]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

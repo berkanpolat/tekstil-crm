@@ -119,6 +119,8 @@ export function DocumentEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   }
 
   // Canlı önizleme — data/dil değişince debounce ile /preview.
+  // v1.45.0: önizleme artık generate-document proxy (edge fn) üzerinden gidiyor; her
+  // tuşta edge fn çağrılmasın diye debounce 350 → 900 ms'ye çıkarıldı (maliyet/gecikme).
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (!data || !typeKey) return
@@ -130,7 +132,7 @@ export function DocumentEditorPage({ mode }: { mode: 'new' | 'edit' }) {
       } catch {
         setPreviewHtml('<div style="padding:24px;font-family:sans-serif;color:#c0392b">Önizleme alınamadı. PDF servisi çalışıyor mu?</div>')
       } finally { setPreviewing(false) }
-    }, 350)
+    }, 900)
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [data, language, typeKey])
 

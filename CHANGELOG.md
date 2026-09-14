@@ -13,6 +13,35 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.45.0] — 2026-09-14
+
+### PDF servisi güvenli proxy — `generate-document` Edge Function
+PDF servisi `/render` ve `/preview` uçları `x-pdf-secret` istiyor ama istemci
+göndermiyordu → belge/önizleme üretimi 401 alıyordu. Tasarlanmış mimari kuruldu:
+**secret istemciye inmeden**, sunucu tarafında eklenir.
+
+- **Yeni:** `supabase/functions/generate-document` — tarayıcıdan **Supabase JWT** ile
+  gelir (rol/RLS kapısı: `authenticateCaller`, aktif kullanıcı), `x-pdf-secret`'i
+  **sunucu tarafında** ekleyip Fly'a iletir. Yalnız `render`/`preview` beyaz listede
+  (hedef URL sabit `PDF_SERVICE_URL` → SSRF'e kapalı). `config.toml`'a `verify_jwt = true`.
+- **İstemci köprüsü** `src/lib/pdfClient.ts` (`pdfRender`/`pdfPreview`): `supabase.functions.invoke`
+  ile proxy'yi çağırır. Edge fn render'ı `application/octet-stream` (→ Blob), preview'i
+  `text/html` (→ metin) döndürür.
+- **5 çağrı yeri proxy'ye yönlendirildi:** `useDocuments.ts` (preview + render),
+  `reportPdf.ts`, `CatalogProductPage.tsx` (maliyet belgesi), `EkstreDialog.tsx` (cari ekstre).
+  `/rates` ve `/rate-on-date` **açık uçlar** — dokunulmadı, doğrudan çağrılıyor.
+- **Önizleme maliyeti:** editör önizleme debounce **350 → 900 ms** (her tuşta edge fn
+  çağrılmasın — `DocumentEditorPage.tsx`).
+- **Güvenlik:** secret artık frontend build'ine girmiyor; `PDF_SECRET` yalnız Supabase
+  secret. Belge üretimi yalnız oturumlu/aktif CRM kullanıcısına açık.
+- **Yerel doğrulama:** `services/pdf-renderer/proxy-auth-test.mjs` — başlıksız/yanlış
+  secret → 401; doğru başlıkla preview (HTML) + render (fiyat_teklifi/rapor/maliyet/ekstre)
+  gerçek PDF üretiyor. DB'ye yazmaz.
+- **Env:** `VITE_PDF_SERVICE_URL` **değişmedi** (yalnız açık rates uçları + `hasPdfService`
+  kapısı kullanır): yerel `http://localhost:4046`, canlı = Fly servis URL'si. Proxy adresi
+  ayrı bir frontend değişkeni gerektirmez (`functions.invoke` Supabase proje URL'sini kullanır).
+- Migration yok. **Canlı dağıtım ayrı adım (kullanıcı onayı bekliyor).**
+
 ## [1.44.0] — 2026-09-14
 
 ### Otomatik teklif — B4: çoklu talep birleştirme

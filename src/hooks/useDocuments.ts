@@ -10,6 +10,7 @@ import {
   type DraftLineInput, type QuoteProduct, type CostGate,
 } from '@/lib/draftQuoteBridge'
 import { buildDocumentFileName } from '@/lib/documentName'
+import { pdfRender, pdfPreview } from '@/lib/pdfClient'
 import type { MarginTier } from '@/lib/pricing'
 
 /** 1.9 — Operasyonun (talebin) birincil görselini data URL + en/boy oranıyla getir.
@@ -53,15 +54,10 @@ export function stripInternal(data: Record<string, unknown>): Record<string, unk
   return out
 }
 
-/** Canlı önizleme — PDF servisi /preview → stilli HTML. Editör yazarken (debounce) çağırır. */
+/** Canlı önizleme — proxy /preview → stilli HTML. Editör yazarken (debounce) çağırır. */
 export async function fetchPreviewHtml(typeKey: DocumentTypeKey, data: Record<string, unknown>, language: string): Promise<string> {
   if (!hasPdfService) return `<div style="display:flex;height:100%;align-items:center;justify-content:center;color:#64748b;font-family:sans-serif;text-align:center;padding:2rem">${PDF_UNAVAILABLE}<br>Önizleme için belge servisi yapılandırılmalı.</div>`
-  const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/preview', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ template: TEMPLATE_NAME[typeKey], data: stripInternal(data), language }),
-  })
-  if (!res.ok) throw new Error(`Önizleme hatası (${res.status}).`)
-  return res.text()
+  return pdfPreview({ template: TEMPLATE_NAME[typeKey], data: stripInternal(data), language })
 }
 
 /** Döviz kuru (TCMB Döviz Satış) — PDF servisi sunucu tarafında çeker (B1). */
@@ -563,14 +559,9 @@ export function useGenerateDocument() {
           .select('id, file_id').eq('operation_id', operationId).eq('document_type_id', dt.id).eq('data_hash', hash).is('deleted_at', null).limit(1).maybeSingle()
         if (existing?.file_id) { qc.invalidateQueries({ queryKey: ['documents', operationId] }); return { document_id: existing.id, file_id: existing.file_id, idempotent: true } }
       }
-      // 5. PDF servisi → bytes (servis yoksa net mesaj — sessiz hata değil)
+      // 5. PDF servisi → bytes (proxy edge fn; secret sunucuda). Servis yoksa net mesaj.
       if (!hasPdfService) throw new Error(PDF_UNAVAILABLE)
-      const res = await fetch(env.pdfServiceUrl.replace(/\/$/, '') + '/render', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ template: dt.template_name, data: docData, language }),
-      })
-      if (!res.ok) throw new Error(`PDF servisi hatası (${res.status}). Servis çalışıyor mu? (${env.pdfServiceUrl})`)
-      const blob = await res.blob()
+      const blob = await pdfRender({ template: dt.template_name, data: docData, language })
       // İndirme adı anlamlı olsun: müşteri adı + belge türü (yoksa TAS kodu). Operasyona bağlıysa
       // müşteri/kod DB'den, bağımsız belgede render verisinden okunur (tek kural: buildDocumentFileName).
       const nameParts = operationId != null
