@@ -13,6 +13,20 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.45.2] — 2026-09-14
+
+### PDF istemcisi — yerel geliştirmede proxy'yi atla
+v1.45.0 render/preview'i `generate-document` proxy'sine yöneltti; edge fn deploy
+edilmeden **yerelde belge üretimi kırıldı** (istek yereldeki PDF servisine ulaşmıyordu).
+
+- `src/lib/pdfClient.ts`: `import.meta.env.DEV` ise proxy **atlanır**, doğrudan
+  `env.pdfServiceUrl`'e (`/render`, `/preview`) fetch edilir. Yerel PDF servisi
+  development modda korumasız (v1.45.1) → `x-pdf-secret` gerekmez.
+- **Üretim değişmedi:** DEV değilse eskisi gibi proxy (`functions.invoke` →
+  `generate-document`), secret sunucu tarafında.
+- Sonuç: yerelde yalnız `NODE_ENV=development node server.mjs` yeterli — edge fn/Docker
+  gerekmez. Migration yok.
+
 ## [1.45.1] — 2026-09-14
 
 ### PDF servisi — güvenli yerel geliştirme bypass'ı
