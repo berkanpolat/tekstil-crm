@@ -13,6 +13,26 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.47.2] — 2026-09-16
+
+### Paket B (1/2) — Bozuk akış düzeltmeleri (migration yok)
+
+- **Müşteri kartında "0 ₺" gizlendi.** `useCustomerRecords`: kalemsiz/yüklenen
+  teklif `total=0` verince müşteri kartı Teklifler/Sipariş sekmesinde "₺0,00"
+  görünüyordu. Sıfır → `null` → '—' (quoteLabel/TekliflerListPage ile aynı örüntü).
+- **Sipariş onay formu — İş Akışı bölünebilir hale getirildi.** `soDoc`'ta
+  "Üretim ve Onay İş Akışı" listesi tek monolitik `<ol>` bloğuydu; sayfa sınırına
+  denk gelince komple sonraki sayfaya atlayıp boşluk/kayma bırakabiliyordu. Teklif
+  belgesindeki (v1.21.0) satır-satır bölme mantığı uyarlandı: her madde ayrı blok,
+  numara açıkça (`.so-flowi`), `qxPages` maddeler arasında sayfa kesebiliyor.
+  Yerel doğrulama (`soDoc-pagination-test.mjs`): az/normal/çok-uzun → 2/2/3 sayfa,
+  **kırpma 0px**.
+
+> **Not:** Paket B teşhisinde alt-ajanın "numune `kargoda` seed'i canlıda eksik"
+> hipotezi **canlı DB sorgusuyla çürütüldü** (seed doğru). #3 (numune akışı) ve #4
+> (sipariş formu UX) ayrı oturuma bırakıldı. Bu belgedeki iki düzeltme için de
+> **canlı dağıtım** gerekiyor (`git push ≠ canlı`; ayrıca soDoc için PDF servisi).
+
 ## [1.47.1] — 2026-09-16
 
 ### Paket A düzeltme turu — gözden kaçan ham input'lar
