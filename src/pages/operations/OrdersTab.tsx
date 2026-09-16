@@ -118,6 +118,21 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
         </div>
       )}
 
+      {/* Madde 4 — Belge üretmek siparişi OLUŞTURMAZ; asıl adım "Sipariş formundan oluştur".
+          Sipariş formu üretilmiş ama henüz sipariş yoksa bu adımı belirgin ve atlanamaz yap. */}
+      {hasOnay && hasSiparisFormu && (orders ?? []).length === 0 && (
+        <div className="border-accent-primary/40 bg-accent-primary/5 flex flex-wrap items-center gap-3 rounded-lg border p-3">
+          <AlertTriangle className="text-accent-primary size-5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-foreground">Sipariş formu üretildi — siparişi oluşturmak için bir adım kaldı</div>
+            <div className="text-text-secondary text-xs">Belgeyi üretmek siparişi <b>oluşturmaz</b>. “Sipariş formundan oluştur”a basın: bilgiler belgeden gelir, sipariş durumu ilerler.</div>
+          </div>
+          <Button size="sm" onClick={onCreateFromDoc} disabled={create.isPending}>
+            {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Sipariş formundan oluştur
+          </Button>
+        </div>
+      )}
+
       {isLoading ? <Skeleton className="h-32 w-full" /> : (orders ?? []).length === 0 ? (
         hasOnay
           ? <EmptyState icon={Package} title="Sipariş yok" description={hasSiparisFormu ? 'Üretilen sipariş formundan “Sipariş formundan oluştur” ile başlayın (yükleme gerekmez).' : 'Önce sipariş formunu üretin, sonra ondan oluşturun; ya da dış PDF yükleyin.'} />
