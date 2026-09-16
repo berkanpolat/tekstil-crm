@@ -13,6 +13,37 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.47.3] — 2026-09-16
+
+### Paket B (3/4) — Numune akışı + sipariş formu UX
+
+**Numune akışı (SamplesTab):**
+- **3a — “Teslim alındı / geri döndü” aksiyonu.** Kargodaki numune geri dönünce
+  `received_at` yazan + durumu `teslim_edildi` yapan buton (shipped var, received
+  yokken görünür). `received_at` editörde “Teslim / geri dönüş” olarak gösterilir.
+  Akışta karşılığı olmayan “geri dönüş alındı mı?” görevinin boşluğunu kapatır.
+- **3b — Fail-loud.** `resolveStatus` yardımcısı: statü listesi yüklenmemiş / anahtar
+  yoksa `status_id` sessizce düşmüyor; hata gösterilip işlem durur. markShipped /
+  Onayla / Reddet artık “sadece shipped_at yazıldı, durum değişmedi” tutarsızlığını
+  üretmez.
+- **3c — Kilit semantiği + görünür rozet.** Kilit “final” duruma bağlandı (onaylı
+  VEYA kapalı: reddedildi/iptal). `teslim_edildi` kapalı sayılsa da final değil —
+  sonrasında onay/red gelebilsin diye açık kalır. Başlıkta “Kilitli / Düzenlenebilir”
+  rozeti + kuralı açıklayan ipucu. “Yeniden aç” artık tüm final durumlarda çıkar.
+- **3d — Numune adlandırma (migration YAZILDI, uygulanmadı).**
+  `20260916000000_samples_label.sql` — `samples.label text` (nullable, index yok).
+  **Kullanıcı elle uygulayacak;** uygulanana kadar frontend’e label alanı bağlanmadı
+  (PGRST42703 riskini önlemek için). Uygulandıktan sonra liste/editör UI eklenecek.
+
+**Sipariş formu (OrdersTab):**
+- **4 — “Sipariş formundan oluştur” belirginleştirildi.** Belge üretmek `orders`
+  kaydı oluşturmuyordu; kullanıcı bu adımı atlıyordu. Form üretilmiş ama sipariş
+  yoksa vurgulu CTA bandı (“belge üretimi ≠ sipariş” uyarısı + doğrudan buton)
+  gösterilir. `build_document_data`’ya dokunulmadı (migration yok).
+
+> **Not:** Değişikliklerin canlıya yansıması için **dağıtım** gerekir
+> (`bash scripts/release.sh`). 3d için ayrıca migration **elle** uygulanmalı.
+
 ## [1.47.2] — 2026-09-16
 
 ### Paket B (1/2) — Bozuk akış düzeltmeleri (migration yok)
