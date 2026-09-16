@@ -13,6 +13,28 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.53.0] — 2026-09-16
+
+### Paket E · C — Geçersiz talep işaretleme + rapor ayrımı
+
+**Migration (`20260916120000_e_gecersiz_talep.sql`, ELLE uygulanacak):**
+- `cancellation_reasons.is_invalid boolean` + 2 seed: **"Sahte talep"**, **"Segment dışı"**.
+- `metric_funnel`: geçersiz talepler (iptal + is_invalid sebep) **dönüşüm paydasından çıkarıldı**.
+- Yeni `metric_invalid_requests` (+ public wrapper): `{ total, by_reason }`. `metric_requests.total`
+  değişmedi (toplam gelen talep sahte dahil sayılır).
+
+**UI:**
+- **"Geçersiz işaretle"** — talep başlığında, İptal/kayıp akışından **ayrı** (yalnız is_invalid
+  sebepler; sebep + not). İşaretliyse başlıkta rozet ("Geçersiz · sebep"). Hook `useCancelOperation`
+  + `useCancellationReasons` (`OperationInvalidControl`).
+- **Talep listesinde rozet:** geçersiz/iptal talepler kod hücresinde işaretli (kaynak fields
+  `cancelled_at`/`cancellation_reason_id` list select'e eklendi — migration yok).
+- **Talep raporu:** "Geçersiz talep" KPI'ı + "N geçersiz (sahte X · segment dışı Y); dönüşüm
+  bunlar hariç" cümlesi (`useInvalidRequestsMetric`).
+
+> **Not:** UI, migration uygulandıktan sonra çalışır (is_invalid kolonu + metric_invalid_requests
+> RPC gerekir). `database.types.ts` uygulama sonrası yeniden üretilmeli.
+
 ## [1.52.0] — 2026-09-16
 
 ### Paket D — Çoklu ürün (migration yok, şema hazır)

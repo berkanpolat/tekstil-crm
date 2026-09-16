@@ -14,6 +14,7 @@ import { FilesPanel } from '@/components/files/FilesPanel'
 import { EntityTimeline } from '@/components/timeline/EntityTimeline'
 import { OperationActivityFeed } from '@/components/operations/OperationActivityFeed'
 import { OperationProductItems } from '@/components/operations/OperationProductItems'
+import { OperationInvalidControl } from '@/components/operations/OperationInvalidControl'
 import { QuotesTab } from './QuotesTab'
 import { SamplesTab } from './SamplesTab'
 import { OrdersTab } from './OrdersTab'
@@ -139,11 +140,14 @@ export function OperationCardPage() {
           <h1 className="text-2xl font-semibold text-foreground">{op.title}</h1>
           <span className="text-text-secondary bg-muted rounded px-1.5 py-0.5 font-mono text-xs">{op.code}</span>
           {stage && <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', toneClass(stage.color))}>{stage.label}</span>}
-          {!op.owner_id && (
-            <Button size="sm" variant="outline" className="ml-auto" onClick={() => void onClaim()} disabled={claim.isPending}>
-              <HandHelping className="size-4" /> Üstlen
-            </Button>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            {!op.owner_id && (
+              <Button size="sm" variant="outline" onClick={() => void onClaim()} disabled={claim.isPending}>
+                <HandHelping className="size-4" /> Üstlen
+              </Button>
+            )}
+            <OperationInvalidControl op={op} />
+          </div>
         </div>
         <p className="text-text-secondary mt-1 text-sm">
           <Link to={`/musteriler/${op.customer_id}`} className="hover:underline">{op.customer_name ?? '—'}</Link>

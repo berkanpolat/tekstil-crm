@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, Shirt, HandHelping, GitMerge } from 'lucide-react'
+import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, Shirt, HandHelping, GitMerge, Ban } from 'lucide-react'
 import { useSignedUrl } from '@/hooks/useFiles'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
@@ -15,7 +15,7 @@ import { useAssigneeOptions } from '@/hooks/useLeads'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
 import {
-  useOperationList, useOperationStageOptions, useRequestStatusOptions, useChannelOptions, useClaimOperation, type OperationRow,
+  useOperationList, useOperationStageOptions, useRequestStatusOptions, useChannelOptions, useClaimOperation, useCancellationReasons, type OperationRow,
 } from '@/hooks/useOperations'
 import { OperationFormDialog } from './OperationFormDialog'
 import { MultiAutoQuoteBar } from './MultiAutoQuoteBar'
@@ -67,6 +67,8 @@ export function OperationsListPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const stages = useOperationStageOptions()
+  const cancelReasons = useCancellationReasons()
+  const invalidReasonIds = new Set((cancelReasons.data ?? []).filter((r) => r.is_invalid).map((r) => r.id))
   const statuses = useRequestStatusOptions()
   const channels = useChannelOptions()
   const owners = useAssigneeOptions()
@@ -103,6 +105,12 @@ export function OperationsListPage() {
         <div className="flex items-center gap-1 font-mono text-xs text-foreground">
           {r.code}
           {r.possible_merge_with && <GitMerge className="text-warning-foreground size-3.5" aria-label="Birleştirme önerisi var" />}
+          {r.cancelled_at && (
+            <span className={cn('inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium',
+              invalidReasonIds.has(r.cancellation_reason_id ?? -1) ? 'bg-danger/10 text-danger-foreground' : 'bg-muted text-text-muted')}>
+              <Ban className="size-2.5" /> {invalidReasonIds.has(r.cancellation_reason_id ?? -1) ? 'Geçersiz' : 'İptal'}
+            </span>
+          )}
         </div>
         {r.legacy_code && <div className="text-text-muted text-[10px]">{r.legacy_code}</div>}
       </div>

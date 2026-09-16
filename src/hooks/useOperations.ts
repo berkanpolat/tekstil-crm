@@ -30,6 +30,8 @@ export interface OperationRow {
   requested_at: string | null
   created_at: string
   possible_merge_with: number | null
+  cancelled_at: string | null
+  cancellation_reason_id: number | null
 }
 
 export interface OperationFilters {
@@ -57,7 +59,7 @@ const SORT_COLUMN: Record<string, string> = {
 }
 
 const LIST_SELECT =
-  'id, code, legacy_code, title, customer_id, expected_delivery, sla_deadline, requested_at, created_at, possible_merge_with, merged_into,' +
+  'id, code, legacy_code, title, customer_id, expected_delivery, sla_deadline, requested_at, created_at, possible_merge_with, merged_into, cancelled_at, cancellation_reason_id,' +
   ' operation_stages(key, label, color), request_statuses(key, label),' +
   ' request_channels(label, color), provinces(name),' +
   ' owner:users!operations_owner_id_fkey(full_name),' +
@@ -68,7 +70,7 @@ const LIST_SELECT =
 interface RawOp {
   id: number; code: string; legacy_code: string | null; title: string; customer_id: number
   expected_delivery: string | null; sla_deadline: string | null; requested_at: string | null; created_at: string
-  possible_merge_with: number | null
+  possible_merge_with: number | null; cancelled_at: string | null; cancellation_reason_id: number | null
   operation_stages: { key: string; label: string; color: string | null } | null
   request_statuses: { key: string; label: string } | null
   request_channels: { label: string; color: string | null } | null
@@ -161,6 +163,7 @@ export function useOperationList(filters: OperationFilters) {
         expected_delivery: o.expected_delivery,
         sla_deadline: o.sla_deadline, requested_at: o.requested_at, created_at: o.created_at,
         possible_merge_with: o.possible_merge_with ?? null,
+        cancelled_at: o.cancelled_at ?? null, cancellation_reason_id: o.cancellation_reason_id ?? null,
       }))
       return { rows, total: count ?? 0 }
     },
@@ -272,6 +275,38 @@ export function useUpdateOperation() {
   return useMutation({
     mutationFn: async ({ id, ...fields }: Partial<OperationInput> & { id: number }) => {
       ensureRows(await supabase.from('operations').update(fields as never).eq('id', id).select('id'))
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['operations'] })
+      qc.invalidateQueries({ queryKey: ['operation', v.id] })
+    },
+  })
+}
+
+// ---------- Geçersiz / iptal ----------
+export interface CancellationReason { id: number; label: string; is_invalid: boolean }
+/** İptal sebepleri (is_active). is_invalid=true → "geçersiz" (sahte/segment dışı). */
+export function useCancellationReasons() {
+  return useReferenceQuery({
+    queryKey: ['cancellation-reasons'],
+    queryFn: async (): Promise<CancellationReason[]> => {
+      const { data, error } = await supabase.from('cancellation_reasons')
+        .select('id, label, is_invalid').eq('is_active', true).order('sort_order')
+      if (error) throw error
+      return (data ?? []) as unknown as CancellationReason[]
+    },
+  })
+}
+/** Talebi geçersiz/iptal işaretle: cancelled_at + sebep + not (operations_hard_gate sebep ister). */
+export function useCancelOperation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, reasonId, note }: { id: number; reasonId: number; note: string | null }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      ensureRows(await supabase.from('operations').update({
+        cancelled_at: new Date().toISOString(), cancelled_by: user?.id ?? null,
+        cancellation_reason_id: reasonId, cancellation_note: note,
+      } as never).eq('id', id).select('id'))
     },
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ['operations'] })

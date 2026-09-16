@@ -6,7 +6,7 @@ import {
   Funnel, HourHistogram, Donut, SwatchLegend, LowDataNotice, type ReportProps, type FunnelStep,
 } from '@/components/reports/ReportKit'
 import {
-  useRequestsMetric, useRequestTrend, useQuotesMetric, useEmployeesMetric,
+  useRequestsMetric, useInvalidRequestsMetric, useRequestTrend, useQuotesMetric, useEmployeesMetric,
   useInteractionsMetric, useFilterOptions, usePipelineMetric, useActiveFunnel, type Labeled,
 } from '@/hooks/useMetrics'
 import { supabase } from '@/lib/supabase'
@@ -46,7 +46,11 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
   const opts = useFilterOptions()
   const f = { channel: numOrNull(sp.get('ch')), category: numOrNull(sp.get('cat')), province: numOrNull(sp.get('prov')) }
   const { data, isLoading } = useRequestsMetric(period, f)
+  const invalid = useInvalidRequestsMetric(period)
   const trend = useRequestTrend(period)
+  // "Geçersiz: N · sahte X / segment dışı Y" — dönüşüm dışı (metric_funnel geçersizleri saymaz).
+  const invTotal = invalid.data?.total ?? 0
+  const invBreak = (invalid.data?.by_reason ?? []).map((r) => `${r.label} ${r.count}`).join(' · ')
   useEffect(() => {
     if (!data) { setCsv(null); setPdf(null); return }
     setCsv({ filename: `talep-raporu-${period.key}`, headers: ['Kanal', 'Talep'], rows: (data.by_channel ?? []).map((x) => [x.label, x.count]) })
@@ -56,9 +60,11 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
         { label: '24 saat sözü', value: pct(data.sla_rate), sub: `${data.sla_met_count ?? 0} tuttu · ${data.sla_missed_count ?? 0} kaçtı · ${data.sla_pending_count ?? 0} sürüyor` },
         { label: 'Ort. ilk yanıt', value: data.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—' },
         { label: 'Süresi sürenler', value: String(data.sla_pending_count ?? 0), sub: 'henüz SLA dolmadı' },
+        { label: 'Geçersiz talep', value: String(invTotal), sub: invBreak || 'sahte / segment dışı' },
       ],
       blocks: [
         ...((data.total ?? 0) > 0 ? [{ kind: 'sentence' as const, text: `${data.total} talebin ${data.sla_met_count ?? 0}'ine söz verilen sürede (24 saat) teklif çıkıldı (${pct(data.sla_rate)}); ${data.sla_missed_count ?? 0}'i geç kaldı, ${data.sla_pending_count ?? 0}'inde süre henüz dolmadı.` }] : []),
+        ...(invTotal > 0 ? [{ kind: 'sentence' as const, text: `Bu dönem ${invTotal} talep geçersiz işaretlendi (${invBreak}). Dönüşüm oranları bunlar hariç hesaplanır; toplam gelen talebe dahildir.` }] : []),
         { kind: 'hist', title: 'Saate göre talep dağılımı', data: data.by_hour ?? [], caption: 'Taleplerin günün hangi saatlerinde yoğunlaştığı (0–23, yerel saat).' },
         { kind: 'bars', title: 'Kanala göre', rows: labeledRows(data.by_channel) },
         { kind: 'bars', title: 'Kategoriye göre', rows: labeledRows(data.by_category) },
@@ -67,7 +73,7 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
       ],
     })
     return () => { setCsv(null); setPdf(null) }
-  }, [data, period.key, setCsv, setPdf])
+  }, [data, invTotal, invBreak, period.key, setCsv, setPdf])
   function setF(key: string, v: string) { const p = new URLSearchParams(sp); if (v) p.set(key, v); else p.delete(key); setSp(p, { replace: true }) }
   if (isLoading) return <ReportLoading />
   return (
@@ -83,6 +89,8 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
           sub={`${data?.sla_met_count ?? 0} tuttu · ${data?.sla_missed_count ?? 0} kaçtı · ${data?.sla_pending_count ?? 0} sürüyor`} />
         <Kpi label="Ort. ilk yanıt" value={data?.avg_response_hours != null ? `${data.avg_response_hours.toFixed(1)} sa` : '—'} />
         <Kpi label="Süresi sürenler" value={String(data?.sla_pending_count ?? 0)} sub="henüz SLA dolmadı" />
+        <Kpi label="Geçersiz talep" value={String(invTotal)} tone={invTotal > 0 ? 'text-danger-foreground' : undefined}
+          sub={invBreak || 'sahte / segment dışı — dönüşüm dışı'} />
       </div>
       {(data?.total ?? 0) > 0 && (
         <p className="text-text-secondary text-sm leading-snug">

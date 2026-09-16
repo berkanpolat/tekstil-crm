@@ -86,6 +86,7 @@ export interface RequestsMetric extends ChangeBlock {
   by_hour: { hour: number; count: number }[]
 }
 export interface FunnelMetric { requests: number; quotes: number; samples: number; orders: number; conversion_rates: { step: string; rate: number }[] }
+export interface InvalidRequestsMetric { total: number; by_reason: Labeled[] }
 /** Huninin her adımında İLERLEYEN / BEKLEYEN / DÜŞEN (red-iptal). Özdeşlik: reached = advanced + waiting + dead. */
 export interface PipelineStep {
   key: string; label: string
@@ -105,6 +106,7 @@ export const useInteractionsMetric = (period: Period, on = true) => useMetric<In
 export const useRequestsMetric = (period: Period, filters?: RequestFilters, on = true) =>
   useMetric<RequestsMetric>('metric_requests', { ...p2(period), p_channel: filters?.channel ?? null, p_category: filters?.category ?? null, p_province: filters?.province ?? null }, on)
 export const useFunnelMetric = (period: Period, on = true) => useMetric<FunnelMetric>('metric_funnel', p2(period), on)
+export const useInvalidRequestsMetric = (period: Period, on = true) => useMetric<InvalidRequestsMetric>('metric_invalid_requests', p2(period), on)
 export const usePipelineMetric = (period: Period, on = true) => useMetric<PipelineMetric>('metric_pipeline', p2(period), on)
 export const useQuotesMetric = (period: Period, on = true) => useMetric<QuotesMetric>('metric_quotes', p2(period), on)
 export const useFinanceMetric = (period: Period, on = true) => useMetric<FinanceMetric>('metric_finance', p2(period), on)
