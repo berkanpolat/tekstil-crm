@@ -930,6 +930,11 @@ svg.fy-leaders{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:
 .so-flow li{counter-increment:so;position:relative;padding-left:24px;font-size:9.5px;color:#5b6477;line-height:1.45;margin-bottom:6px}
 .so-flow li:before{content:counter(so) ".";position:absolute;left:0;top:0;font-weight:800;color:#ef7e1d;font-size:10px}
 .so-flow li b{color:#2c3a5e;font-weight:700}
+/* İş akışı maddeleri artık ayrı bloklar (qxPages sayfa arasında bölebilsin → taşma/kırpma yok).
+   Numara CSS counter yerine açıkça verilir (bloklar bağımsız olduğundan counter sıfırlanır). */
+.so-flowi{position:relative;padding:0 2px 0 26px;font-size:9.5px;color:#5b6477;line-height:1.45;margin-bottom:6px}
+.so-flowi .n{position:absolute;left:2px;top:0;font-weight:800;color:#ef7e1d;font-size:10px}
+.so-flowi b{color:#2c3a5e;font-weight:700}
 .so-sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
 .so-box{border:1px solid #d7dde8;border-top:3px solid #ef7e1d;border-radius:6px;padding:11px 14px;display:flex;flex-direction:column;min-height:96px}
 .so-box .h{font-size:12px;font-weight:800;color:#2c3a5e;margin-bottom:3px}
@@ -943,7 +948,7 @@ svg.fy-leaders{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:
 .jtype.t-onay{background:#e4e9f4;color:#3a4a73}
 @media print{
   #print-root .so-sheet{width:794px;height:1122px;overflow:hidden;box-shadow:none;margin:0;padding:40px 48px 26px}
-  #print-root .so-sign,#print-root .so-flow li,#print-root .so-row{page-break-inside:avoid}
+  #print-root .so-sign,#print-root .so-flow li,#print-root .so-flowi,#print-root .so-row{page-break-inside:avoid}
 }
 
 
@@ -3158,6 +3163,23 @@ function soDoc(){
     '<div class="so-meta"><div>Belge / Form No: <span class="u">'+belgeNo+'</span></div><div>Düzenleme Tarihi: <span class="u">'+soDate(soS.dtarih)+'</span></div></div>';
   var chromeCont='<div class="so-cont"><img src="'+LOGO+'" alt="Tekstil A.Ş."><div><b>SİPARİŞ ONAY FORMU</b><span>'+(belgeNo||'—')+' · '+soBlank2(soS.musteri)+'</span></div><span class="dev">devam</span></div>';
   var foot='<div class="so-foot"><div class="co">TEKSTİL A.Ş.</div><div class="ct"><b>Tel:</b> 0850 242 5700 &nbsp;·&nbsp; <b>WhatsApp:</b> 0530 765 3238 &nbsp;·&nbsp; <b>E-posta:</b> info@tekstilas.com &nbsp;·&nbsp; <b>Web:</b> www.tekstilas.com</div></div>';
+  /* İş akışı maddeleri — her biri AYRI blok (qxPages sayfa arasında bölebilsin → kırpma yok).
+     Numara açıkça verilir (bloklar bağımsız; CSS counter sıfırlanır). İlk madde bant+giriş ile
+     birlikte kalır (başlık yalnız kalmasın). */
+  var soFlowItems=[
+    '<b>Teklif Geçerlilik Süresi:</b> Yukarıda belirtilen birim fiyat ve üretim termin süresi, formun düzenlendiği tarihten itibaren 7 gün boyunca geçerlidir.',
+    '<b>Numune Değerlendirme:</b> Tarafınıza iletilen numunelerin değerlendirme ve revize dönüş süresi 3 iş günüdür. Zamanında ve eksiksiz üretim yapabilmemiz için bu süre zarfında geri dönüşünüzü rica ederiz.',
+    '<b>Revize Standartları:</b> Üretim takviminde sarkma olmaması ve istediğiniz sonuca en hızlı şekilde ulaşabilmemiz için ilk 2 numune revizesi standart akışımıza dahildir.',
+    '<b>Teslimat Tarihinin Güncellenmesi:</b> Numune onay sürecinde (revize talepleri, kargo süreleri veya geç dönüşler sebebiyle) yaşanabilecek uzamalar, yukarıda belirtilen teslimat tarihini doğrudan güncelleyecektir.',
+    '<b>Seri Üretime Geçiş:</b> Tüm detaylar içinize sindiğinde, tarafınıza iletilen son numune üzerindeki “Üretim Onay Kartı”nın onaylanması (imza/kaşe veya yazılı teyit) ile birlikte seri üretim sürecimiz resmen başlayacaktır. Onay kartı teyit edilmeden seri üretime başlanamamaktadır.',
+    '<b>İptal Durumu:</b> Sipariş sürecinde iptal edilen ürünler için hazırlanan numunelerin bedeli tahsil edilir.'
+  ];
+  var soFlowItem=function(n,txt){return '<div class="so-flowi"><span class="n">'+n+'.</span>'+txt+'</div>';};
+  var soFlowBlocks=soFlowItems.map(function(txt,i){
+    if(i===0)return {type:'block',html:'<div class="so-band">Üretim ve Onay İş Akışı (Lütfen Okuyunuz)</div>'+
+      '<div class="so-flow"><div class="intro">Değerli müşterimiz, üretim sürecinizi en hızlı ve kaliteli şekilde tamamlayabilmemiz için aşağıdaki standart iş akışımızı bilgilerinize sunarız:</div>'+soFlowItem(1,txt)+'</div>'};
+    return {type:'block',html:'<div class="so-flow" style="padding-top:0">'+soFlowItem(i+1,txt)+'</div>'};
+  });
   /* her bant + satırları birlikte kalsın diye tek blok */
   var segments=[
     {type:'block',html:'<div class="so-band">Firma Bilgileri</div><div class="so-rows">'+
@@ -3169,21 +3191,13 @@ function soDoc(){
       soRow('Beden Seti (Dağılımı)',soBlank2(soS.beden))+soRow('Toplam Sipariş Adedi',soBlank2(soS.adet))+'</div>'},
     {type:'block',html:'<div class="so-band">Fiyat ve Termin</div><div class="so-rows">'+
       soRow('Birim Fiyat',soBlank2(soS.birim))+soRow('Öngörülen Toplam Tutar',soToplam())+
-      soRow('Öngörülen Teslimat Süresi','Numune onayından itibaren '+termin+' iş günü.')+'</div>'},
-    {type:'block',html:'<div class="so-band">Üretim ve Onay İş Akışı (Lütfen Okuyunuz)</div>'+
-      '<div class="so-flow"><div class="intro">Değerli müşterimiz, üretim sürecinizi en hızlı ve kaliteli şekilde tamamlayabilmemiz için aşağıdaki standart iş akışımızı bilgilerinize sunarız:</div><ol>'+
-      '<li><b>Teklif Geçerlilik Süresi:</b> Yukarıda belirtilen birim fiyat ve üretim termin süresi, formun düzenlendiği tarihten itibaren 7 gün boyunca geçerlidir.</li>'+
-      '<li><b>Numune Değerlendirme:</b> Tarafınıza iletilen numunelerin değerlendirme ve revize dönüş süresi 3 iş günüdür. Zamanında ve eksiksiz üretim yapabilmemiz için bu süre zarfında geri dönüşünüzü rica ederiz.</li>'+
-      '<li><b>Revize Standartları:</b> Üretim takviminde sarkma olmaması ve istediğiniz sonuca en hızlı şekilde ulaşabilmemiz için ilk 2 numune revizesi standart akışımıza dahildir.</li>'+
-      '<li><b>Teslimat Tarihinin Güncellenmesi:</b> Numune onay sürecinde (revize talepleri, kargo süreleri veya geç dönüşler sebebiyle) yaşanabilecek uzamalar, yukarıda belirtilen teslimat tarihini doğrudan güncelleyecektir.</li>'+
-      '<li><b>Seri Üretime Geçiş:</b> Tüm detaylar içinize sindiğinde, tarafınıza iletilen son numune üzerindeki “Üretim Onay Kartı”nın onaylanması (imza/kaşe veya yazılı teyit) ile birlikte seri üretim sürecimiz resmen başlayacaktır. Onay kartı teyit edilmeden seri üretime başlanamamaktadır.</li>'+
-      '<li><b>İptal Durumu:</b> Sipariş sürecinde iptal edilen ürünler için hazırlanan numunelerin bedeli tahsil edilir.</li>'+
-      '</ol></div>'},
+      soRow('Öngörülen Teslimat Süresi','Numune onayından itibaren '+termin+' iş günü.')+'</div>'}
+  ].concat(soFlowBlocks).concat([
     {type:'block',html:'<div class="so-sign">'+
       '<div class="so-box"><div class="h">Tekstil A.Ş.</div><div class="sb">Kaşe / İmza</div><div class="sl"><b>Ad / Soyad:</b> '+soBlank2(soS.sgAd)+(soS.sgUnvan?'<br><b>Unvan:</b> '+H(soS.sgUnvan):'')+'<br>Tarih: '+soDate(soS.sgTarih)+'</div></div>'+
       '<div class="so-box"><div class="h">Müşteri / Marka Onayı</div><div class="sb">Üretim detaylarını ve iş akışını onaylıyorum.</div><div class="sl"><b>Ad / Soyad:</b> '+soBlank2(soS.mgAd)+(soS.mgUnvan?'<br><b>Unvan:</b> '+H(soS.mgUnvan):'')+'<br>İmza / Marka Kaşesi · Tarih: '+soDate(soS.mgTarih)+'</div></div>'+
       '</div>'}
-  ];
+  ]);
   return qxPages({docClass:'sodoc qbulk',sheetClass:'so-sheet',fitClass:'so-fit',avail:1056,spacer:'',chromeFirst:chromeFirst,chromeCont:chromeCont,foot:foot,segments:segments});
 }
 function soStatus(){var miss=[];if(!soS.musteri)miss.push('Müşteri');if(!soS.grup||!soS.tur)miss.push('Ürün');if(!soS.adet)miss.push('Adet');var p=$('so-status');if(p)p.textContent=miss.length?('Eksik: '+miss.join(', ')):'✓ Form hazır';}
