@@ -43,7 +43,8 @@ const trNum = (n: number) => Number(n || 0).toLocaleString('tr-TR', { minimumFra
 export function blankData(typeKey: string): Data {
   switch (typeKey) {
     case 'fiyat_teklifi':
-      return { tkS: { talep: '', musteri: '', grup: '', tur: '', gecerli: '7 Gün', teslimat: '', odeme: '%50 Ön Ödeme %50 Sevkiyat Öncesi', para: 'TRY', kdv: '20', indirim: '0', not: '', dil: 'tr', opts: [{ detay: '', kumas: '', adet: '', birim: '', oner: false }] } }
+      // Varsayılan para birimi USD (teklifler döviz üzerinden veriliyor); kullanıcı değiştirebilir.
+      return { tkS: { talep: '', musteri: '', grup: '', tur: '', gecerli: '7 Gün', teslimat: '', odeme: '%50 Ön Ödeme %50 Sevkiyat Öncesi', para: 'USD', kdv: '20', indirim: '0', not: '', dil: 'tr', opts: [{ detay: '', kumas: '', adet: '', birim: '', oner: false }] } }
     case 'siparis_onay':
       return { soS: { kod: '', dtarih: '', ftarih: '', musteri: '', yetkili: '', grup: '', tur: '', kumas: '', renk: '', beden: '', adet: '', birim: '', tutar: '', termin: '', para: 'TRY', sgAd: '', sgUnvan: '', sgTarih: '', mgAd: '', mgUnvan: '', mgTarih: '' } }
     case 'numune_etiketi':

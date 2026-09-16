@@ -12,16 +12,18 @@ import { useExtractOrder, useAiFeedback, type ExtractedFields } from '@/hooks/us
 import { fetchOrderDocFields } from '@/hooks/useDocuments'
 import { useUpdateOrderExtracted } from '@/hooks/useOrders'
 
-const FIELDS: { key: string; label: string; to: string }[] = [
-  { key: 'adet', label: 'Adet', to: 'adet' },
-  { key: 'birim_fiyat', label: 'Birim fiyat', to: 'fiyat' },
+const FIELDS: { key: string; label: string; to: string; numeric?: boolean }[] = [
+  { key: 'adet', label: 'Adet', to: 'adet', numeric: true },
+  { key: 'birim_fiyat', label: 'Birim fiyat', to: 'fiyat', numeric: true },
   { key: 'renkler', label: 'Renkler', to: 'renk' },
   { key: 'bedenler', label: 'Bedenler', to: 'beden' },
-  { key: 'toplam_tutar', label: 'Toplam tutar', to: 'toplam' },
+  { key: 'toplam_tutar', label: 'Toplam tutar', to: 'toplam', numeric: true },
   { key: 'teslim_tarihi', label: 'Teslim tarihi', to: 'teslimat' },
   { key: 'odeme_kosulu', label: 'Ödeme koşulu', to: 'odeme' },
 ]
 const asStr = (v: unknown) => v == null ? '' : Array.isArray(v) ? v.join(', ') : String(v)
+// Sayısal alanlarda serbest metin yok: yalnız rakam + ondalık ayıraç (virgül/nokta) kalır.
+const sanitizeNum = (s: string) => s.replace(/[^\d.,]/g, '')
 
 /** P6.7 — Sipariş formundan bilgi çekme + DOĞRULAMA ekranı. Onaya kadar HİÇBİR ŞEY yazılmaz.
  *  Her alanın yanında modelin PDF'te okuduğu kaynak + PDF önizlemesi. Boş alan sarı (uydurmaz). */
@@ -44,7 +46,7 @@ export function OrderExtractionDialog({ order, operationId, mode = 'belge', onCl
     let cancel = false
     const applyFields = (f: ExtractedFields) => {
       const vals: Record<string, string> = {}
-      for (const fld of FIELDS) vals[fld.key] = asStr(f[fld.key]?.value)
+      for (const fld of FIELDS) { const raw = asStr(f[fld.key]?.value); vals[fld.key] = fld.numeric ? sanitizeNum(raw) : raw }
       setFields(f); setValues(vals); setInitial({ ...vals }); setPhase('review')
     }
     if (mode === 'belge') {
@@ -121,7 +123,8 @@ export function OrderExtractionDialog({ order, operationId, mode = 'belge', onCl
                   <div key={f.key}>
                     <Label className="text-xs">{f.label}</Label>
                     <Input className={cn('mt-1', empty && 'border-warning bg-warning-badge/20')} value={values[f.key] ?? ''}
-                      onChange={(e) => setValues((s) => ({ ...s, [f.key]: e.target.value }))} placeholder={empty ? 'Model bulamadı — elle girin' : ''} />
+                      inputMode={f.numeric ? 'decimal' : undefined}
+                      onChange={(e) => setValues((s) => ({ ...s, [f.key]: f.numeric ? sanitizeNum(e.target.value) : e.target.value }))} placeholder={empty ? 'Model bulamadı — elle girin' : ''} />
                     {src ? <p className="mt-0.5 text-[11px] text-text-muted">PDF'te: “{src}”</p>
                       : empty ? <p className="mt-0.5 text-[11px] text-warning-foreground">Bulunamadı</p> : null}
                   </div>

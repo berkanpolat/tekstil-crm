@@ -30,6 +30,7 @@ import { DuplicateWarning } from '@/components/search/DuplicateWarning'
 import { logDedupOverride } from '@/hooks/useSearch'
 import { useAddContactPoint } from '@/hooks/useContactPoints'
 import { useChannelOptions } from '@/hooks/useInteractions'
+import { emailError, phoneError } from '@/lib/phone'
 
 // Statik konum seçenekleri (aranabilir dropdown; serbest metne de izin verilir).
 const COUNTRY_OPTS = COUNTRIES.map((c) => ({ value: c, label: c }))
@@ -135,6 +136,11 @@ function LeadForm({
       toast.error('Kişi adı veya firma adından en az biri dolu olmalı.')
       return
     }
+    // İletişim biçim doğrulaması (yalnız oluşturmada girilir; boşsa geçerli sayılır).
+    const phoneErr = phoneError(form.phone)
+    if (phoneErr) { toast.error(phoneErr); return }
+    const emailErr = emailError(form.email)
+    if (emailErr) { toast.error(emailErr); return }
     const payload: LeadInput = {
       full_name,
       company_name,

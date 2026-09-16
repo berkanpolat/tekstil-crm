@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Package, Upload, Download, Trash2, Loader2, Save, Truck, CheckCircle2, PauseCircle, PlayCircle, AlertTriangle, FileText, Sparkles } from 'lucide-react'
+import { Package, Upload, Download, ExternalLink, Trash2, Loader2, Save, Truck, CheckCircle2, PauseCircle, PlayCircle, AlertTriangle, FileText, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { toUserMessage } from '@/lib/errors'
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
-import { getSignedUrl } from '@/hooks/useFiles'
+import { getSignedUrl, openInNewTab } from '@/hooks/useFiles'
 import {
   useOperationOrders, useUploadOrderFile, useCreateOrder, useUpdateOrder, useUpdateOrderExtracted, useDeleteOrder, useOrderStatusOptions, type Order,
 } from '@/hooks/useOrders'
@@ -170,6 +170,10 @@ function OrderRow({ order, operationId, customerId, onValidate }: { order: Order
       const a = document.createElement('a'); a.href = url; a.download = order.file_name ?? 'siparis'; document.body.appendChild(a); a.click(); a.remove()
     } catch (err) { toast.error(await toUserMessage(err)) } finally { setDownloading(false) }
   }
+  async function openTab() {
+    if (!order.file_path) return
+    try { await openInNewTab('documents', order.file_path) } catch (err) { toast.error(await toUserMessage(err)) }
+  }
   async function applyStatus(id: number) { await update.mutateAsync({ id: order.id, operationId, status_id: id }); toast.success('Durum güncellendi.') }
   async function applyResume() { await update.mutateAsync({ id: order.id, operationId, held_at: null, hold_reason: null, status_id: statusIdByKey('uretimde') ?? undefined }); toast.success('Bekletme kaldırıldı.') }
 
@@ -207,7 +211,9 @@ function OrderRow({ order, operationId, customerId, onValidate }: { order: Order
           <div className="text-text-muted mt-1 text-xs">{fmtDT(order.created_at)}</div>
         </div>
         <div className="flex shrink-0 gap-1">
-          {order.file_path && <Button type="button" variant="ghost" size="icon" className="size-8" disabled={downloading} onClick={() => void download()}>
+          {order.file_path && <Button type="button" variant="ghost" size="icon" className="size-8" title="Yeni sekmede aç" onClick={() => void openTab()}>
+            <ExternalLink className="size-4" /></Button>}
+          {order.file_path && <Button type="button" variant="ghost" size="icon" className="size-8" title="İndir" disabled={downloading} onClick={() => void download()}>
             {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}</Button>}
           <Button type="button" variant="ghost" size="icon" className="size-8" disabled={del.isPending}
             onClick={async () => { if (!confirm('Sipariş silinsin mi?')) return; try { await del.mutateAsync({ id: order.id, operationId }) } catch (err) { toast.error(await toUserMessage(err)) } }}>

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Upload, Download, Trash2, Loader2, Check, X, Clock, Sparkles } from 'lucide-react'
+import { FileText, Upload, Download, ExternalLink, Trash2, Loader2, Check, X, Clock, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -15,13 +15,13 @@ import {
 } from '@/components/ui/dialog'
 import { DatePicker } from '@/components/shared/DatePicker'
 import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
-import { getSignedUrl } from '@/hooks/useFiles'
+import { getSignedUrl, openInNewTab } from '@/hooks/useFiles'
 import { GenerateDocButton } from './GenerateDocButton'
 import { AutoQuoteButton } from './AutoQuoteButton'
 import { buildDraftQuotePrefill } from '@/hooks/useDocuments'
 import {
   useOperationQuotes, useUploadQuoteFile, useSetQuoteResult, useDeleteQuote, useAdvanceStage,
-  useDraftQuote, useApproveDraftQuote, type Quote, type DraftQuote,
+  useDraftQuote, useApproveDraftQuote, quoteLabel, type Quote, type DraftQuote,
 } from '@/hooks/useQuotes'
 import { formatMoney } from '@/lib/money'
 
@@ -64,6 +64,10 @@ export function QuotesTab({ operationId }: { operationId: number }) {
       const url = await getSignedUrl('documents', q.file_path, 60, q.file_name ?? undefined)
       const a = document.createElement('a'); a.href = url; a.download = q.file_name ?? 'teklif'; document.body.appendChild(a); a.click(); a.remove()
     } catch (err) { toast.error(await toUserMessage(err)) } finally { setDownloading(null) }
+  }
+  async function openTab(q: Quote) {
+    if (!q.file_path) return
+    try { await openInNewTab('documents', q.file_path) } catch (err) { toast.error(await toUserMessage(err)) }
   }
 
   return (
@@ -127,14 +131,20 @@ export function QuotesTab({ operationId }: { operationId: number }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <FileText className="text-text-muted size-4 shrink-0" />
-                      <span className="truncate text-sm font-medium text-foreground">{q.file_name ?? `Teklif v${q.version}`}</span>
+                      <span className="truncate text-sm font-medium text-foreground">{q.file_name ?? quoteLabel(q)}</span>
+                      <span className="text-text-muted shrink-0 text-[10px]">v{q.version}</span>
                       {q.status_label && <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', toneClass(q.status_color))}>{q.status_label}</span>}
                     </div>
                     <div className="text-text-muted mt-1 text-xs">{fmtDT(q.created_at)}{q.rejection_note && ` · Red: ${q.rejection_note}`}</div>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     {q.file_path && (
-                      <Button type="button" variant="ghost" size="icon" className="size-8" disabled={downloading === q.id} onClick={() => void download(q)}>
+                      <Button type="button" variant="ghost" size="icon" className="size-8" title="Yeni sekmede aç" onClick={() => void openTab(q)}>
+                        <ExternalLink className="size-4" />
+                      </Button>
+                    )}
+                    {q.file_path && (
+                      <Button type="button" variant="ghost" size="icon" className="size-8" title="İndir" disabled={downloading === q.id} onClick={() => void download(q)}>
                         {downloading === q.id ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                       </Button>
                     )}

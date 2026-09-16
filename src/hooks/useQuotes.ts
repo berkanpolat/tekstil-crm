@@ -1,7 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
+import { formatMoney } from '@/lib/money'
 import { useUploadFile } from './useFiles'
+
+/**
+ * Teklif için okunur etiket: "12.09.2026 · $2.450 · İletildi" ("Teklif v1" yerine).
+ * Tutar 0/boşsa atlanır; sürüm ayrı (ikincil) gösterilir. Salt sunum.
+ */
+export function quoteLabel(q: { created_at: string; total: number | null; currency: string; status_label: string | null }): string {
+  const parts = [new Date(q.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' })]
+  if (q.total) parts.push(formatMoney(q.total, q.currency))
+  if (q.status_label) parts.push(q.status_label)
+  return parts.join(' · ')
+}
 
 // ---------- Tipler ----------
 export interface Quote {

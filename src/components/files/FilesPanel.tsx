@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Upload, Download, Trash2, Loader2, Paperclip } from 'lucide-react'
+import { Upload, Download, ExternalLink, Trash2, Loader2, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -10,6 +10,8 @@ import {
   useUploadFile,
   useDeleteFile,
   getSignedUrl,
+  openInNewTab,
+  isPreviewable,
   type FileRow,
   type FileBucket,
 } from '@/hooks/useFiles'
@@ -70,6 +72,14 @@ export function FilesPanel({ entityType, entityId }: { entityType: 'lead' | 'cus
     }
   }
 
+  async function openTab(f: FileRow) {
+    try {
+      await openInNewTab(f.bucket as FileBucket, f.storage_path)
+    } catch (err) {
+      toast.error(await toUserMessage(err))
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-4">
       <div className="flex justify-end">
@@ -95,7 +105,12 @@ export function FilesPanel({ entityType, entityId }: { entityType: 'lead' | 'cus
                 </p>
               </div>
               <div className="flex shrink-0 gap-1">
-                <Button type="button" variant="ghost" size="icon" disabled={downloading === f.id} onClick={() => void download(f)}>
+                {isPreviewable(f.mime_type) && (
+                  <Button type="button" variant="ghost" size="icon" title="Yeni sekmede aç" onClick={() => void openTab(f)}>
+                    <ExternalLink className="size-4" />
+                  </Button>
+                )}
+                <Button type="button" variant="ghost" size="icon" title="İndir" disabled={downloading === f.id} onClick={() => void download(f)}>
                   {downloading === f.id ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                 </Button>
                 <Button

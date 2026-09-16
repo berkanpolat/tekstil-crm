@@ -70,6 +70,29 @@ export function normalizeEmail(raw: string | null | undefined): string | null {
   return s
 }
 
+/**
+ * Form doğrulaması — telefon. Boş = geçerli (opsiyonel alanlar için). Dolu ama
+ * çözülemiyorsa ya da TR numarası eksik haneliyse hata mesajı; aksi halde null.
+ * İstemci tarafı erken uyarı; sunucu (RLS/CHECK) ayrı pakette eklenecek.
+ */
+export function phoneError(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim()
+  if (!v) return null
+  const norm = normalizePhone(v)
+  if (!norm) return 'Geçerli bir telefon numarası girin.'
+  // TR numarası tam olmalı: +90 + 10 ulusal hane = 13 karakter.
+  if (norm.startsWith('+90') && norm.length !== 13) return 'Türkiye numarası 10 haneli olmalı (5XX XXX XX XX).'
+  return null
+}
+
+/** Form doğrulaması — e-posta. Boş = geçerli. Geçersiz biçimse hata mesajı; aksi halde null. */
+export function emailError(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim()
+  if (!v) return null
+  if (!normalizeEmail(v)) return 'Geçerli bir e-posta adresi girin.'
+  return null
+}
+
 /** İletişim noktası tipine göre normalize eder (dedup/arama için). */
 export function normalizeContactValue(
   type: 'phone' | 'whatsapp' | 'email' | 'instagram' | 'telegram' | 'website',

@@ -141,6 +141,15 @@ export async function getSignedUrl(
   return data.signedUrl
 }
 
+/**
+ * Belgeyi indirmeden yeni sekmede açar (kısa ömürlü imzalı URL — kalıcı public link YOK).
+ * Content-Disposition verilmez → tarayıcı PDF/görseli inline gösterir.
+ */
+export async function openInNewTab(bucket: FileBucket, path: string): Promise<void> {
+  const url = await getSignedUrl(bucket, path, 60)
+  window.open(url, '_blank', 'noopener')
+}
+
 /** İmzalı URL'i React Query ile (önizleme bileşenleri için). transform verilirse thumbnail. */
 export function useSignedUrl(file: Pick<FileRow, 'bucket' | 'storage_path'> | null, transform?: ImgTransform) {
   return useQuery({

@@ -15,6 +15,7 @@ import { PhoneInput } from '@/components/shared/PhoneInput'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { passwordError, PASSWORD_HINT } from '@/lib/password'
+import { emailError, phoneError } from '@/lib/phone'
 import {
   useRoleOptions,
   useDepartmentOptions,
@@ -80,6 +81,9 @@ function StaffForm({ editing, onDone }: { editing: StaffRow | null; onDone: () =
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Telefon biçimi (opsiyonel; her iki modda düzenlenebilir).
+    const phoneErr = phoneError(form.phone)
+    if (phoneErr) { toast.error(phoneErr); return }
     try {
       if (isEdit && editing) {
         await update.mutateAsync({
@@ -92,6 +96,11 @@ function StaffForm({ editing, onDone }: { editing: StaffRow | null; onDone: () =
         })
         toast.success('Çalışan güncellendi.')
       } else {
+        const emailErr = emailError(form.email)
+        if (emailErr) {
+          toast.error(emailErr)
+          return
+        }
         const pwErr = passwordError(form.password)
         if (pwErr) {
           toast.error(pwErr)

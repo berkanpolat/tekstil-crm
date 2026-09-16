@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
-import { parseDecimal } from '@/lib/money'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { MoneyInput } from '@/components/shared/MoneyInput'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,7 +20,7 @@ import {
   useOperationSamples, useCreateSample, useReviseSample, useUpdateSample, useDeleteSample,
   useSampleStatusOptions, type Sample,
 } from '@/hooks/useSamples'
-import { useOperationQuotes } from '@/hooks/useQuotes'
+import { useOperationQuotes, quoteLabel } from '@/hooks/useQuotes'
 import { useOperationDocuments } from '@/hooks/useDocuments'
 import { GenerateDocButton } from './GenerateDocButton'
 
@@ -104,7 +104,7 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
   const [reviseOpen, setReviseOpen] = useState(false)
 
   const [description, setDescription] = useState(sample.description ?? '')
-  const [fee, setFee] = useState(sample.fee != null ? String(sample.fee) : '')
+  const [fee, setFee] = useState<number | null>(sample.fee ?? null)
   const [deduct, setDeduct] = useState(sample.deduct_from_order)
   const [quoteId, setQuoteId] = useState<string | null>(sample.quote_id ? String(sample.quote_id) : null)
   const [carrier, setCarrier] = useState(sample.carrier ?? '')
@@ -123,7 +123,7 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
   async function saveHeader() {
     try {
       await update.mutateAsync({ id: sample.id, operationId,
-        description: description.trim() || null, fee: parseDecimal(fee), deduct_from_order: deduct,
+        description: description.trim() || null, fee, deduct_from_order: deduct,
         quote_id: quoteId ? Number(quoteId) : null, carrier: carrier.trim() || null, tracking_number: tracking.trim() || null,
         target_date: targetDate || null })
       toast.success('Numune kaydedildi.')
@@ -190,12 +190,12 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">İlgili teklif</Label>
-          <SearchableSelect clearable disabled={locked} options={(quotes.data ?? []).filter((q) => !q.deleted_at).map((q) => ({ value: String(q.id), label: `Teklif v${q.version}` }))}
+          <SearchableSelect clearable disabled={locked} options={(quotes.data ?? []).filter((q) => !q.deleted_at).map((q) => ({ value: String(q.id), label: `${quoteLabel(q)} · v${q.version}` }))}
             value={quoteId} onChange={setQuoteId} placeholder="—" />
         </div>
         <div className="space-y-1">
-          <Label className="text-text-muted text-xs">Numune ücreti</Label>
-          <Input type="text" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="—" disabled={locked} />
+          <Label className="text-text-muted text-xs">Numune ücreti (₺)</Label>
+          <MoneyInput value={fee} onValueChange={setFee} placeholder="0,00" disabled={locked} />
         </div>
         <label className="flex items-end gap-2 pb-2 text-sm">
           <input type="checkbox" checked={deduct} onChange={(e) => setDeduct(e.target.checked)} className="size-4" disabled={locked} />

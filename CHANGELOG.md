@@ -13,6 +13,36 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.47.0] — 2026-09-16
+
+### Paket A — Temel düzeltmeler (migration yok)
+
+- **Biçim doğrulama (ortak kaynak).** `src/lib/phone.ts`'e `phoneError` +
+  `emailError` yardımcıları eklendi (tek doğrulama kaynağı; boş = geçerli).
+  Potansiyel, Müşteri ve Çalışan formlarında kaydetmeden önce telefon/e-posta
+  biçimi kontrol ediliyor (istemci kapısı; sunucu tarafı normalize DB trigger'ında
+  sürüyor). Telefon zaten `PhoneInput` ile maskeli giriliyordu.
+  - **Numune ücreti** serbest metin yerine `MoneyInput` (yalnız sayı, TL); etiket
+    "Numune ücreti (₺)". Para birimi kolonu eklenmedi (sistem varsayılanı = TRY).
+  - **Sipariş çıkarımı** (adet / birim fiyat / toplam tutar) alanları yalnız sayı
+    kabul ediyor (rakam + ondalık ayıraç); serbest metin ayıklanıyor.
+- **Para birimi varsayılanı.** Fiyat teklifi belgesi artık varsayılan **USD**
+  (önceden TRY); kullanıcı değiştirebilir (`editorForms.tsx` → `blankData`).
+- **Belge yeni sekmede aç.** İndirmeden inline görüntüleme: teklif sekmesi,
+  sipariş sekmesi ve dosya panelinde (müşteri/talep dosyaları) "Yeni sekmede aç"
+  düğmesi. Kısa ömürlü (60 sn) imzalı URL; kalıcı public link üretilmez.
+  Ortak yardımcı `openInNewTab` (`useFiles.ts`). Belgeler listesindeki "Önizle"
+  zaten mevcuttu.
+- **Teklif adlandırma.** "Teklif v1" yerine okunur etiket: `tarih · tutar · durum`
+  (ör. `12.09.2026 · $2.450 · İletildi`). Sürüm ikincil (küçük) gösteriliyor.
+  Ortak yardımcı `quoteLabel` (`useQuotes.ts`); teklif sekmesi ve numune "ilgili
+  teklif" listesinde kullanılıyor.
+- **Test:** `src/lib/phone.test.ts` (8 test) — telefon/e-posta doğrulayıcıları.
+
+> **Sıradaki (Paket B, onay bekliyor):** Sunucu tarafı CHECK kısıtları
+> (e-posta biçimi, `quantity > 0`, `unit_price >= 0`, telefon uzunluğu) — DB kapısı,
+> ayrı migration olarak planlanacak (intake/aktarım scriptleri istemciyi baypas ettiği için).
+
 ## [1.46.0] — 2026-09-16
 
 ### Tam veri sıfırlama (canlı) — ticari veri temizliği
