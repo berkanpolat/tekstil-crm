@@ -11,11 +11,15 @@ export function RateBadge({ className }: { className?: string }) {
   const { data, isLoading } = useExchangeRates()
   if (isLoading || !data?.USD) return null
   const tone = data.blocked ? 'border-danger text-danger-foreground' : data.stale ? 'border-warning text-warning-foreground' : 'border-border text-text-secondary'
+  const behind = data.business_days_behind ?? 0
+  // İş günü esaslı uyarı: bülten tarihi beklenenden geride mi?
+  const warn = data.blocked ? `güncel değil — ${behind} iş günü geride` : data.stale ? 'kur gecikmiş — güncelleniyor' : null
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs', tone, className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs', tone, className)}
+      title={data.rate_date ? `Bülten tarihi: ${fmtDate(data.rate_date)} · Beklenen: ${fmtDate(data.expected_date)}` : undefined}>
       {data.blocked ? <AlertTriangle className="size-3.5" /> : <RefreshCw className="size-3.5" />}
-      <span>{data.source ?? 'TCMB'} {fmtDate(data.fetched_at)}: <b>1$ = {Number(data.USD).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺</b></span>
-      <span className="text-text-muted">· {fmtAge(data.age_hours)}</span>
+      <span>{data.source ?? 'TCMB'} {fmtDate(data.rate_date ?? data.fetched_at)}: <b>1$ = {Number(data.USD).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺</b></span>
+      {warn ? <span className="font-medium">· {warn}</span> : <span className="text-text-muted">· {fmtAge(data.age_hours)}</span>}
     </span>
   )
 }

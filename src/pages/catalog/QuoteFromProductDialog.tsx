@@ -24,6 +24,7 @@ export function QuoteFromProductDialog({ product, onClose }: { product: CatalogP
   const [qtys, setQtys] = useState<number[]>(() => [Math.max(1, product.moq || 50)])
   const [custom, setCustom] = useState('')
   const [busy, setBusy] = useState(false)
+  const [acceptStale, setAcceptStale] = useState(false)
 
   // margin_tiers'tan önerilen kademeler (MOQ altındakiler atlanır).
   const suggested = (tiers.data ?? []).map((t) => t.min_quantity).filter((q) => q >= (product.moq || 1))
@@ -42,8 +43,10 @@ export function QuoteFromProductDialog({ product, onClose }: { product: CatalogP
   })
   const rows = prices.data ?? []
   const blocked = rates.data?.blocked
+  const behind = rates.data?.business_days_behind ?? 0
   const allCosted = rows.length > 0 && rows.every((r) => r.info?.has_cost && r.info.unit_price_usd)
-  const canQuote = sorted.length > 0 && allCosted && !blocked
+  // Kur güncel değilse ENGELLEME yerine açık ONAY iste (sessizce eski kurla fiyatlama olmasın).
+  const canQuote = sorted.length > 0 && allCosted && (!blocked || acceptStale)
 
   async function prepare() {
     if (!allCosted) return
@@ -128,7 +131,17 @@ export function QuoteFromProductDialog({ product, onClose }: { product: CatalogP
             </div>
           )}
 
-          {blocked && <p className="flex items-center gap-1.5 text-xs text-danger-foreground"><AlertTriangle className="size-3.5" /> Kur {rates.data?.age_hours} saatten eski — teklif engellendi. Kur güncellenmeli.</p>}
+          {blocked && (
+            <div className="rounded-md border border-danger bg-danger/5 p-2.5 text-xs">
+              <p className="flex items-center gap-1.5 font-medium text-danger-foreground">
+                <AlertTriangle className="size-3.5" /> Kur güncel değil — {behind} iş günü geride (bülten {rates.data?.rate_date ?? '—'}).
+              </p>
+              <label className="mt-1.5 flex items-center gap-2 text-text-secondary">
+                <input type="checkbox" checked={acceptStale} onChange={(e) => setAcceptStale(e.target.checked)} className="size-4" />
+                Bu eski kurla teklif oluşturmayı onaylıyorum.
+              </label>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Vazgeç</Button>

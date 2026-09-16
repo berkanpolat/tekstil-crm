@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
-import { ensureRows } from '@/lib/errors'
+import { ensureRows, toUserMessage } from '@/lib/errors'
 import { normalizeTr } from '@/lib/normalize'
 import { fetchRates } from './useDocuments'
 import { buildRates, type Rates, type MarginTier } from '@/lib/pricing'
@@ -17,7 +18,7 @@ export function useHasPermission(key: string) {
 }
 
 // ── Döviz kuru (P4B.5) ──────────────────────────────────────────────────────
-export interface RateInfo { USD: number | null; EUR: number | null; GBP: number | null; source: string; fetched_at: string | null; age_hours: number; safety_percent: number; refresh_hours: number; stale: boolean; blocked: boolean }
+export interface RateInfo { USD: number | null; EUR: number | null; GBP: number | null; source: string; fetched_at: string | null; rate_date: string | null; expected_date: string | null; business_days_behind: number; age_hours: number; safety_percent: number; refresh_hours: number; stale: boolean; blocked: boolean }
 
 /** Güncel kur + yaş + engel. stale ise arka planda TCMB'den tazeler (cron yok). */
 export function useExchangeRates() {
@@ -40,8 +41,10 @@ export function useRefreshRates() {
     mutationFn: async () => {
       const r = await fetchRates()
       if (!r) throw new Error('Kur alınamadı (PDF servisi /rates).')
-      for (const cur of ['USD', 'EUR', 'GBP'] as const) if (r[cur]) await supabase.rpc('set_exchange_rate', { p_currency: cur, p_rate: r[cur] as number, p_source: r.source || 'TCMB' })
+      for (const cur of ['USD', 'EUR', 'GBP'] as const) if (r[cur]) await supabase.rpc('set_exchange_rate', { p_currency: cur, p_rate: r[cur] as number, p_source: r.source || 'TCMB' } as never)
     },
+    // Arka plan yenileme hatası SESSİZ kalmasın (id ile tekrarlarda üst üste binmez).
+    onError: async (err) => { toast.error(`Kur güncellenemedi: ${await toUserMessage(err)}`, { id: 'rate-refresh-error' }) },
   })
 }
 /** RateInfo → pricing.ts için efektif (güvenlik paylı) kur haritası. */

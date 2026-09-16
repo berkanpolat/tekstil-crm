@@ -2676,6 +2676,7 @@ export type Database = {
           landing_source: string | null
           legacy_code: string | null
           merged_into: number | null
+          next_action_at: string | null
           owner_id: string | null
           possible_merge_with: number | null
           product_source: string | null
@@ -2715,6 +2716,7 @@ export type Database = {
           landing_source?: string | null
           legacy_code?: string | null
           merged_into?: number | null
+          next_action_at?: string | null
           owner_id?: string | null
           possible_merge_with?: number | null
           product_source?: string | null
@@ -2754,6 +2756,7 @@ export type Database = {
           landing_source?: string | null
           legacy_code?: string | null
           merged_into?: number | null
+          next_action_at?: string | null
           owner_id?: string | null
           possible_merge_with?: number | null
           product_source?: string | null
@@ -4143,6 +4146,7 @@ export type Database = {
           fee: number | null
           fee_currency: string
           id: number
+          label: string | null
           operation_id: number
           overdue_warned_at: string | null
           quote_id: number | null
@@ -4173,6 +4177,7 @@ export type Database = {
           fee?: number | null
           fee_currency?: string
           id?: never
+          label?: string | null
           operation_id: number
           overdue_warned_at?: string | null
           quote_id?: number | null
@@ -4203,6 +4208,7 @@ export type Database = {
           fee?: number | null
           fee_currency?: string
           id?: never
+          label?: string | null
           operation_id?: number
           overdue_warned_at?: string | null
           quote_id?: number | null
@@ -5205,6 +5211,10 @@ export type Database = {
         Args: { p_currency: string; p_date: string; p_rate: number }
         Returns: undefined
       }
+      calisma_worklist: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       catalog_code_key: { Args: { input: string }; Returns: string }
       catalog_slugify: { Args: { input: string }; Returns: string }
       check_import_duplicates: {
@@ -5320,6 +5330,7 @@ export type Database = {
         }[]
       }
       evaluate_order_due: { Args: { p_order_id: number }; Returns: number }
+      expected_bulletin_date: { Args: never; Returns: string }
       file_record_exists: {
         Args: { p_bucket: string; p_path: string }
         Returns: boolean
@@ -5345,6 +5356,13 @@ export type Database = {
           reason: string
           subtitle: string
           title: string
+        }[]
+      }
+      find_entity_by_phone: {
+        Args: { p_phone: string }
+        Returns: {
+          entity_id: number
+          entity_type: string
         }[]
       }
       generate_operation_code: {
@@ -5553,6 +5571,10 @@ export type Database = {
       }
       order_advance_check: { Args: { p_order_id: number }; Returns: Json }
       order_paid_summary: { Args: { p_order_id: number }; Returns: Json }
+      order_paid_summary_internal: {
+        Args: { p_order_id: number }
+        Returns: Json
+      }
       post_account_transaction: {
         Args: {
           p_amount: number
@@ -5568,6 +5590,24 @@ export type Database = {
           p_source_id?: number
           p_source_type: string
           p_usd_rate?: number
+        }
+        Returns: number
+      }
+      post_account_transaction_internal: {
+        Args: {
+          p_amount: number
+          p_created_by: string
+          p_currency: string
+          p_customer_id: number
+          p_description: string
+          p_direction: string
+          p_exchange_rate: number
+          p_occurred_at: string
+          p_operation_id: number
+          p_reverses_id: number
+          p_source_id: number
+          p_source_type: string
+          p_usd_rate: number
         }
         Returns: number
       }
@@ -5630,7 +5670,12 @@ export type Database = {
         Returns: number
       }
       set_exchange_rate: {
-        Args: { p_currency: string; p_rate: number; p_source?: string }
+        Args: {
+          p_currency: string
+          p_rate: number
+          p_rate_date?: string
+          p_source?: string
+        }
         Returns: undefined
       }
       set_role_permission: {
@@ -5644,6 +5689,7 @@ export type Database = {
         Args: { p_open_file_id: number; p_reason: string; p_until: string }
         Returns: Json
       }
+      storage_key_guvenli: { Args: { p_name: string }; Returns: boolean }
       suggest_catalog_products: {
         Args: { p_code: string; p_limit?: number }
         Returns: {
@@ -5651,6 +5697,15 @@ export type Database = {
           id: number
           name: string
         }[]
+      }
+      system_set_exchange_rate: {
+        Args: {
+          p_currency: string
+          p_rate: number
+          p_rate_date?: string
+          p_source?: string
+        }
+        Returns: string
       }
       task_blocking: {
         Args: { p_task_id: number }
@@ -5695,12 +5750,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5724,11 +5779,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5749,11 +5804,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5774,11 +5829,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5791,11 +5846,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

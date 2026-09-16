@@ -13,6 +13,22 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.49.0] — 2026-09-16
+
+### Paket C · Aşama 3 — Görünür kur uyarısı + sessiz fiyatlama önleme
+
+- **Kur rozeti (`RateBadge`):** artık **bülten tarihi** ve iş-günü esaslı uyarı gösteriyor —
+  `stale` → "kur gecikmiş", `blocked` → "güncel değil — N iş günü geride" (tooltip'te
+  bülten/beklenen tarih). `age_hours` yerine `rate_date` esas.
+- **Teklif fiyatlaması (`QuoteFromProductDialog`):** kur `blocked` iken artık **sert
+  engelleme yok**; bunun yerine **yaş rozeti + açık onay kutusu** ("bu eski kurla teklif
+  oluşturmayı onaylıyorum"). Onaysız devam edilemez → sessizce eski kurla fiyatlama olmaz.
+- **Arka plan yenileme hatası** artık **toast** gösteriyor (`useRefreshRates.onError`,
+  tek `id` ile — 5 dk'da bir üst üste binmez).
+- **`RateInfo`** genişletildi: `rate_date`, `expected_date`, `business_days_behind`.
+- `database.types.ts` yeniden üretildi (Aşama 1/2 imza değişiklikleri: `set_exchange_rate`,
+  `system_set_exchange_rate`, `expected_bulletin_date`).
+
 ## [1.48.2] — 2026-09-16
 
 ### Paket C · Aşama 2 — Bağımsız kur çekimi (edge fn + pg_cron)
