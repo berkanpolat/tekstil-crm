@@ -115,6 +115,14 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
 
   const closed = statuses.data?.find((s) => s.id === sample.status_id)?.is_closed ?? false
   const statusIdByKey = (key: string) => statuses.data?.find((s) => s.key === key)?.id ?? null
+  // Fail-loud: statü listesi yüklenmemişse (veya anahtar bulunamazsa) status_id SESSİZCE
+  // düşmesin — kullanıcıya hata göster, işlemi durdur. Aksi halde yalnız shipped_at yazılıp
+  // durum "Kargoda"ya geçmez ve akış tutarsız kalır.
+  const resolveStatus = (key: string): number | null => {
+    const id = statusIdByKey(key)
+    if (id == null) toast.error(`Numune durumları henüz yüklenmedi (“${key}” bulunamadı). Sayfayı yenileyip tekrar deneyin.`)
+    return id
+  }
   // Onaylanmış numune varsayılan olarak KİLİTLİ (salt-okunur). "Yeniden aç" ile düzenlenebilir.
   const approved = !!sample.approved_at
   const [unlocked, setUnlocked] = useState(false)
@@ -130,10 +138,11 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
   async function markShipped() {
+    const sid = resolveStatus('kargoda')
+    if (sid == null) return
     try {
       await update.mutateAsync({ id: sample.id, operationId, shipped_at: new Date().toISOString(),
-        carrier: carrier.trim() || null, tracking_number: tracking.trim() || null,
-        status_id: statusIdByKey('kargoda') ?? undefined })
+        carrier: carrier.trim() || null, tracking_number: tracking.trim() || null, status_id: sid })
       toast.success('Numune gönderildi olarak işaretlendi.')
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
@@ -242,18 +251,20 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
       </div>
 
       {approveOpen && <ApproveDialog onClose={() => setApproveOpen(false)} onApprove={async (method, note) => {
+        const sid = resolveStatus('onaylandi')
+        if (sid == null) return
         try {
           const { data: { user } } = await supabase.auth.getUser()
           await update.mutateAsync({ id: sample.id, operationId, approved_at: new Date().toISOString(),
-            approved_by: user?.id ?? null, approval_method: method, approval_note: note || null,
-            status_id: statusIdByKey('onaylandi') ?? undefined })
+            approved_by: user?.id ?? null, approval_method: method, approval_note: note || null, status_id: sid })
           toast.success('Numune onaylandı.'); setApproveOpen(false)
         } catch (err) { toast.error(await toUserMessage(err)) }
       }} />}
       {rejectOpen && <RejectDialog onClose={() => setRejectOpen(false)} onReject={async (reason) => {
+        const sid = resolveStatus('reddedildi')
+        if (sid == null) return
         try {
-          await update.mutateAsync({ id: sample.id, operationId, rejection_reason: reason || null,
-            status_id: statusIdByKey('reddedildi') ?? undefined })
+          await update.mutateAsync({ id: sample.id, operationId, rejection_reason: reason || null, status_id: sid })
           toast.success('Numune reddedildi.'); setRejectOpen(false)
         } catch (err) { toast.error(await toUserMessage(err)) }
       }} />}
