@@ -113,7 +113,12 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
 
-  const closed = statuses.data?.find((s) => s.id === sample.status_id)?.is_closed ?? false
+  const stDef = statuses.data?.find((s) => s.id === sample.status_id)
+  const stKey = stDef?.key ?? sample.status_key
+  // 3c — Kilit semantiği: numune "final" olduğunda salt-okunur. Final = onaylandı VEYA
+  // kapalı bir durum (reddedildi/iptal). teslim_edildi kapalı sayılsa da akış bitmez
+  // (sonrasında onay/red gelir) → final DEĞİL; buton ve alanlar açık kalır.
+  const finalized = !!sample.approved_at || ((stDef?.is_closed ?? false) && stKey !== 'teslim_edildi')
   const statusIdByKey = (key: string) => statuses.data?.find((s) => s.key === key)?.id ?? null
   // Fail-loud: statü listesi yüklenmemişse (veya anahtar bulunamazsa) status_id SESSİZCE
   // düşmesin — kullanıcıya hata göster, işlemi durdur. Aksi halde yalnız shipped_at yazılıp
@@ -123,10 +128,9 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
     if (id == null) toast.error(`Numune durumları henüz yüklenmedi (“${key}” bulunamadı). Sayfayı yenileyip tekrar deneyin.`)
     return id
   }
-  // Onaylanmış numune varsayılan olarak KİLİTLİ (salt-okunur). "Yeniden aç" ile düzenlenebilir.
-  const approved = !!sample.approved_at
+  // Final numune varsayılan olarak KİLİTLİ (salt-okunur). "Yeniden aç" ile düzenlenebilir.
   const [unlocked, setUnlocked] = useState(false)
-  const locked = approved && !unlocked
+  const locked = finalized && !unlocked
 
   async function saveHeader() {
     try {
@@ -165,20 +169,31 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
           <span className={cn('rounded px-1.5 py-0.5 text-xs', sample.revision_round >= 3 ? 'bg-warning-badge text-warning-badge-foreground' : 'text-text-muted')}>
             {sample.revision_round}. tur{sample.revision_round >= 3 && ' ⚠'}
           </span>
+          {/* 3c — kilit durumu her zaman görünür */}
+          <span className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+            locked ? 'bg-muted text-text-muted' : 'bg-success-badge text-success-badge-foreground')}>
+            {locked ? <><Lock className="size-3" /> Kilitli</> : <><LockOpen className="size-3" /> Düzenlenebilir</>}
+          </span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {approved && (unlocked
+          {finalized && (unlocked
             ? <Button size="sm" variant="outline" onClick={() => setUnlocked(false)}><Lock className="size-3.5" /> Kilitle</Button>
             : <Button size="sm" variant="outline" onClick={() => setUnlocked(true)}><LockOpen className="size-3.5" /> Yeniden aç</Button>)}
-          <Button size="sm" variant="outline" onClick={() => void markShipped()} disabled={closed}><Truck className="size-3.5" /> Gönderildi</Button>
+          <Button size="sm" variant="outline" onClick={() => void markShipped()} disabled={finalized}><Truck className="size-3.5" /> Gönderildi</Button>
           {sample.shipped_at && !sample.received_at && (
-            <Button size="sm" variant="outline" onClick={() => void markReceived()} disabled={closed}><PackageCheck className="size-3.5" /> Teslim alındı</Button>
+            <Button size="sm" variant="outline" onClick={() => void markReceived()} disabled={finalized}><PackageCheck className="size-3.5" /> Teslim alındı</Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => setApproveOpen(true)} disabled={closed}><Check className="size-3.5" /> Onayla</Button>
-          <Button size="sm" variant="outline" onClick={() => setRejectOpen(true)} disabled={closed}><X className="size-3.5" /> Reddet</Button>
-          <Button size="sm" variant="outline" onClick={() => setReviseOpen(true)} disabled={closed || revise.isPending}><Copy className="size-3.5" /> Revize et</Button>
+          <Button size="sm" variant="outline" onClick={() => setApproveOpen(true)} disabled={finalized}><Check className="size-3.5" /> Onayla</Button>
+          <Button size="sm" variant="outline" onClick={() => setRejectOpen(true)} disabled={finalized}><X className="size-3.5" /> Reddet</Button>
+          <Button size="sm" variant="outline" onClick={() => setReviseOpen(true)} disabled={finalized || revise.isPending}><Copy className="size-3.5" /> Revize et</Button>
         </div>
       </div>
+      {/* 3c — kilit kuralını kullanıcıya açıkla */}
+      <p className="text-text-muted -mt-3 text-xs">
+        {locked
+          ? 'Bu numune final (onaylı/kapalı) — salt-okunur. Düzenlemek için “Yeniden aç”.'
+          : 'Numune düzenlenebilir. Onaylanınca ya da reddedilince kilitlenir (teslim alındıktan sonra hâlâ düzenlenebilir).'}
+      </p>
       {sample.revision_round >= 3 && (
         <div className="border-warning/40 bg-warning/5 text-warning-foreground rounded-lg border px-3 py-2 text-sm">
           Bu numune {sample.revision_round}. turda — tekrarlayan revizyon. Süreci gözden geçirin.
