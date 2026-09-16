@@ -13,6 +13,29 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.46.0] — 2026-09-16
+
+### Tam veri sıfırlama (canlı) — ticari veri temizliği
+Canlı DB'de gerçek müşteri verisi sıfırlandı; katalog + sistem yapılandırması korundu.
+İki aşamalı onay (kuru koşu → yedek → silme) ve prefix-güvenlikli Storage temizliği ile.
+
+- **Silindi (~15.140 satır):** customers 502, operations 542, quotes 313, samples 3,
+  orders 0, documents 436, leads 1.352, interactions 202, notes 42, notifications 223,
+  open_files 468, contact_points 2.832, entity_tags 651, conversations 1.076,
+  messages 5.042, operation_catalog_items 296, payments 1, account_transactions 1,
+  files (katalog-dışı) 664. Silme sırası FK bağımlılığına göre (çocuk→ebeveyn), tek transaction.
+- **Storage:** `documents` bucket'ında `document/` (412) + `intake/` (224) = 636 nesne /
+  ~571 MB silindi. `catalog/` öneki (3.178 nesne / 296 MB) prefix güvenlik kilidiyle korundu.
+- **Korundu:** katalog (catalog_products 1.291, catalog_product_images 3.797,
+  product_costs 488, katalog files 3.797), users/roles/permissions, ayarlar,
+  exchange_rates, margin_tiers, code_registry (numaralar devam eder), audit_log/event_log
+  (geçmiş korundu), tüm referans tabloları. Identity sayaçları sıfırlanmadı.
+- **Yedek:** `~/tekstil-crm-yedekler/sifirlama-20260916-131008/` (proje dışı) — tam
+  pg_dump 134 MB + data-only SQL 59 MB + Storage 573 MB (636 dosya), SHA-256 manifest.
+- Yeni araçlar: `scripts/sifirlama-sil.sql` (silme SQL, güvenlik doğrulamalı),
+  `scripts/sifirlama-storage-sil.sh` (Storage temizliği, `catalog/` koruma kilidi).
+- Migration yok.
+
 ## [1.45.2] — 2026-09-14
 
 ### PDF istemcisi — yerel geliştirmede proxy'yi atla
