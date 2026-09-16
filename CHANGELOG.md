@@ -13,6 +13,19 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.50.0] — 2026-09-16
+
+### Paket E · B — Talebe aksiyon ekleme
+
+Talep detayından artık etkileşim/aksiyon eklenebiliyor ("müşteri aradı, 200 adet için
+teklif istedi" gibi) — daha önce yalnız Lead/Müşteri kartında vardı.
+- **`OperationActionForm`** (yeni, `src/components/operations/`): CalismaDetailPanel'deki
+  aksiyon formu operasyon-detayına taşındı. Kanal · sonuç · not · sonraki takip tarihi;
+  `useAddOperationInteraction` (→ `interactions.operation_id`) ile yazar, takip tarihi
+  `operations.next_action_at`'e. **"Sonra aranacak" seçilince takip tarihi ZORUNLU**
+  (Hızlı Çalışma ile aynı kural).
+- Talep detayı **Zaman Çizelgesi** sekmesinde etkinlik beslemesinin **başına** kondu.
+
 ## [1.49.0] — 2026-09-16
 
 ### Paket C · Aşama 3 — Görünür kur uyarısı + sessiz fiyatlama önleme

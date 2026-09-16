@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ImageLightbox, type LightboxImage } from '@/components/shared/ImageLightbox'
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { EntityTimeline } from '@/components/timeline/EntityTimeline'
+import { OperationActionForm } from '@/components/operations/OperationActionForm'
 import { QuotesTab } from './QuotesTab'
 import { SamplesTab } from './SamplesTab'
 import { OrdersTab } from './OrdersTab'
@@ -180,7 +181,12 @@ export function OperationCardPage() {
             {tab === 'gorevler' && <OperationTasks operationId={op.id} />}
             {tab === 'dosyalar' && <FilesPanel entityType="operation" entityId={op.id} />}
             {tab === 'notlar' && <OperationNotesTab operationId={op.id} />}
-            {tab === 'zaman' && <EntityTimeline entityType="operation" entityId={op.id} />}
+            {tab === 'zaman' && (
+              <div className="space-y-4">
+                <OperationActionForm operationId={op.id} customerId={op.customer_id} />
+                <EntityTimeline entityType="operation" entityId={op.id} />
+              </div>
+            )}
           </div>
         </div>
 
