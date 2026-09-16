@@ -13,6 +13,16 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.47.4] — 2026-09-16
+
+### Numune adlandırma UI (3d tamamlandı)
+
+`samples.label` migration'ı uygulandıktan sonra label arayüzü bağlandı:
+- **Data:** `Sample` tipi + `SELECT` + `SamplePatch`'e `label` eklendi.
+- **Editör:** kısa “Ad / Etiket” input (maxLength 60); `description` ayrı detay
+  alanı olarak kaldı.
+- **Liste + editör başlığı:** “N1 · etiket” biçimi; etiket boşsa yalnız “N1”.
+
 ## [1.47.3] — 2026-09-16
 
 ### Paket B (3/4) — Numune akışı + sipariş formu UX
