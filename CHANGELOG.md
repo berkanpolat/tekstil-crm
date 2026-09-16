@@ -13,6 +13,22 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.48.1] — 2026-09-16
+
+### Paket C · Aşama 1 — Kur: doğru damgalama + iş günü farkındalığı (migration)
+
+`20260916100000_c1_rate_stamping_weekday.sql` (elle uygulandı):
+- **`set_exchange_rate`** artık `p_rate_date` alıyor → **TCMB bülteninin kendi tarihi**
+  yazılıyor (null → İstanbul bugünü, geriye uyumlu). `now()::date` yanlış damgası bitti.
+- **Mükerrer koruma:** `(currency, rate_date)` zaten varsa yazmıyor.
+- **`expected_bulletin_date()`** (yeni) + **`current_rates`** staleness'ı **iş günü esaslı**
+  (`rate_date` vs beklenen bülten; hafta içi + 15:30 kesimi). Hafta sonu/tatilde yanlış
+  "eski" alarmı vermez. Çıktıya `rate_date`, `expected_date`, `business_days_behind` eklendi;
+  `stale`=beklenenden eski, `blocked`=2+ iş günü geride.
+
+> **Sıradaki:** Aşama 2 (bağımsız çekim: edge fn + pg_cron), Aşama 3 (görünür uyarı).
+> Uygulandıktan sonra `database.types.ts` yeniden üretilmeli (imza değişti).
+
 ## [1.48.0] — 2026-09-16
 
 ### Sipariş formu → sipariş: deterministik eşleme (AI çıkarımı kaldırıldı)
