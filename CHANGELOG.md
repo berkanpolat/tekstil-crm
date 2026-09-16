@@ -13,6 +13,28 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.47.1] — 2026-09-16
+
+### Paket A düzeltme turu — gözden kaçan ham input'lar
+
+1.47.0'da bazı telefon/e-posta girişleri gözden kaçmıştı; kullanıcı testinde
+harf yazılabildiği görüldü. Kapatılan boşluklar:
+
+- **Hızlı müşteri modalı** (talep oluştururken "Yeni müşteri"):
+  `OperationFormDialog.tsx` → ham `<Input>` yerine `PhoneInput`; kaydetmeden
+  önce `phoneError` kontrolü.
+- **İletişim noktası panelleri** (müşteri + potansiyel kartı): telefon/whatsapp
+  tipinde artık `PhoneInput`, e-posta/diğerinde biçim doğrulaması (`phoneError` /
+  `emailError`) ekleme anında. Tip değişince değer sıfırlanıyor.
+- **Gerçek davranış testleri** (DOM düzeyinde, jsdom + Testing Library):
+  `MoneyInput.test.tsx` (harf ayıklanıyor → 12,50 çıkarılıyor),
+  `PhoneInput.test.tsx` (harf yayılmıyor, TR numarası E.164 + maske). +4 test.
+
+> **Önemli — dağıtım:** 1.47.0 değişiklikleri git'e push'landı ama canlıya
+> (`crm.tekstilas.com`) `bash scripts/release.sh` ile **dağıtılmadıysa** eski
+> davranış sürer (e-posta/numune ücreti düzeltmeleri dahil). Bu tur sonrası
+> dağıtım gerekiyor.
+
 ## [1.47.0] — 2026-09-16
 
 ### Paket A — Temel düzeltmeler (migration yok)

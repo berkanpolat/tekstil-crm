@@ -31,6 +31,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { PhoneInput } from '@/components/shared/PhoneInput'
+import { phoneError, emailError } from '@/lib/phone'
 import { cn } from '@/lib/utils'
 import type { StatusDef, StatusTone } from '@/lib/statuses'
 import { useCustomer, useCustomerStatusOptions, useCustomerSummary } from '@/hooks/useCustomers'
@@ -290,6 +292,9 @@ function ContactPointsPanel({ customerId }: { customerId: number }) {
 
   async function handleAdd() {
     if (!value.trim()) return
+    // Tipe göre biçim doğrulaması (telefon/whatsapp → E.164; e-posta → biçim).
+    const fmtErr = (type === 'phone' || type === 'whatsapp') ? phoneError(value) : type === 'email' ? emailError(value) : null
+    if (fmtErr) { toast.error(fmtErr); return }
     try {
       await add.mutateAsync({ entity_type: 'customer', entity_id: customerId, type, value: value.trim() })
       setValue('')
@@ -333,15 +338,19 @@ function ContactPointsPanel({ customerId }: { customerId: number }) {
         <SearchableSelect
           options={CONTACT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
           value={type}
-          onChange={(v) => v && setType(v as ContactType)}
+          onChange={(v) => { if (v) { setType(v as ContactType); setValue('') } }}
           className="w-32 shrink-0"
         />
-        <Input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Değer"
-          onKeyDown={(e) => e.key === 'Enter' && void handleAdd()}
-        />
+        {type === 'phone' || type === 'whatsapp' ? (
+          <div className="flex-1"><PhoneInput value={value} onChange={setValue} /></div>
+        ) : (
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Değer"
+            onKeyDown={(e) => e.key === 'Enter' && void handleAdd()}
+          />
+        )}
         <Button type="button" onClick={() => void handleAdd()} disabled={add.isPending || !value.trim()}>
           {add.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
         </Button>

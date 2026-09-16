@@ -10,7 +10,9 @@ import {
 } from '@/components/ui/dialog'
 import { FormField } from '@/components/shared/FormField'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { PhoneInput } from '@/components/shared/PhoneInput'
 import { DatePicker } from '@/components/shared/DatePicker'
+import { phoneError } from '@/lib/phone'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -349,6 +351,8 @@ function QuickCustomerDialog({ onClose, onCreated }: { onClose: () => void; onCr
 
   async function save() {
     if (!company.trim() && !fullName.trim()) { toast.error('En az firma ya da kişi adı girin.'); return }
+    const phoneErr = phoneError(phone)
+    if (phoneErr) { toast.error(phoneErr); return }
     setBusy(true)
     try {
       const id = await createCustomer.mutateAsync({
@@ -389,7 +393,7 @@ function QuickCustomerDialog({ onClose, onCreated }: { onClose: () => void; onCr
             {(p) => <Input {...p} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="ör. Ayşe Yılmaz" />}
           </FormField>
           <FormField label="Telefon">
-            {(p) => <Input {...p} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx xxx xx xx" />}
+            {(p) => <PhoneInput id={p.id} value={phone} onChange={setPhone} />}
           </FormField>
         </div>
         <DialogFooter>
