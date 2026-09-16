@@ -332,8 +332,11 @@ export interface OperationItem {
   description: string | null
   fabric: string | null
   colors: string[] | null
+  sizes: string[] | null
   quantity: number | null
   print_embroidery: string | null
+  label_request: string | null
+  packaging_request: string | null
   technical_notes: string | null
   sort_order: number
 }
@@ -343,9 +346,13 @@ export interface OperationItemInput {
   description?: string | null
   fabric?: string | null
   colors?: string[] | null
+  sizes?: string[] | null
   quantity?: number | null
   print_embroidery?: string | null
+  label_request?: string | null
+  packaging_request?: string | null
   technical_notes?: string | null
+  sort_order?: number
 }
 
 export function useOperationItems(operationId: number | null) {
@@ -355,7 +362,7 @@ export function useOperationItems(operationId: number | null) {
     queryFn: async (): Promise<OperationItem[]> => {
       const { data, error } = await supabase
         .from('operation_items')
-        .select('id, operation_id, name, description, fabric, colors, quantity, print_embroidery, technical_notes, sort_order')
+        .select('id, operation_id, name, description, fabric, colors, sizes, quantity, print_embroidery, label_request, packaging_request, technical_notes, sort_order')
         .eq('operation_id', operationId as number)
         .is('deleted_at', null)
         .order('sort_order')

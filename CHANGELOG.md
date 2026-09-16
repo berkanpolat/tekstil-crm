@@ -13,6 +13,24 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.52.0] — 2026-09-16
+
+### Paket D — Çoklu ürün (migration yok, şema hazır)
+
+- **`operation_items` UI** (`OperationProductItems`, yeni): serbest (katalog dışı) ürünler —
+  ad · kumaş · renk · beden · **miktar** · baskı · etiket · paketleme. Ekle / düzenle / sil +
+  sıralama (sort_order takası). Hook `useOperationItems` alanları genişletildi (`sizes` jsonb,
+  `label_request`, `packaging_request`, `sort_order`).
+- **`product_source` kapısı kaldırıldı:** ürünler artık **tüm taleplerde** görünüyor
+  (önceden yalnız `katalogdan_secim`; canlıdaki `gorsel_yukleme` talepler ürün alanını
+  göremiyordu).
+- **Tek "Ürünler" sekmesi** (Genel'den sonra, aşama-kilitsiz): iki kaynak birlikte —
+  **Serbest ürünler** (`operation_items`, "Katalog dışı" rozeti) + **Katalog ürünleri**
+  (`operation_catalog_items`, kod rozeti). Katalog ürünü kodla eklenebilir, serbest ürün
+  formla. Genel'deki eski inline katalog listesi bu sekmeye taşındı.
+- **Miktar zemini:** ürün başına miktar yapısal olarak tutuluyor (teklife beslenmeye hazır).
+  Maliyet-tabanlı teklif tüketimi sonraki pakete bırakıldı.
+
 ## [1.51.0] — 2026-09-16
 
 ### Paket E · A — Talep detayı sadeleştirme (düşük riskli ara adım)

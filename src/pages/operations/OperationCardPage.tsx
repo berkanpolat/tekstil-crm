@@ -13,6 +13,7 @@ import { ImageLightbox, type LightboxImage } from '@/components/shared/ImageLigh
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { EntityTimeline } from '@/components/timeline/EntityTimeline'
 import { OperationActivityFeed } from '@/components/operations/OperationActivityFeed'
+import { OperationProductItems } from '@/components/operations/OperationProductItems'
 import { QuotesTab } from './QuotesTab'
 import { SamplesTab } from './SamplesTab'
 import { OrdersTab } from './OrdersTab'
@@ -67,6 +68,7 @@ const NEXT_STEP: Record<string, string> = {
 
 const TABS = [
   { key: 'genel', label: 'Genel', icon: Building2 },
+  { key: 'urunler', label: 'Ürünler', icon: Package },
   { key: 'teklif', label: 'Teklif', icon: FileText },
   { key: 'numune', label: 'Numune', icon: Shirt },
   { key: 'siparis', label: 'Sipariş', icon: ClipboardList },
@@ -198,6 +200,12 @@ export function OperationCardPage() {
 
           <div className="pt-4">
             {tab === 'genel' && <GeneralTab op={op} />}
+            {tab === 'urunler' && (
+              <div className="max-w-2xl space-y-6">
+                <OperationProductItems operationId={op.id} />
+                <CatalogItems operationId={op.id} />
+              </div>
+            )}
             {tab === 'teklif' && <QuotesTab operationId={op.id} />}
             {tab === 'numune' && <SamplesTab operationId={op.id} />}
             {tab === 'siparis' && <OrdersTab operationId={op.id} customerId={op.customer_id} />}
@@ -284,8 +292,6 @@ function GeneralTab({ op }: { op: NonNullable<ReturnType<typeof useOperation>['d
           </div>
         )}
       </dl>
-
-      {op.product_source === 'katalogdan_secim' && <CatalogItems operationId={op.id} />}
 
       <TalepAnalizi operationId={op.id} />
 
