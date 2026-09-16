@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft, Building2, Paperclip, Plus, Trash2, FileText, Shirt, ClipboardList,
-  StickyNote, Clock, AlertTriangle, ArrowRight, Package, Loader2, ListTodo,
+  Clock, AlertTriangle, ArrowRight, Package, Loader2, ListTodo, Lock,
 } from 'lucide-react'
 import { useEntityFiles, useSignedUrl } from '@/hooks/useFiles'
 import { OpenFileBand } from './OpenFileBand'
@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ImageLightbox, type LightboxImage } from '@/components/shared/ImageLightbox'
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { EntityTimeline } from '@/components/timeline/EntityTimeline'
-import { OperationActionForm } from '@/components/operations/OperationActionForm'
+import { OperationActivityFeed } from '@/components/operations/OperationActivityFeed'
 import { QuotesTab } from './QuotesTab'
 import { SamplesTab } from './SamplesTab'
 import { OrdersTab } from './OrdersTab'
@@ -72,10 +72,23 @@ const TABS = [
   { key: 'siparis', label: 'Sipariş', icon: ClipboardList },
   { key: 'gorevler', label: 'Görevler', icon: ListTodo },
   { key: 'dosyalar', label: 'Dosyalar', icon: Paperclip },
-  { key: 'notlar', label: 'Notlar', icon: StickyNote },
-  { key: 'zaman', label: 'Zaman Çizelgesi', icon: Clock },
+  { key: 'gecmis', label: 'Geçmiş', icon: Clock },
 ] as const
 type TabKey = (typeof TABS)[number]['key']
+
+// Aşama ilerleme sırası (sekme kilitleri için). Aynı aşamanın iki anahtarı eşit sıralanır.
+const STAGE_RANK: Record<string, number> = {
+  teklif_bekliyor: 1, talep: 1, teklif_iletildi: 2, teklif: 2, numune: 3,
+  siparis: 4, uretim: 5, teslimat: 6, tamamlandi: 7, teklif_reddedildi: 8, iptal: 9,
+}
+/** Erişilmemiş aşama sekmeleri kilitli: numune teklif sonrası, sipariş numune sonrası.
+ *  Kilit sebebi (tooltip) döner; null = açık. */
+function tabLockReason(tabKey: string, stageKey: string | null): string | null {
+  const rank = STAGE_RANK[stageKey ?? ''] ?? 1
+  if (tabKey === 'numune' && rank < 2) return 'Teklif iletilmeden numune açılamaz.'
+  if (tabKey === 'siparis' && rank < 3) return 'Numune aşamasına geçilmeden sipariş açılamaz.'
+  return null
+}
 
 /** Operasyon ekranı — 7 sekme (Merhaba.docx 9). */
 export function OperationCardPage() {
@@ -164,13 +177,23 @@ export function OperationCardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
         <div className="min-w-0">
           <div className="border-border flex flex-wrap gap-1 border-b">
-            {TABS.map((t) => (
-              <button key={t.key} type="button" onClick={() => setTab(t.key)}
-                className={cn('inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-                  tab === t.key ? 'border-primary text-foreground' : 'text-text-secondary hover:text-foreground border-transparent')}>
-                <t.icon className="size-4" /> {t.label}
-              </button>
-            ))}
+            {TABS.map((t) => {
+              const lock = tabLockReason(t.key, op.stage_key)
+              if (lock) return (
+                // Kilitli sekme: görünür ama tıklanamaz; üzerine gelince sebep yazar.
+                <span key={t.key} title={lock} aria-disabled
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-text-muted/50">
+                  <Lock className="size-3.5" /> {t.label}
+                </span>
+              )
+              return (
+                <button key={t.key} type="button" onClick={() => setTab(t.key)}
+                  className={cn('inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+                    tab === t.key ? 'border-primary text-foreground' : 'text-text-secondary hover:text-foreground border-transparent')}>
+                  <t.icon className="size-4" /> {t.label}
+                </button>
+              )
+            })}
           </div>
 
           <div className="pt-4">
@@ -180,11 +203,13 @@ export function OperationCardPage() {
             {tab === 'siparis' && <OrdersTab operationId={op.id} customerId={op.customer_id} />}
             {tab === 'gorevler' && <OperationTasks operationId={op.id} />}
             {tab === 'dosyalar' && <FilesPanel entityType="operation" entityId={op.id} />}
-            {tab === 'notlar' && <OperationNotesTab operationId={op.id} />}
-            {tab === 'zaman' && (
-              <div className="space-y-4">
-                <OperationActionForm operationId={op.id} customerId={op.customer_id} />
-                <EntityTimeline entityType="operation" entityId={op.id} />
+            {tab === 'gecmis' && (
+              <div className="space-y-6">
+                <OperationNotesTab operationId={op.id} />
+                <div>
+                  <h3 className="text-text-muted mb-2 text-xs font-medium uppercase">Zaman çizelgesi</h3>
+                  <EntityTimeline entityType="operation" entityId={op.id} />
+                </div>
               </div>
             )}
           </div>
@@ -263,6 +288,9 @@ function GeneralTab({ op }: { op: NonNullable<ReturnType<typeof useOperation>['d
       {op.product_source === 'katalogdan_secim' && <CatalogItems operationId={op.id} />}
 
       <TalepAnalizi operationId={op.id} />
+
+      {/* Etkinlik beslemesi: aksiyon ekleme + son etkileşimler (tam geçmiş "Geçmiş" sekmesinde). */}
+      <OperationActivityFeed operationId={op.id} customerId={op.customer_id} />
     </div>
   )
 }

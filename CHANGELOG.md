@@ -13,6 +13,22 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.51.0] — 2026-09-16
+
+### Paket E · A — Talep detayı sadeleştirme (düşük riskli ara adım)
+
+- **Erişilmemiş aşama sekmeleri kilitli:** numune teklif iletildikten sonra, sipariş
+  numune aşamasından sonra açılır (aşama sırası esaslı). Kilitli sekme **gizlenmez** —
+  görünür ama tıklanamaz; üzerine gelince sebep yazar ("Teklif iletilmeden numune
+  açılamaz." / "Numune aşamasına geçilmeden sipariş açılamaz.").
+- **Notlar + Zaman Çizelgesi → tek "Geçmiş" sekmesi** (8 sekme → 7). Notlar üstte,
+  zaman çizelgesi altında.
+- **Etkinlik beslemesi Genel'e taşındı** (`OperationActivityFeed`): aksiyon ekleme formu
+  (B) + son etkileşimler artık Genel sekmesinde. B'de Zaman sekmesine konan form buraya
+  taşındı.
+
+> Tam yeniden yapı (aşama-duyarlı tek akış) YAPILMADI — önce bu ara adım değerlendirilecek.
+
 ## [1.50.0] — 2026-09-16
 
 ### Paket E · B — Talebe aksiyon ekleme
