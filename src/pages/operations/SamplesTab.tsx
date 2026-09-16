@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Shirt, Copy, Loader2, Save, Truck, Check, X, BadgeCheck, Lock, LockOpen } from 'lucide-react'
+import { Plus, Trash2, Shirt, Copy, Loader2, Save, Truck, PackageCheck, Check, X, BadgeCheck, Lock, LockOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { toUserMessage } from '@/lib/errors'
@@ -146,6 +146,16 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
       toast.success('Numune gönderildi olarak işaretlendi.')
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
+  // 3a — Teslim alındı / geri döndü: received_at + durum "teslim_edildi". Kargodaki numune
+  // geri dönünce akışta karşılığı olmayan "geri dönüş alındı mı?" görevini kapatır.
+  async function markReceived() {
+    const sid = resolveStatus('teslim_edildi')
+    if (sid == null) return
+    try {
+      await update.mutateAsync({ id: sample.id, operationId, received_at: new Date().toISOString(), status_id: sid })
+      toast.success('Numune teslim alındı olarak işaretlendi.')
+    } catch (err) { toast.error(await toUserMessage(err)) }
+  }
 
   return (
     <div className="space-y-5">
@@ -161,6 +171,9 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
             ? <Button size="sm" variant="outline" onClick={() => setUnlocked(false)}><Lock className="size-3.5" /> Kilitle</Button>
             : <Button size="sm" variant="outline" onClick={() => setUnlocked(true)}><LockOpen className="size-3.5" /> Yeniden aç</Button>)}
           <Button size="sm" variant="outline" onClick={() => void markShipped()} disabled={closed}><Truck className="size-3.5" /> Gönderildi</Button>
+          {sample.shipped_at && !sample.received_at && (
+            <Button size="sm" variant="outline" onClick={() => void markReceived()} disabled={closed}><PackageCheck className="size-3.5" /> Teslim alındı</Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => setApproveOpen(true)} disabled={closed}><Check className="size-3.5" /> Onayla</Button>
           <Button size="sm" variant="outline" onClick={() => setRejectOpen(true)} disabled={closed}><X className="size-3.5" /> Reddet</Button>
           <Button size="sm" variant="outline" onClick={() => setReviseOpen(true)} disabled={closed || revise.isPending}><Copy className="size-3.5" /> Revize et</Button>
@@ -224,7 +237,7 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
       </div>
 
       {/* Kargo */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Kargo firması</Label>
           <Input value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="ör. Aras" disabled={locked} />
@@ -236,6 +249,10 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Gönderim</Label>
           <div className="text-text-secondary pt-2 text-sm">{fmtDateTime(sample.shipped_at)}</div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-text-muted text-xs">Teslim / geri dönüş</Label>
+          <div className="text-text-secondary pt-2 text-sm">{fmtDateTime(sample.received_at)}</div>
         </div>
       </div>
 
