@@ -12,6 +12,7 @@ export interface Sample {
   status_key: string | null
   status_label: string | null
   status_color: string | null
+  label: string | null
   description: string | null
   fee: number | null
   fee_currency: string
@@ -38,7 +39,7 @@ interface RawSample extends Omit<Sample, 'status_key' | 'status_label' | 'status
 }
 
 const SELECT =
-  'id, operation_id, quote_id, version, status_id, description, fee, fee_currency, deduct_from_order,' +
+  'id, operation_id, quote_id, version, status_id, label, description, fee, fee_currency, deduct_from_order,' +
   ' shipped_at, tracking_number, carrier, received_at, approved_at, approved_by, approval_method, approval_note,' +
   ' rejection_reason, revision_of_sample_id, revision_round, revision_reason, target_date, deleted_at, created_at, sample_statuses(key, label, color)'
 
@@ -137,6 +138,7 @@ export function useReviseSample() {
 export interface SamplePatch {
   status_id?: number | null
   quote_id?: number | null
+  label?: string | null
   description?: string | null
   fee?: number | null
   fee_currency?: string

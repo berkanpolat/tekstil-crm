@@ -79,8 +79,10 @@ export function SamplesTab({ operationId }: { operationId: number }) {
                 deleted ? 'border-dashed border-border bg-muted/40 opacity-60 cursor-not-allowed'
                   : selectedId === s.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50')}>
               <div className="flex items-center justify-between gap-2">
-                <span className={cn('text-sm font-medium', deleted && 'text-text-muted line-through')}>N{s.version}{deleted && ' (silindi)'}</span>
-                {!deleted && s.status_label && <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', toneClass(s.status_color))}>{s.status_label}</span>}
+                <span className={cn('min-w-0 truncate text-sm font-medium', deleted && 'text-text-muted line-through')} title={s.label ?? undefined}>
+                  N{s.version}{s.label ? ` · ${s.label}` : ''}{deleted && ' (silindi)'}
+                </span>
+                {!deleted && s.status_label && <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', toneClass(s.status_color))}>{s.status_label}</span>}
               </div>
               {!deleted && s.approved_at && <div className="text-success-foreground mt-1 flex items-center gap-1 text-[10px]"><BadgeCheck className="size-3" /> onaylı</div>}
             </button>
@@ -103,6 +105,7 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
   const revise = useReviseSample()
   const [reviseOpen, setReviseOpen] = useState(false)
 
+  const [label, setLabel] = useState(sample.label ?? '')
   const [description, setDescription] = useState(sample.description ?? '')
   const [fee, setFee] = useState<number | null>(sample.fee ?? null)
   const [deduct, setDeduct] = useState(sample.deduct_from_order)
@@ -135,7 +138,7 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
   async function saveHeader() {
     try {
       await update.mutateAsync({ id: sample.id, operationId,
-        description: description.trim() || null, fee, deduct_from_order: deduct,
+        label: label.trim() || null, description: description.trim() || null, fee, deduct_from_order: deduct,
         quote_id: quoteId ? Number(quoteId) : null, carrier: carrier.trim() || null, tracking_number: tracking.trim() || null,
         target_date: targetDate || null })
       toast.success('Numune kaydedildi.')
@@ -165,7 +168,7 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-foreground">Numune N{sample.version}</h3>
+          <h3 className="text-lg font-semibold text-foreground">Numune N{sample.version}{sample.label ? ` · ${sample.label}` : ''}</h3>
           <span className={cn('rounded px-1.5 py-0.5 text-xs', sample.revision_round >= 3 ? 'bg-warning-badge text-warning-badge-foreground' : 'text-text-muted')}>
             {sample.revision_round}. tur{sample.revision_round >= 3 && ' ⚠'}
           </span>
@@ -217,6 +220,12 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
       {sample.rejection_reason && !sample.approved_at && (
         <div className="border-danger/40 bg-danger/5 text-danger-foreground rounded-lg border p-3 text-sm">Red nedeni: {sample.rejection_reason}</div>
       )}
+
+      <div className="max-w-sm space-y-1">
+        <Label className="text-text-muted text-xs">Ad / Etiket</Label>
+        <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="ör. Kırmızı varyant" disabled={locked} maxLength={60} />
+        <p className="text-text-muted text-[11px]">Numuneleri ayırt etmek için kısa ad. Ayrıntı için “Açıklama” alanını kullanın.</p>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="space-y-1">
