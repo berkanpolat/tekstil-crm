@@ -1,7 +1,7 @@
 {
   "name": "tekstil-crm",
   "private": true,
-  "version": "1.47.4",
+  "version": "1.48.0",
   "type": "module",
   "engines": {
     "node": ">=20"

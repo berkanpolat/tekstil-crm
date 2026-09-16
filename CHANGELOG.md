@@ -13,6 +13,37 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.48.0] — 2026-09-16
+
+### Sipariş formu → sipariş: deterministik eşleme (AI çıkarımı kaldırıldı)
+
+Sistemin ürettiği `siparis_formu` belgesindeki veri zaten yapılandırılmış; AI/elle
+çıkarım adımı gereksiz ve sorunluydu. Artık belge → `orders` + `order_items`
+**doğrudan** eşleniyor (migration yok).
+
+- **`src/lib/orderFromDoc.ts` (saf, test edilebilir):** `buildOrderFromDoc(sip)` →
+  - `orders`: `currency`, `promised_delivery`, `payment_term_id`, `production_notes`
+    (kompozisyon+yorum+bakım+tavsiye satış fiyatı), `delivery_address`, `tax_rate`
+    (ayar varsayılanı — belgede KDV kaynağı yok).
+  - `order_items`: **renk başına 1 satır** (`quantity=Σbeden`, `unit_price=birim`,
+    beden kırılımı description'a metin). Renk yoksa `toplam×birim` tek kalem.
+  - **Totaller JS'te hesaplanmaz** — `order_items` insert'i mevcut
+    `recompute_order_totals` trigger'ını tetikler.
+  - `resolvePaymentTerm`: `odeme` serbest metnini anahtar kelimeyle `payment_terms`'e
+    eşler; eşleşmezse `is_default` + **kullanıcıya uyarı** (sessiz geçme yok).
+- **`useCreateOrderFromDoc`** — “Sipariş formundan oluştur” artık bilgileri doğrudan
+  yazar (OrderExtractionDialog açmaz).
+- **`useUpdateOrderFromDoc`** — “Belgeden güncelle” butonu: açık onaylı (confirm)
+  yeniden eşleme; kalemler belgeden yeniden yazılır. **Otomatik/sessiz ezme yok** —
+  manuel düzenlemeler yalnız kullanıcı bu butona basınca değişir.
+- **OrderExtractionDialog `siparis_formu` yolundan çıkarıldı.** AI/çıkarım yalnız
+  **dış PDF yükleme** için kaldı (yapılandırılmamış PDF).
+- **Test:** `src/lib/orderFromDoc.test.ts` (12 test) — **canlı belge yükü** (TAS-G235X9)
+  ile: renk×beden matrisi → 30 adet, 30×40=1200, USD, teslim 2026-09-30, ödeme eşleşmesi.
+  Canlı referans (payment_terms/ayar) doğrulandı; üretim `orders`'a yazma yapılmadı.
+
+> **Not:** Canlıya yansıması için **dağıtım** gerekir (`bash scripts/release.sh`).
+
 ## [1.47.4] — 2026-09-16
 
 ### Numune adlandırma UI (3d tamamlandı)

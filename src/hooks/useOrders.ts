@@ -3,6 +3,7 @@ import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 import { ensureRows } from '@/lib/errors'
 import { parseDecimal } from '@/lib/money'
+import { buildOrderFromDoc, type PaymentTermRef, type OrderDocMapping } from '@/lib/orderFromDoc'
 import { useUploadFile } from './useFiles'
 
 export interface Order {
@@ -286,6 +287,89 @@ export function useUploadOrderFile() {
       return (rows as { id: number }[])[0]!.id
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['orders', v.operationId] }),
+  })
+}
+
+// ---------- Sipariş formu belgesi → sipariş (deterministik eşleme; AI YOK) ----------
+
+/** Operasyonun en güncel siparis_formu belgesindeki data.sip (yoksa null). */
+async function fetchSiparisFormuSip(operationId: number): Promise<Record<string, unknown> | null> {
+  const { data } = await supabase.from('documents')
+    .select('data, generated_at, document_types(key)')
+    .eq('operation_id', operationId).is('deleted_at', null).order('generated_at', { ascending: false })
+  const rows = (data ?? []) as unknown as { data: Record<string, unknown>; document_types: { key: string } | null }[]
+  const doc = rows.find((r) => r.document_types?.key === 'siparis_formu')
+  return (doc?.data?.sip as Record<string, unknown> | undefined) ?? null
+}
+
+async function fetchPaymentTerms(): Promise<PaymentTermRef[]> {
+  const { data } = await supabase.from('payment_terms').select('id, key, label, is_default').eq('is_active', true).order('sort_order')
+  return (data ?? []) as PaymentTermRef[]
+}
+
+/** KDV kaynağı belgede yok → ayar varsayılanı (quotes.default_tax_rate). */
+async function fetchDefaultTaxRate(): Promise<number> {
+  const { data } = await supabase.from('settings').select('value').eq('key', 'quotes.default_tax_rate').maybeSingle()
+  const n = Number((data as { value: unknown } | null)?.value ?? 10)
+  return Number.isFinite(n) ? n : 10
+}
+
+async function loadDocMapping(operationId: number): Promise<{ sip: Record<string, unknown>; m: OrderDocMapping }> {
+  const sip = await fetchSiparisFormuSip(operationId)
+  if (!sip) throw new Error('Sipariş formu belgesi bulunamadı. Önce “Sipariş Formu” üretin.')
+  const [paymentTerms, defaultTaxRate] = await Promise.all([fetchPaymentTerms(), fetchDefaultTaxRate()])
+  return { sip, m: buildOrderFromDoc(sip, { paymentTerms, defaultTaxRate }) }
+}
+
+async function insertDocItems(orderId: number, m: OrderDocMapping, userId: string | null): Promise<void> {
+  if (!m.items.length) return
+  // Totaller order_items insert'i → recompute_order_totals trigger ile hesaplanır (JS'te hesaplama yok).
+  await supabase.from('order_items').insert(m.items.map((it) => ({ ...it, order_id: orderId, created_by: userId })) as never)
+}
+
+export interface OrderFromDocResult { orderId: number; paymentMatched: boolean; paymentText: string | null; priceMissing: boolean; itemCount: number }
+
+/** Sipariş formundan YENİ sipariş oluştur — alanlar + kalemler doğrudan belgeden yazılır. */
+export function useCreateOrderFromDoc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ operationId }: { operationId: number }): Promise<OrderFromDocResult> => {
+      const { sip, m } = await loadDocMapping(operationId)
+      const { data: { user } } = await supabase.auth.getUser()
+      const rows = ensureRows(await supabase.from('orders').insert({
+        operation_id: operationId, currency: m.fields.currency, promised_delivery: m.fields.promised_delivery,
+        payment_term_id: m.fields.payment_term_id, production_notes: m.fields.production_notes,
+        delivery_address: m.fields.delivery_address, tax_rate: m.fields.tax_rate,
+        extraction_source: 'belge', extracted_data: m.summary as never,
+      } as never).select('id'))
+      const orderId = (rows as { id: number }[])[0]!.id
+      await insertDocItems(orderId, m, user?.id ?? null)
+      void sip
+      return { orderId, paymentMatched: m.paymentMatched, paymentText: m.paymentText, priceMissing: m.priceMissing, itemCount: m.items.length }
+    },
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['orders', v.operationId] }); qc.invalidateQueries({ queryKey: ['order-items'] }) },
+  })
+}
+
+/** Mevcut siparişi belgeden YENİDEN eşle (açık onaylı). Kalemler silinip belgeden yeniden yazılır;
+ *  KDV/durum gibi elle alanlar korunur (tax_rate'e dokunulmaz). */
+export function useUpdateOrderFromDoc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ orderId, operationId }: { orderId: number; operationId: number }): Promise<OrderFromDocResult> => {
+      const { m } = await loadDocMapping(operationId)
+      const { data: { user } } = await supabase.auth.getUser()
+      ensureRows(await supabase.from('orders').update({
+        currency: m.fields.currency, promised_delivery: m.fields.promised_delivery, payment_term_id: m.fields.payment_term_id,
+        production_notes: m.fields.production_notes, delivery_address: m.fields.delivery_address,
+        extraction_source: 'belge', extracted_data: m.summary as never,
+      } as never).eq('id', orderId).select('id'))
+      await supabase.from('order_items').update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null } as never)
+        .eq('order_id', orderId).is('deleted_at', null)
+      await insertDocItems(orderId, m, user?.id ?? null)
+      return { orderId, paymentMatched: m.paymentMatched, paymentText: m.paymentText, priceMissing: m.priceMissing, itemCount: m.items.length }
+    },
+    onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['orders', v.operationId] }); qc.invalidateQueries({ queryKey: ['order-items'] }) },
   })
 }
 

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { getSignedUrl, openInNewTab } from '@/hooks/useFiles'
 import {
-  useOperationOrders, useUploadOrderFile, useCreateOrder, useUpdateOrder, useUpdateOrderExtracted, useDeleteOrder, useOrderStatusOptions, type Order,
+  useOperationOrders, useUploadOrderFile, useCreateOrderFromDoc, useUpdateOrderFromDoc, useUpdateOrder, useUpdateOrderExtracted, useDeleteOrder, useOrderStatusOptions, type Order,
 } from '@/hooks/useOrders'
 import { useOperationSamples } from '@/hooks/useSamples'
 import { useOperationDocuments } from '@/hooks/useDocuments'
@@ -38,13 +38,12 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
   const samples = useOperationSamples(operationId)
   const docs = useOperationDocuments(operationId)
   const upload = useUploadOrderFile()
-  const create = useCreateOrder()
+  const createFromDocMut = useCreateOrderFromDoc()
   const inputRef = useRef<HTMLInputElement>(null)
   const [gateOpen, setGateOpen] = useState(false)
   const pendingFile = useRef<File | null>(null)
   const pendingAction = useRef<'upload' | 'doc'>('upload')
   const [validateFor, setValidateFor] = useState<number | null>(null)
-  const [docExtractFor, setDocExtractFor] = useState<number | null>(null)
 
   const hasApprovedSample = (samples.data ?? []).some((s) => !s.deleted_at && (s.approved_at || s.status_key === 'onaylandi'))
   // Sert kapı: sipariş onay formu (siparis_onay) yoksa sipariş OLUŞTURULAMAZ (DB trigger).
@@ -60,13 +59,15 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
       toast.success('Sipariş formu yüklendi. Bilgileri doğrulayın.')
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
-  // Madde 5: sistemin ürettiği sipariş formundan sipariş oluştur — yükleme yok, bilgiler belgeden.
+  // Madde 5 + deterministik eşleme: sipariş formu belgesinden sipariş oluştur. Adet/birim/
+  // renk-beden/teslim/para/ödeme DOĞRUDAN orders + order_items'e yazılır (AI/çıkarım yok).
   async function createFromDoc(gateReason?: string) {
     try {
-      const id = await create.mutateAsync({ operationId })
+      const r = await createFromDocMut.mutateAsync({ operationId })
       if (gateReason) await supabase.rpc('log_soft_gate_override', { p_operation_id: operationId, p_gate: 'siparis_numune_onaysiz', p_reason: gateReason })
-      setDocExtractFor(id)   // doğrulama ekranı belge modunda açılır, alanlar dolu gelir
-      toast.success('Sipariş oluşturuldu. Belgeden gelen bilgileri doğrulayın.')
+      toast.success(`Sipariş oluşturuldu — bilgiler sipariş formundan aktarıldı (${r.itemCount} kalem).`)
+      if (!r.paymentMatched && r.paymentText) toast.warning('Ödeme koşulu eşleşmedi, varsayılan kullanıldı — kontrol edin.')
+      if (r.priceMissing) toast.warning('Birim fiyat okunamadı; kalemler 0 fiyatla yazıldı, elle düzeltin.')
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
   function onCreateFromDoc() {
@@ -94,9 +95,9 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
         <div className="flex flex-wrap gap-2">
           <GenerateDocButton operationId={operationId} typeKey="siparis_formu" variant="outline" />
           {hasSiparisFormu && (
-            <Button size="sm" onClick={onCreateFromDoc} disabled={create.isPending || !hasOnay}
+            <Button size="sm" onClick={onCreateFromDoc} disabled={createFromDocMut.isPending || !hasOnay}
               title={!hasOnay ? 'Önce Sipariş Onay Formu üretin' : 'Üretilen sipariş formundan oluştur (yükleme gerekmez)'}>
-              {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Sipariş formundan oluştur
+              {createFromDocMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Sipariş formundan oluştur
             </Button>
           )}
           <Button size="sm" variant={hasSiparisFormu ? 'outline' : 'default'} onClick={() => inputRef.current?.click()} disabled={upload.isPending || !hasOnay}
@@ -127,8 +128,8 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
             <div className="text-sm font-medium text-foreground">Sipariş formu üretildi — siparişi oluşturmak için bir adım kaldı</div>
             <div className="text-text-secondary text-xs">Belgeyi üretmek siparişi <b>oluşturmaz</b>. “Sipariş formundan oluştur”a basın: bilgiler belgeden gelir, sipariş durumu ilerler.</div>
           </div>
-          <Button size="sm" onClick={onCreateFromDoc} disabled={create.isPending}>
-            {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Sipariş formundan oluştur
+          <Button size="sm" onClick={onCreateFromDoc} disabled={createFromDocMut.isPending}>
+            {createFromDocMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Sipariş formundan oluştur
           </Button>
         </div>
       )}
@@ -140,7 +141,7 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
       ) : (
         <ul className="space-y-2">
           {(orders ?? []).map((o) => (
-            <OrderRow key={o.id} order={o} operationId={operationId} customerId={customerId} onValidate={() => setValidateFor(o.id)} />
+            <OrderRow key={o.id} order={o} operationId={operationId} customerId={customerId} hasSiparisFormu={hasSiparisFormu} onValidate={() => setValidateFor(o.id)} />
           ))}
         </ul>
       )}
@@ -153,15 +154,14 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
           else if (f) await doUpload(f, reason)
         }} />}
       {validateFor && <ValidateDialog orderId={validateFor} operationId={operationId} order={(orders ?? []).find((o) => o.id === validateFor) ?? null} onClose={() => setValidateFor(null)} />}
-      {docExtractFor && <OrderExtractionDialog order={{ id: docExtractFor, file_path: null, file_name: null }} operationId={operationId} mode="belge"
-        onClose={() => setDocExtractFor(null)} onDone={() => setDocExtractFor(null)} />}
     </div>
   )
 }
 
-function OrderRow({ order, operationId, customerId, onValidate }: { order: Order; operationId: number; customerId: number; onValidate: () => void }) {
+function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate }: { order: Order; operationId: number; customerId: number; hasSiparisFormu: boolean; onValidate: () => void }) {
   const statuses = useOrderStatusOptions()
   const update = useUpdateOrder()
+  const updateFromDoc = useUpdateOrderFromDoc()
   const del = useDeleteOrder()
   const perms = useFinancePerms()
   const advance = useOrderAdvanceCheck(order.id)
@@ -242,8 +242,22 @@ function OrderRow({ order, operationId, customerId, onValidate }: { order: Order
           <span key={k} className="text-text-secondary"><span className="text-text-muted">{({adet:'Adet',fiyat:'Fiyat',renk:'Renk',teslimat:'Teslimat',odeme:'Ödeme'})[k]}:</span> {ex[k] ? String(ex[k]) : '—'}</span>
         ))}
         <span className="text-text-muted ml-auto">{order.extraction_source === 'ai' ? 'AI' : order.extraction_source === 'belge' ? 'Belge' : 'Elle'}</span>
-        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-primary" onClick={() => setExtractMode('belge')} title="Sistemin ürettiği sipariş belgesinden (ücretsiz)"><Sparkles className="size-3.5" /> Belgeden çek</Button>
-        {order.file_path && <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setExtractMode('ai')} title="PDF'i yapay zekâya oku (yedek)">AI ile çek</Button>}
+        {hasSiparisFormu && (
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-primary" disabled={updateFromDoc.isPending}
+            title="Sipariş formundan alanları ve kalemleri yeniden yaz (açık onaylı)"
+            onClick={async () => {
+              if (!confirm('Belgeden güncelle: mevcut kalemler silinip sipariş formundan yeniden yazılır. Bu siparişteki manuel değişiklikler kaybolur. Devam edilsin mi?')) return
+              try {
+                const r = await updateFromDoc.mutateAsync({ orderId: order.id, operationId })
+                toast.success(`Sipariş belgeden güncellendi (${r.itemCount} kalem).`)
+                if (!r.paymentMatched && r.paymentText) toast.warning('Ödeme koşulu eşleşmedi, varsayılan kullanıldı — kontrol edin.')
+                if (r.priceMissing) toast.warning('Birim fiyat okunamadı; kalemler 0 fiyatla yazıldı, elle düzeltin.')
+              } catch (err) { toast.error(await toUserMessage(err)) }
+            }}>
+            {updateFromDoc.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} Belgeden güncelle
+          </Button>
+        )}
+        {order.file_path && <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setExtractMode('ai')} title="Dış PDF'i yapay zekâya oku (yalnız yüklenen PDF)">AI ile çek</Button>}
         <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onValidate}>Düzenle</Button>
       </div>
 
