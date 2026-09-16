@@ -13,6 +13,19 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.48.2] — 2026-09-16
+
+### Paket C · Aşama 2 — Bağımsız kur çekimi (edge fn + pg_cron)
+
+- **`supabase/functions/refresh-rates`** — TCMB tarihli bültenini **doğrudan** okur
+  (PDF servisine bağımlı değil); hafta sonu/tatilde en yakın önceki iş gününe yürür;
+  ForexSelling + bültenin kendi `<Tarih>`'i alınır. Kimlik: `x-refresh-secret`.
+- **`20260916110000_c2_rate_cron.sql`** (elle uygulandı) — `system_set_exchange_rate`
+  (yalnız `service_role`; `is_active_user` kapısı yok; sağlık bandı korunur ama durum
+  döner). **pg_cron + pg_net**: hafta içi 16:00 TR (announce sonrası) edge fn tetiklenir;
+  URL/secret Vault'tan.
+- Canlı doğrulandı: USD 16 Eylül TCMB bülteniyle birebir; cron aktif.
+
 ## [1.48.1] — 2026-09-16
 
 ### Paket C · Aşama 1 — Kur: doğru damgalama + iş günü farkındalığı (migration)
