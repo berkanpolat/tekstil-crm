@@ -48,7 +48,9 @@ async function fetchChild(table: 'quotes' | 'samples' | 'orders', statusTable: s
       operation_code: op?.code ?? '—',
       label: table === 'orders' ? 'Sipariş' : `${table === 'quotes' ? 'Teklif' : 'Numune'} v${version ?? '?'}`,
       status_label: st?.label ?? null, status_color: st?.color ?? null,
-      amount: table === 'samples' ? null : money(Number(r.total ?? 0), String(r.currency ?? 'TRY')),
+      // Sıfır/boş tutar gizlenir (yüklenen teklif/kalemsiz kayıt total=0 verir) —
+      // quoteLabel ve TekliflerListPage ile aynı örüntü: 0 → null → '—'.
+      amount: table === 'samples' || !Number(r.total) ? null : money(Number(r.total), String(r.currency ?? 'TRY')),
       created_at: r.created_at as string,
     }
   })
