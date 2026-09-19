@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { features } from '@/lib/features'
 import {
   Users,
   Building2,
@@ -79,7 +80,8 @@ const GROUPS: SectionGroup[] = [
       { to: '/ayarlar/calisma-duzeni', label: 'Çalışma Düzeni', icon: Clock },
       { to: '/ayarlar/bildirimler', label: 'Bildirimler', icon: Bell },
       { to: '/ayarlar/fiyatlandirma', label: 'Fiyatlandırma', icon: Tag },
-      { to: '/ayarlar/finans', label: 'Finans', icon: Wallet },
+      // PAKET G: Finans ayarı yalnız bayrak açıkken.
+      ...(features.finance ? [{ to: '/ayarlar/finans', label: 'Finans', icon: Wallet }] : []),
       { to: '/ayarlar/yapay-zeka', label: 'Yapay Zekâ', icon: Sparkles },
       { to: '/ayarlar/sistem', label: 'Sistem', icon: Cog },
     ],

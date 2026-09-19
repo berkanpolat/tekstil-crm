@@ -49,6 +49,7 @@ import { CustomerTaleplerTab, CustomerChildTab } from './CustomerOperationTabs'
 import { CustomerDangerActions } from './CustomerDangerActions'
 import { CariTab } from '@/pages/finance/CariTab'
 import { useFinancePerms } from '@/hooks/useFinance'
+import { features } from '@/lib/features'
 import { CustomerSummary } from '@/pages/ai/CustomerSummary'
 
 const STATUS_TONE: Record<string, StatusTone> = {
@@ -104,7 +105,8 @@ export function CustomerCardPage() {
   const [editOpen, setEditOpen] = useState(false)
   const finance = useFinancePerms()
   // QA#1: Cari sekmesi yalnız finans yetkisi (finance.view) olana görünür.
-  const visibleTabs = TABS.filter((t) => t.key !== 'cari' || finance.data?.view)
+  // PAKET G: Finans bayrağı kapalıysa Cari sekmesi tümden gizli (yetki dursa da).
+  const visibleTabs = TABS.filter((t) => t.key !== 'cari' || (features.finance && finance.data?.view))
 
   const statusRegistry: Record<string, StatusDef> = {}
   for (const s of statuses.data ?? []) {
@@ -206,7 +208,7 @@ export function CustomerCardPage() {
 
       {tab === 'genel' && (
         <div className="space-y-6">
-        <CustomerStats customerId={c.id} onNavigate={setTab} showFinance={!!finance.data?.view} />
+        <CustomerStats customerId={c.id} onNavigate={setTab} showFinance={features.finance && !!finance.data?.view} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <DetailGrid
@@ -260,7 +262,7 @@ export function CustomerCardPage() {
       {tab === 'teklifler' && <CustomerChildTab customerId={c.id} kind="quotes" />}
       {tab === 'numuneler' && <CustomerChildTab customerId={c.id} kind="samples" />}
       {tab === 'siparisler' && <CustomerChildTab customerId={c.id} kind="orders" />}
-      {tab === 'cari' && <CariTab customerId={c.id} />}
+      {tab === 'cari' && features.finance && <CariTab customerId={c.id} />}
 
       <CustomerFormDialog open={editOpen} onOpenChange={setEditOpen} editing={c} />
     </div>

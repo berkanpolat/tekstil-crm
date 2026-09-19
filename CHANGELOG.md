@@ -13,6 +13,33 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.55.0] — 2026-09-19
+
+### Paket G — Sadeleştirme: Hedefler / Görevler / Finans gizlendi (gizle, silme · migration yok)
+
+Tek aç/kapa noktası **`src/lib/features.ts`** (`goals/tasks/finance` bayrakları, hepsi `false`).
+DB/tablo/RPC/trigger/veri/yetki **dokunulmadı**; `true` yapınca her şey aynen döner.
+
+**Gizlenenler:**
+- **Menü + rota** (Hedefler/Görevler/Finans): `navigation.ts` bayrak alanı + `Sidebar` filtresi;
+  `App.tsx` rotaları yalnız bayrak açıkken kayıtlı (kapalıyken URL → NotFound, placeholder da yok).
+- **Finans raporu** registry'den (`reportRegistry.ts`) — bileşen silinmedi.
+- **Müşteri kartı**: Cari sekmesi + Genel'deki ciro/bakiye bloğu `features.finance` ile gizli.
+- **Ayarlar → Finans** alt sayfası + rotası.
+- **Gösterge paneli**: Görevler bloğu (`BlockTasks`), TodayBoard görev-tabanlı Hatırlatıcılar bölümü;
+  `ActionStrip` karışık listesinde yalnız **görev satırları** atlandı (talep/sipariş uyarıları KALDI).
+- **Talep detayı**: "Görevler" sekmesi gizli (`features.tasks`); **"Sıradaki aksiyon" satırı KALDI**.
+
+**Karar A — Sipariş ön-ödeme:** Finans gizliyken OrdersTab ödeme paneli + "Ödeme ekle" gizli,
+üretime-geçiş ön-ödeme kapısı **atlanır** — ama sessiz değil: geçişte "ön ödeme kontrolü devre dışı"
+notu düşülür. Bayrak açılınca kapı aynen geri gelir.
+
+**Korunanlar (çalışmaya devam):** otomatik görev motoru (samples_auto_task vb.), Hızlı Çalışma
+"Bugün aranacaklar" (operation-tabanlı, görev bağımlılığı yok), orders/quotes sync trigger'ları,
+account_transactions/payments yazımı, **müşteri kalıcı silme guard'ı** (DB-side `customer_hard_delete`
+/ `can_hard_delete` — Finans UI gizli olsa da cari/ödeme izli müşteri silinemez, doğrulandı).
+Komut paletinde (cmdk) bu sayfalara kısayol yok → dokunulacak bir şey çıkmadı.
+
 ## [1.54.0] — 2026-09-19
 
 ### Paket F · F1 — Maliyet şema temeli + sızıntı koruması

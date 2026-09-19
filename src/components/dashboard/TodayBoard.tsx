@@ -24,6 +24,7 @@ import { useAllSamples, useUpdateSample, useSampleStatusOptions, type SampleList
 import { useAllOrders, useUpdateOrder, useOrderStatusOptions, type OrderListRow } from '@/hooks/useOrders'
 import { useTaskList, useUpdateTask, useTaskStatuses, type TaskRow } from '@/hooks/useTasks'
 import { Kpi } from '@/components/reports/ReportKit'
+import { features } from '@/lib/features'
 
 // ── Zaman + biçim yardımcıları ─────────────────────────────────────────
 const HOUR = 3600e3
@@ -162,7 +163,8 @@ function ActionStrip({ nowMs }: { nowMs: number }) {
       if (!o.actual_delivery && o.promised_delivery && new Date(o.promised_delivery).getTime() < nowMs)
         out.push({ key: `o${o.id}`, kind: 'siparis', label: o.customer_name ?? '—', sub: o.status_label ?? 'Sipariş', overMs: nowMs - new Date(o.promised_delivery).getTime(), href: `/talepler/${o.operation_id}` })
     }
-    for (const t of (tasks.data ?? []) as TaskRow[]) {
+    // PAKET G: Görevler gizliyken görev satırları atlanır; talep/sipariş hatırlatmaları KALIR.
+    if (features.tasks) for (const t of (tasks.data ?? []) as TaskRow[]) {
       if (t.due_at && new Date(t.due_at).getTime() < nowMs)
         out.push({ key: `t${t.id}`, kind: 'gorev', label: t.title, sub: 'Görev', overMs: nowMs - new Date(t.due_at).getTime(), href: t.entity_type === 'operation' && t.entity_id ? `/talepler/${t.entity_id}` : '/gorevler' })
     }
@@ -170,7 +172,7 @@ function ActionStrip({ nowMs }: { nowMs: number }) {
     return out
   }, [pending.data, orders.data, tasks.data, nowMs])
 
-  if (pending.isLoading || orders.isLoading || tasks.isLoading) return <Skeleton className="h-28 w-full rounded-lg" />
+  if (pending.isLoading || orders.isLoading || (features.tasks && tasks.isLoading)) return <Skeleton className="h-28 w-full rounded-lg" />
 
   const total = items.length
   if (total === 0) return (
@@ -474,7 +476,8 @@ export function TodayBoard() {
       {/* ② Günlük aksiyon listeleri — teklif bekleyen + hatırlatıcılar yan yana. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PendingQuotesSection nowMs={nowMs} />
-        <RemindersSection nowMs={nowMs} />
+        {/* PAKET G: görev tabanlı hatırlatıcılar bölümü Görevler gizliyken kalkar (talep/sipariş takibi kalır). */}
+        {features.tasks && <RemindersSection nowMs={nowMs} />}
       </div>
 
       {/* ③ Takip listeleri — günlük izlenen (numune/sipariş) açık, teklif iletildi kapalı. */}

@@ -19,6 +19,7 @@ import { QuotesTab } from './QuotesTab'
 import { SamplesTab } from './SamplesTab'
 import { OrdersTab } from './OrdersTab'
 import { OperationTasks } from '@/pages/tasks/OperationTasks'
+import { features } from '@/lib/features'
 import { TalepAnalizi } from '@/pages/ai/TalepAnalizi'
 import { OperationNotesTab } from './OperationTabs'
 import { Button } from '@/components/ui/button'
@@ -183,7 +184,8 @@ export function OperationCardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
         <div className="min-w-0">
           <div className="border-border flex flex-wrap gap-1 border-b">
-            {TABS.map((t) => {
+            {/* PAKET G: Görevler sekmesi features.tasks kapalıyken gizli ("Sıradaki aksiyon" satırı kalır). */}
+            {TABS.filter((t) => t.key !== 'gorevler' || features.tasks).map((t) => {
               const lock = tabLockReason(t.key, op.stage_key)
               if (lock) return (
                 // Kilitli sekme: görünür ama tıklanamaz; üzerine gelince sebep yazar.
@@ -213,7 +215,7 @@ export function OperationCardPage() {
             {tab === 'teklif' && <QuotesTab operationId={op.id} />}
             {tab === 'numune' && <SamplesTab operationId={op.id} />}
             {tab === 'siparis' && <OrdersTab operationId={op.id} customerId={op.customer_id} />}
-            {tab === 'gorevler' && <OperationTasks operationId={op.id} />}
+            {tab === 'gorevler' && features.tasks && <OperationTasks operationId={op.id} />}
             {tab === 'dosyalar' && <FilesPanel entityType="operation" entityId={op.id} />}
             {tab === 'gecmis' && (
               <div className="space-y-6">

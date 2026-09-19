@@ -14,6 +14,7 @@ import { useClaimOperation } from '@/hooks/useOperations'
 import { useTaskList, useUpdateTask, useTaskStatuses, type TaskRow } from '@/hooks/useTasks'
 import { openFileLabel } from '@/hooks/useOpenFiles'
 import { useUnmatchedRequests } from '@/hooks/useOperationCatalog'
+import { features } from '@/lib/features'
 
 // ── Zaman + renk yardımcıları ──────────────────────────────────────────
 const HOUR = 3600e3
@@ -193,7 +194,7 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <BlockMyFiles userId={me.id} />
           <BlockPool />
-          <BlockTasks userId={me.id} />
+          {features.tasks && <BlockTasks userId={me.id} />}
           <BlockSnoozed userId={me.id} />
           <BlockUnmatched userId={me.id} />
         </div>

@@ -22,6 +22,7 @@ import {
 import { useOperationSamples } from '@/hooks/useSamples'
 import { useOperationDocuments } from '@/hooks/useDocuments'
 import { useOrderAdvanceCheck, useAdvanceOverride, useFinancePerms, type AdvanceCheck } from '@/hooks/useFinance'
+import { features } from '@/lib/features'
 import { formatMoney } from '@/lib/money'
 import { PaymentDialog } from '@/pages/finance/PaymentDialog'
 import { GenerateDocButton } from './GenerateDocButton'
@@ -196,7 +197,11 @@ function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate 
    *  yoksa doğrudan uygular; yetersizse gerekçe penceresi açar (engel yok). */
   async function guardUretime(targetKey: string | null, direct: () => Promise<void>) {
     const enteringProd = targetKey === 'uretimde' && currentKey !== 'uretimde'
-    if (enteringProd && adv && !adv.sufficient && adv.order_total_usd > 0) {
+    // PAKET G (Karar A): Finans gizliyken görünmeyen ön-ödeme kuralı akışı bloklamasın — kapı ATLANIR.
+    // Sessiz olmasın: üretime geçerken kısa not düşülür. Flag açılınca kapı aynen geri gelir.
+    if (enteringProd && !features.finance) {
+      toast.message('Üretime geçildi — ön ödeme kontrolü devre dışı (Finans modülü gizli).')
+    } else if (enteringProd && adv && !adv.sufficient && adv.order_total_usd > 0) {
       setGate({ apply: async (reason: string) => { await override.mutateAsync({ orderId: order.id, reason }); await direct() } })
       return
     }
@@ -261,8 +266,8 @@ function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate 
         <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onValidate}>Düzenle</Button>
       </div>
 
-      {/* Ödeme durumu (Kabul 13) — yalnız finans yetkisi olana görünür (P5.8) */}
-      {perms.data?.view && adv && adv.order_total_usd > 0 && (
+      {/* Ödeme durumu (Kabul 13) — yalnız finans yetkisi olana görünür (P5.8). PAKET G: Finans gizliyse hiç gösterme. */}
+      {features.finance && perms.data?.view && adv && adv.order_total_usd > 0 && (
         <div className={cn('mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3 py-2 text-xs',
           adv.sufficient ? 'border-border bg-muted/30' : 'border-warning bg-warning-badge/40')}>
           <span className="text-text-secondary"><span className="text-text-muted">Tutar:</span> {formatMoney(adv.order_total_usd, 'USD')}</span>
@@ -274,8 +279,8 @@ function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate 
         </div>
       )}
 
-      {/* Vadeler (P5.4) — finans yetkili düzenler */}
-      {perms.data?.edit && adv && adv.order_total_usd > 0 && (
+      {/* Vadeler (P5.4) — finans yetkili düzenler. PAKET G: Finans gizliyse hiç gösterme. */}
+      {features.finance && perms.data?.edit && adv && adv.order_total_usd > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span className="text-text-muted">Ön ödeme vadesi</span>
           <div className="w-36"><DatePicker value={order.advance_due_date ?? null} onChange={(v) => void saveDue('advance_due_date', v)} clearable /></div>

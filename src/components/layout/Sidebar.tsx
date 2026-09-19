@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { PanelLeftClose, PanelLeftOpen, LogOut, User as UserIcon, MoreVertical } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { NAV_ITEMS, canManageUsers, canViewFinance } from '@/lib/navigation'
+import { features } from '@/lib/features'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/shared/Logo'
@@ -31,7 +32,10 @@ export function Sidebar({
   showCollapseButton = true,
 }: SidebarProps) {
   const { data: me } = useCurrentUser()
-  const items = NAV_ITEMS.filter((item) => (!item.adminOnly || canManageUsers(me?.role_key)) && (!item.financeOnly || canViewFinance(me?.role_key)))
+  const items = NAV_ITEMS.filter((item) =>
+    (!item.feature || features[item.feature]) &&
+    (!item.adminOnly || canManageUsers(me?.role_key)) &&
+    (!item.financeOnly || canViewFinance(me?.role_key)))
   return (
     <aside className="bg-sidebar text-sidebar-foreground flex h-full flex-col">
       {/* Logo + daraltma */}

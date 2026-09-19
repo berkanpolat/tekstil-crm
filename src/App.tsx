@@ -52,6 +52,7 @@ import { SiparislerListPage } from '@/pages/orders/SiparislerListPage'
 import { RaporlarPage } from '@/pages/reports/RaporlarPage'
 import { CalismaPage } from '@/pages/calisma/CalismaPage'
 import { NAV_ITEMS } from '@/lib/navigation'
+import { features } from '@/lib/features'
 
 /** Gerçek sayfası olan modüller (yer tutucu değil). */
 const IMPLEMENTED_PATHS = new Set(['/', '/calisma', '/ayarlar', '/potansiyeller', '/musteriler', '/talepler', '/teklifler', '/numuneler', '/siparisler', '/katalog', '/belgeler', '/finans', '/gorevler', '/hedefler', '/raporlar'])
@@ -81,7 +82,8 @@ export default function App() {
           <Route path="/belgeler/:id/duzenle" element={<DocumentEditorPage mode="edit" />} />
 
           <Route element={<AppShell />}>
-            {NAV_ITEMS.filter((i) => !IMPLEMENTED_PATHS.has(i.path)).map((item) => (
+            {/* PAKET G: özellik bayrağı kapalı olan modüller ne gerçek rota ne placeholder alır → NotFound. */}
+            {NAV_ITEMS.filter((i) => !IMPLEMENTED_PATHS.has(i.path) && (!i.feature || features[i.feature])).map((item) => (
               <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
             ))}
 
@@ -100,9 +102,10 @@ export default function App() {
             <Route path="/belgeler" element={<BelgelerListPage />} />
             <Route path="/katalog" element={<CatalogListPage />} />
             <Route path="/katalog/:id" element={<CatalogProductPage />} />
-            <Route path="/finans" element={<FinancePage />} />
-            <Route path="/gorevler" element={<TasksPage />} />
-            <Route path="/hedefler" element={<GoalsPage />} />
+            {/* PAKET G: yalnız bayrak açıkken kayıtlı; kapalıyken URL → NotFound. */}
+            {features.finance && <Route path="/finans" element={<FinancePage />} />}
+            {features.tasks && <Route path="/gorevler" element={<TasksPage />} />}
+            {features.goals && <Route path="/hedefler" element={<GoalsPage />} />}
             <Route path="/raporlar" element={<RaporlarPage />} />
             <Route path="/bildirimler" element={<NotificationsPage />} />
             <Route path="/profil" element={<ProfilePage />} />
@@ -125,7 +128,7 @@ export default function App() {
               <Route path="calisma-duzeni" element={<WorkingHoursSettings />} />
               <Route path="bildirimler" element={<NotificationSettings />} />
               <Route path="fiyatlandirma" element={<PricingSettings />} />
-              <Route path="finans" element={<FinanceSettings />} />
+              {features.finance && <Route path="finans" element={<FinanceSettings />} />}
               <Route path="yapay-zeka" element={<AiSettings />} />
               <Route path="sistem" element={<SystemSettings />} />
               </Route>
