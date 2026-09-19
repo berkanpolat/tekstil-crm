@@ -13,6 +13,32 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.57.0] — 2026-09-19
+
+### Paket H · H2 — Durum davranış motoru + döngü koruması (+ H1b düzeltmesi)
+
+**H1b (`20260919121000_h1b_complete_data.sql`) — H1 veri katmanı tamamlama (idempotent):**
+Canlı doğrulamada H1'in yalnız tablo+kolonu uygulanmış, VERİ katmanı çalışmamıştı
+(stage_statuses boş, teklif inactive, backfill yok, `status_transitions` CHECK'i
+`operation_status`'ı reddediyor). H1b eksik veriyi tamamlar + CHECK'e `operation_status` ekler.
+DML-only, tekrar çalıştırılabilir.
+
+**H2 (`20260919130000_h2_behavior_engine.sql`) — davranış motoru:**
+- `operations.status_id` **tek sürücü**. BEFORE trigger stage'i satır-içi ayarlar + geçiş/gerekçe
+  doğrular (`status_transitions`). AFTER trigger davranışı yürütür.
+- **Döngü koruması:** GUC `app.stage_sync='1'` iken eski `samples_advance_op`/`orders_advance_op`/
+  `quotes_sync_operation_status` + sert kapı `require_siparis_onay` **stand-down** (silinmedi, guard'landı).
+- Numune/Sipariş aşamasında çocuk kayıt **otomatik** oluşur (belgesiz; kapı bypass). Zaman damgaları
+  (shipped/received/approved/order shipped/actual_delivery) yazılır. **Teklif quote AÇMAZ** (Karar 1).
+  `revise` → mevcut `revise_sample` RPC (version++ arkada).
+- `operations.status_note` (geçiş gerekçesi), `st_num_revize.requires_reason=true`.
+- **Kalıcı döngü testi** (`scripts/h2-loop-test.sql`, ROLLBACK'li): 11 sistem durumu yürüyüşü →
+  her davranış tetiği **tam 1 kez, depth=1** (sonsuz döngü/kapı hatası/stage-bounce YOK),
+  çocuklar+zaman damgaları oluştu, final stage=Kapandı. Kanıt üretimde çalıştırıldı (yazma yok).
+
+> **Sende (sıra önemli):** H1b'yi, sonra H2'yi uygula. Doğrula: `scripts/h2-loop-test.sql` ("GEÇTİ ✓").
+> `database.types.ts` yeniden üret (status_id/status_note/stage_statuses). Sıradaki: H3 (Süreç paneli).
+
 ## [1.56.0] — 2026-09-19
 
 ### Paket H · H1 — İki kademeli durum modeli şeması (migration, eklemeli)
