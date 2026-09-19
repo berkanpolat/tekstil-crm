@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
+import { stripInternal } from '@/lib/stripInternal'
 import { env, hasPdfService, PDF_UNAVAILABLE } from '@/lib/env'
 import { ensureRows } from '@/lib/errors'
 import { useUploadFile, getSignedUrl } from './useFiles'
@@ -45,14 +46,8 @@ const TEMPLATE_NAME: Record<DocumentTypeKey, string> = {
  * ASLA gönderilmez. Belgeye kaydedilirken (documents.data) korunur, ama PDF/önizleme verisinden
  * ayıklanır. Şablonlar bu alanları okumaz; bu ayıklama ikinci güvenlik katmanıdır.
  */
-export function stripInternal(data: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(data)) {
-    if (k === 'internalNote' || k.startsWith('_')) continue
-    out[k] = v
-  }
-  return out
-}
+// Özyinelemeli sızıntı koruması ayrı, saf modülde (test edilebilir). Re-export ile geriye uyum.
+export { stripInternal }
 
 /** Canlı önizleme — proxy /preview → stilli HTML. Editör yazarken (debounce) çağırır. */
 export async function fetchPreviewHtml(typeKey: DocumentTypeKey, data: Record<string, unknown>, language: string): Promise<string> {

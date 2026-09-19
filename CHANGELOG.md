@@ -13,6 +13,29 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.54.0] — 2026-09-19
+
+### Paket F · F1 — Maliyet şema temeli + sızıntı koruması
+
+**Migration (`20260919000000_f1_quote_item_costs.sql`, ELLE uygulanacak):**
+- `quote_item_costs` tablosu (quote_items'e 1:1): `unit_cost`, `margin_percent`, `cost_currency`,
+  `fabric_label` (F3 zemini), `rate_snapshot`. **quote_items'e KOLON EKLENMEDİ** — o RLS'i
+  `is_active_user()` (herkes okur); kolon maliyet olsaydı `select unit_cost` ile sızardı.
+  Bu yüzden `product_costs` deseniyle ayrı tablo + **`costs.view` SELECT / `costs.edit` yazma RLS**.
+
+**Kod (sızıntı koruması):**
+- `stripInternal` **özyinelemeli** oldu (`src/lib/stripInternal.ts`, saf modül): `internalNote`,
+  `_`-önekli VE maliyet/marj anahtarları (`marj/maliyet/unit_cost/margin/cost/profit/kar/kazanc`)
+  **her seviyede** (iç içe opsiyon/kademe dahil) müşteri PDF/önizlemesinden ayıklanır. Eski hâli
+  sığdı → iç içe maliyet sızabilirdi.
+- **Regresyon testi** (`stripInternal.test.ts`, 4 test): 3 seviyeli maliyet/marj yüklü belge →
+  strip sonrası hiçbir seviyede yasak anahtar/değer kalmıyor; müşteri alanları korunuyor.
+  Bu test kırılırsa sızıntı geri gelmiş demektir.
+
+> **Sende:** migration'ı uygula; sonra `costs.view`'süz kullanıcıyla `select * from quote_item_costs`
+> → 0 satır (RLS) doğrula. `database.types.ts` uygulama sonrası yeniden üret. Sıradaki: F2 (manuel
+> maliyet→fiyat), F3 (çoklu kumaş), F4 (rapor).
+
 ## [1.53.0] — 2026-09-16
 
 ### Paket E · C — Geçersiz talep işaretleme + rapor ayrımı
