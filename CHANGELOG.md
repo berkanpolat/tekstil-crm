@@ -13,6 +13,23 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.56.0] — 2026-09-19
+
+### Paket H · H1 — İki kademeli durum modeli şeması (migration, eklemeli)
+
+`20260919120000_h1_stage_statuses.sql` (elle uygulandı):
+- **`stage_statuses`** tablosu: aşamaya (`operation_stages`) bağlı durum; `is_system` (silinemez,
+  kilit), `behavior` (H2 davranış anahtarı; `null`→özel/bilgi), `requires_reason`. RLS
+  `is_active_user`/`is_admin_or_owner`; sistem durumu silinemez guard + touch trigger.
+- **`operations.status_id → stage_statuses`** — tek durum sürücüsü (request_status_id senkron için kalır).
+- Canonical 6 aşama: `teklif` aktifleştirildi, `tamamlandi`→"Kapandı" (hiçbir stage silinmedi).
+- Sistem durumları seed (Teklif quote AÇMAZ — Karar 1) + `status_transitions` `operation_status`
+  edge'leri (yalnız veri; enforcement H2) + 3 talep backfill.
+- Tamamen eklemeli/geri alınabilir; eski sözlükler + trigger'lar dokunulmadı.
+
+> **Sıradaki (H2):** davranış motoru — birinci iş **döngü koruması** (operations.status_id tek
+> sürücü; eski çocuk→ebeveyn trigger'ları guard'lı; kalıcı döngü testi).
+
 ## [1.55.0] — 2026-09-19
 
 ### Paket G — Sadeleştirme: Hedefler / Görevler / Finans gizlendi (gizle, silme · migration yok)
