@@ -7,6 +7,8 @@ set client_min_messages to notice;
 begin;
 \i supabase/migrations/20260919121000_h1b_complete_data.sql
 \i supabase/migrations/20260919130000_h2_behavior_engine.sql
+\i supabase/migrations/20260920000000_h3_1_quotes_sync_reconcile.sql
+\i supabase/migrations/20260920010000_h3_1b_new_op_defaults.sql
 set local app.debug_stage = '1';
 
 do $$
@@ -50,6 +52,59 @@ begin
     (select shipped_at is not null from public.orders where operation_id=v_op order by id desc limit 1),
     (select actual_delivery is not null from public.orders where operation_id=v_op order by id desc limit 1);
   raise notice 'GEÇTİ ✓  Sonsuz döngü/kapı hatası yok · çocuklar oluştu · stage stabil (final=Kapandı).';
+end $$;
+
+-- ===== BLOK 2: teklif→quotes_sync→operations.status_id ZİNCİRİ (trigger→trigger) =====
+do $$
+declare v_cust bigint; v_op2 bigint; v_op3 bigint; v_q bigint; v_file bigint;
+  v_st text; v_stage text; v_req text;
+begin
+  select customer_id into v_cust from public.operations where customer_id is not null limit 1;
+  select id into v_file from public.files limit 1;   -- quote_file_id için (rollback'li — zararsız)
+  if v_file is null then raise exception 'Test için files tablosunda kayıt yok'; end if;
+
+  -- (a0) GERÇEK istemci dizisi: düz insert (before_insert modele sokmalı — KISAYOL YOK)
+  insert into public.operations(customer_id, title) values (v_cust, '__H3_QSYNC_A__') returning id into v_op2;
+  select ss.key, os.key into v_st, v_stage from public.operations o
+    join public.stage_statuses ss on ss.id=o.status_id
+    join public.operation_stages os on os.id=o.stage_id where o.id=v_op2;
+  raise notice 'A0) yeni talep DOĞDU → durum=%  stage=% (beklenen st_teklif_bekliyor/teklif)', v_st, v_stage;
+  if v_st <> 'st_teklif_bekliyor' or v_stage <> 'teklif' then
+    raise exception 'FAIL A0: yeni talep iki kademeli modelde doğmadı (durum=%, stage=%).', v_st, v_stage; end if;
+  -- (a) teklif dosyası eklenince (gerçek useUploadQuoteFile: quotes insert + quote_file_id) İletildi'ye çekilmeli
+  insert into public.quotes(operation_id, quote_file_id) values (v_op2, v_file) returning id into v_q;   -- quotes_sync zinciri
+  select ss.key, os.key, rs.key into v_st, v_stage, v_req
+    from public.operations o
+    left join public.stage_statuses ss on ss.id=o.status_id
+    left join public.operation_stages os on os.id=o.stage_id
+    left join public.request_statuses rs on rs.id=o.request_status_id where o.id=v_op2;
+  raise notice 'A) teklif eklendi → durum=%  stage=%  req_status=%  depth(dış)=%', v_st, v_stage, v_req, pg_trigger_depth();
+  if v_st <> 'st_teklif_iletildi' then raise exception 'FAIL A: durum İletildi olmadı (%).', v_st; end if;
+  if v_stage <> 'teklif' then raise exception 'FAIL A: stage teklif değil (%).', v_stage; end if;
+  if v_req <> 'teklif_iletildi' then raise exception 'FAIL A: request_status senkronu bozuk (%).', v_req; end if;
+
+  -- (b) Teklif silinince → Bekliyor'a geri dönmeli (yalnız Teklif aşaması + İletildi iken)
+  update public.quotes set deleted_at=now() where id=v_q;   -- quotes_sync tekrar
+  select ss.key, rs.key into v_st, v_req from public.operations o
+    left join public.stage_statuses ss on ss.id=o.status_id
+    left join public.request_statuses rs on rs.id=o.request_status_id where o.id=v_op2;
+  raise notice 'B) teklif silindi → durum=%  req_status=%', v_st, v_req;
+  if v_st <> 'st_teklif_bekliyor' then raise exception 'FAIL B: geri Bekliyor olmadı (%).', v_st; end if;
+  if v_req <> 'teklif_bekliyor' then raise exception 'FAIL B: request_status geri senkronlanmadı (%).', v_req; end if;
+
+  -- (c) Numune aşamasındaki operasyona teklif eklenince AŞAMA GERİ GİTMEMELİ
+  insert into public.operations(customer_id, title) values (v_cust, '__H3_QSYNC_C__') returning id into v_op3;
+  update public.operations set status_id=(select id from public.stage_statuses where key='st_teklif_iletildi') where id=v_op3;   -- geçerli geçiş
+  update public.operations set status_id=(select id from public.stage_statuses where key='st_num_hazirlaniyor') where id=v_op3; -- artık numune
+  insert into public.quotes(operation_id, quote_file_id) values (v_op3, v_file);
+  select ss.key, os.key into v_st, v_stage from public.operations o
+    left join public.stage_statuses ss on ss.id=o.status_id
+    left join public.operation_stages os on os.id=o.stage_id where o.id=v_op3;
+  raise notice 'C) numunedeyken teklif eklendi → durum=%  stage=% (beklenen: değişmez, numune)', v_st, v_stage;
+  if v_stage <> 'numune' or v_st <> 'st_num_hazirlaniyor' then
+    raise exception 'FAIL C: numune aşaması teklif eklenince geri gitti (stage=%, durum=%).', v_stage, v_st; end if;
+
+  raise notice 'BLOK 2 GEÇTİ ✓  teklif→durum zinciri: ileri/geri doğru, numune geri çekilmedi, req_status senkron, özyineleme yok.';
 end $$;
 
 rollback;

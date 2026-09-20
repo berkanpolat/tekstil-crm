@@ -13,6 +13,31 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.58.0] — 2026-09-20
+
+### Paket H · H3.1 + H3.1b — quotes_sync uzlaştırma + yeni talepler modelde doğsun
+
+**H3.1 (`20260920000000_h3_1_quotes_sync_reconcile.sql`, elle uygulandı):**
+- `quotes_sync_operation_status` artık `stage_id` yerine `operations.status_id` sürücüsünü ayarlıyor
+  (çift yön: has→st_teklif_iletildi / not→st_teklif_bekliyor; **yalnız Teklif aşamasında**;
+  anahtar bazlı; `in_stage_sync` guard'lı). Ters yön geçiş edge'i eklendi. 4 legacy aşama
+  (`teklif_bekliyor/teklif_iletildi/teklif_reddedildi/iptal`) `is_active=false` (silme yok).
+
+**H3.1b (`20260920010000_h3_1b_new_op_defaults.sql`, elle uygulandı):**
+- **Kök neden:** `operations_before_insert` yeni talebe `status_id` set etmiyor, aşamayı pasif legacy
+  `teklif_bekliyor`'dan alıyordu → yeni talepler iki kademeli modele hiç girmiyordu (duman testi bunu yakaladı).
+- Düzeltme: before_insert `status_id`'yi (`st_teklif_bekliyor`) set eder, **aşamayı status_id'den TÜRETİR**
+  (is_default'tan değil → tek sürücü). `is_default` → canonical `teklif`. Öksüzler backfill (mevcut
+  aşamayı koruyarak). **`operations.status_id` NOT NULL** (backfill→null=0 doğrulandıktan sonra) →
+  yapısal garanti; hangi yoldan (istemci/intake/script/SQL) gelirse gelsin öksüz kayıt oluşamaz.
+- Tüm insert yolları `operations_before_insert` (BEFORE INSERT) üzerinden geçtiği için tek düzeltme
+  hepsini kapsar (istemci `useCreateOperation`, `intake_process` RPC, scriptler).
+
+**Test:** `scripts/h2-loop-test.sql` genişletildi — Blok 2 artık **gerçek istemci dizisini** taklit
+ediyor (düz insert + quotes insert, kısayol yok): yeni talep modelde doğuyor, teklif ekle→İletildi,
+teklif sil→Bekliyor, numunedeyken teklif→geri gitmiyor, req_status senkron, özyineleme yok. GEÇTİ ✓.
+Tarayıcı: yeni talep Teklif aşamasında doğuyor, yükleme/silme hatasız.
+
 ## [1.57.0] — 2026-09-19
 
 ### Paket H · H2 — Durum davranış motoru + döngü koruması (+ H1b düzeltmesi)
