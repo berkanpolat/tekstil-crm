@@ -13,6 +13,27 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.40.0] — 2026-09-21
+
+### Genel istekler paketi: kanal verisi, kâr marjı, tek rapor, eşleştirme kuralı
+
+- **Müşteri eşleştirme** (`20260921190000`): siteden gelen talepte telefon öncelikli; tam isim
+  uyarıyla bağlar ve numarayı ikincil telefon ekler; benzer isim yalnız not düşer.
+- **Pazarlama kanalı** (`20260921200000`): `marketing_channels` sözlüğü (Meta FB/IG, Arama,
+  TikTok, Pinterest, Organik, YZ asistanı, Doğrudan, Site kampanyası, Data, Dış/Gelen Arama),
+  `operations.marketing`/`marketing_channel_id`, `pazarlama_kanali_bul()`; `lead.php` kaynak
+  JSON'unu iletir; 471 geçmiş talep `leads.jsonl`'den dolduruldu; talep formunda seçim;
+  Talep raporuna kanal / gün / ürün kaynağı kırılımları.
+- **Kâr marjı** (`20260921210000`): kademeler 50→%40 · 51→%30 · 251→%20; `product_price`
+  3. parametre `p_margin` (teklif diyaloğunda "Kâr oranı %" girişi); taslak teklif kademeyi
+  kullanır (sabit %40 kalktı).
+- **Genel Rapor** (`metric_genel` + public sarmalayıcı `20260921211000`): tek sayfa —
+  talep/teklif/red/kabul sayıları, 24 saat sözü, huni, pazarlama kanalı, il, ürün kaynağı,
+  gün ve saat, red sebepleri (+il), kabul illeri, numune/sipariş sayıları ve oranları.
+  Dönem seçicide "Son 3 gün".
+- Defter: `20260815000000_p9_notifications` (zaten uygulanmıştı) deftere işlendi.
+- Testler: `.mjs` betik içe aktaran birim testlerine `@ts-nocheck` (tsc -b derlemeyi kilitliyordu).
+
 ## [1.39.0] — 2026-09-21
 
 ### Talep geri yükleme: 1 Ağu 2026+ site talepleri CRM'e alındı

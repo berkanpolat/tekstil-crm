@@ -23,6 +23,10 @@ export function QuoteFromProductDialog({ product, onClose }: { product: CatalogP
   const [musteri, setMusteri] = useState('')
   const [qtys, setQtys] = useState<number[]>(() => [Math.max(1, product.moq || 50)])
   const [custom, setCustom] = useState('')
+  // Kâr oranı (%) — boşsa adet kademesi (Ayarlar → Fiyatlandırma) ya da ürüne özel oran; dolu ise müşteriye özel oran.
+  const [marj, setMarj] = useState('')
+  const marjNum = marj.trim() === '' ? null : Number(marj.replace(',', '.'))
+  const marjGecerli = marjNum == null || (Number.isFinite(marjNum) && marjNum >= 0 && marjNum <= 100)
   const [busy, setBusy] = useState(false)
 
   // margin_tiers'tan önerilen kademeler (MOQ altındakiler atlanır).
@@ -34,10 +38,10 @@ export function QuoteFromProductDialog({ product, onClose }: { product: CatalogP
 
   // Her kademe için server fiyatı (adet kademesine göre marj). Maliyet costs.view yoksa dönmez.
   const prices = useQuery({
-    queryKey: ['product-prices', product.id, sorted],
-    enabled: sorted.length > 0,
+    queryKey: ['product-prices', product.id, sorted, marjGecerli ? marjNum : null],
+    enabled: sorted.length > 0 && marjGecerli,
     queryFn: async () => Promise.all(sorted.map(async (q) => ({
-      q, info: (await supabase.rpc('product_price', { p_product_id: product.id, p_quantity: q })).data as unknown as PriceInfo,
+      q, info: (await supabase.rpc('product_price', { p_product_id: product.id, p_quantity: q, ...(marjGecerli && marjNum != null ? { p_margin: marjNum } : {}) } as never)).data as unknown as PriceInfo,
     }))),
   })
   const rows = prices.data ?? []
@@ -98,6 +102,12 @@ export function QuoteFromProductDialog({ product, onClose }: { product: CatalogP
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }} placeholder="Özel adet" className="w-32" />
               <Button type="button" size="sm" variant="outline" onClick={addCustom} disabled={!custom}><Plus className="size-3.5" /> Ekle</Button>
             </div>
+          </div>
+
+          <div>
+            <Label className="text-sm">Kâr oranı % <span className="text-text-muted">(boş: kademe — {(tiers.data ?? []).map((t) => `${t.min_quantity}+→%${t.margin_percent}`).join(' · ') || '—'})</span></Label>
+            <Input inputMode="decimal" value={marj} onChange={(e) => setMarj(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Müşteriye özel oran, ör. 35" className="mt-1 w-40" />
+            {!marjGecerli && <p className="mt-1 text-xs text-danger-foreground">0–100 arası bir yüzde girin.</p>}
           </div>
 
           {/* Seçili kademeler + fiyat tablosu */}

@@ -1,3 +1,4 @@
+// @ts-nocheck — .mjs betik modülü, tip bildirimi yok (tsc -b derlemeyi kilitlemesin)
 import { describe, it, expect } from 'vitest'
 // BİLEREK yardımcı dosyadan içe aktarılır, `scripts/r2-tasima.mjs`'den DEĞİL:
 // ana betik `sharp` (yerel ikili modül) yükler ve test ortamı jsdom'dur —

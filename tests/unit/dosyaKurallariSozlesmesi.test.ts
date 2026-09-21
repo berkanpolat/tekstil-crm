@@ -1,3 +1,4 @@
+// @ts-nocheck — .mjs betik modülü, tip bildirimi yok (tsc -b derlemeyi kilitlemesin)
 /// <reference types="node" />
 import { readFileSync } from 'node:fs'
 import path from 'node:path'

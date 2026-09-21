@@ -1,3 +1,4 @@
+// @ts-nocheck — .mjs betik modülü, tip bildirimi yok (tsc -b derlemeyi kilitlemesin)
 import { describe, it, expect } from 'vitest'
 import { anahtarla, kullanimaGoreTekille } from '../../scripts/katalog-ice-aktar.mjs'
 

@@ -5717,6 +5717,7 @@ export type Database = {
         Args: { p_from: string; p_scope_user?: string; p_to: string }
         Returns: Json
       }
+      metric_genel: { Args: { p_from: string; p_to: string }; Returns: Json }
       metric_interactions: {
         Args: {
           p_channel?: number
@@ -5909,7 +5910,7 @@ export type Database = {
       process_sample_due_warnings: { Args: never; Returns: number }
       process_task_due_warnings: { Args: never; Returns: number }
       product_price: {
-        Args: { p_product_id: number; p_quantity: number }
+        Args: { p_margin?: number; p_product_id: number; p_quantity: number }
         Returns: Json
       }
       quote_default_tax_rate: { Args: never; Returns: number }

@@ -5,11 +5,12 @@ import { useReferenceQuery } from '@/hooks/useReferenceQuery'
 import { supabase } from '@/lib/supabase'
 
 // ── Dönem (URL'de kalıcı) ──────────────────────────────────────────────
-export type PeriodKey = 'today' | 'last2' | 'last7' | 'week' | 'month' | 'quarter' | 'last_month' | 'custom'
+export type PeriodKey = 'today' | 'last2' | 'last3' | 'last7' | 'week' | 'month' | 'quarter' | 'last_month' | 'custom'
 // Rapor ön tanımları. `last2`/`week`/`last_month` geçmiş URL'lerle uyumluluk için
 // PeriodKey + computeRange'de kalır ama ön tanım butonu olarak gösterilmez.
 export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: 'today', label: 'Bugün' },
+  { key: 'last3', label: 'Son 3 gün' },
   { key: 'last7', label: 'Son 7 gün' },
   { key: 'month', label: 'Bu ay' },
   { key: 'quarter', label: 'Bu çeyrek' },
@@ -26,6 +27,7 @@ export function computeRange(key: PeriodKey, nowMs: number, from?: string | null
   switch (key) {
     case 'today': start = startOfDay(now); break
     case 'last2': { start = startOfDay(now); start.setDate(start.getDate() - 1); return { key, from: start.toISOString(), to: end.toISOString(), label: 'Son 2 gün' } }
+    case 'last3': { start = startOfDay(now); start.setDate(start.getDate() - 2); break }
     case 'last7': { start = startOfDay(now); start.setDate(start.getDate() - 6); break }
     case 'week': { start = startOfDay(now); const dow = (start.getDay() + 6) % 7; start.setDate(start.getDate() - dow); break }
     case 'quarter': start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); break
@@ -115,6 +117,16 @@ export const usePipelineMetric = (period: Period, on = true) => useMetric<Pipeli
 export const useQuotesMetric = (period: Period, on = true) => useMetric<QuotesMetric>('metric_quotes', p2(period), on)
 export const useFinanceMetric = (period: Period, on = true) => useMetric<FinanceMetric>('metric_finance', p2(period), on)
 export const useEmployeesMetric = (period: Period, on = true) => useMetric<EmployeeRow[]>('metric_employees', p2(period), on)
+/** Genel rapor (metric_genel): talep bazlı sayılar, red sebepleri, il kırılımları, huni. */
+export interface GenelMetric {
+  talep: number; teklif_verilen: number; teklif_verilmeyen: number; reddedilen: number; kabul: number
+  numune: number; siparis: number; numune_sayisi: number; siparis_sayisi: number
+  teklif_numune_orani: number | null; numune_siparis_orani: number | null
+  red_sebepleri: Labeled[]; red_il: Labeled[]; kabul_il: Labeled[]
+  red_sebebi_il: { sebep: string; il: string; count: number }[]
+  huni: { label: string; value: number }[]
+}
+export const useGenelMetric = (period: Period, on = true) => useMetric<GenelMetric>('metric_genel', p2(period), on)
 export const useRequestTrend = (period: Period, on = true) => useMetric<TrendPoint[]>('metric_request_trend', p2(period), on)
 
 /** Anlık durum sayıları — dönemden BAĞIMSIZ, operasyonun güncel aşamasına bakar.
