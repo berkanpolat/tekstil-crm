@@ -8,7 +8,7 @@ Durum: ✅ var · 🟡 kısmen · ❌ yok
 
 | # | İstek | Durum | Boşluk / karar |
 |---|---|---|---|
-| 1 | Site talepleri otomatik düşsün, müşteri açılsın | ✅ | 21 Eyl'de iletim geri açıldı. Eşleştirme **telefonla** (isimle değil) — daha güvenli; isimle istenirse yanlış birleştirme riski konuşulmalı |
+| 1 | Site talepleri otomatik düşsün, müşteri açılsın | ✅ | 21 Eyl'de iletim geri açıldı. **Karar (Tuna, 21 Eyl):** eşleştirme telefon + isim, telefon öncelikli. Bugünkü `find_duplicates` ikisine de bakıyor ama aynı sırada; "benzer isim" (%75 benzerlik) de otomatik bağlıyor → riskli. Yapılacak: telefon > tam isim; benzer isim yalnız uyarı (`possible_merge_with`) |
 | 2 | WhatsApp/Instagram talepleri elle | ✅ | Kanallar: whatsapp, instagram, mail, telefon, telegram, manuel, web_sitesi |
 | 3 | Teklif Bekliyor / İletildi / Reddedildi (sebepli) | 🟡 | Bekliyor+İletildi var. Reddedildi bugün **iptal** yoluyla (5 sebep). Ayrı durum olarak yok; Berkan'ın dalı (H-paketleri) bunu kuruyor ama bitmedi. **Karar:** onu bekle mi, `canli`'de yap mı |
 | 4 | Numune: üretimde, kargoda, teslim, revize, onaylandı, reddedildi | ✅ | 16 durum var, istenen 6. **Karar:** fazlalar pasife çekilsin mi |
