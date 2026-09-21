@@ -56,7 +56,7 @@ writeFileSync(`${V}/studio_quotes.json`, JSON.stringify(E, null, 1))
 say('E Studio quote_requests', E.length)
 
 // Görseller (isteğe bağlı) — yalnız B'de anılan dosyalar
-if (process.argv.includes('--dosyalar')) {
+if (process.argv.includes("--dosyalar")) { // ESKİ YOL: FTP ile yerel indirme; artık gerekmez (yaz.mjs sunucudan doğrudan yükler)
   const mevcut = new Set(ftpListe('leads_private/uploads'))
   let inen = 0, yok = 0
   for (const r of B) {

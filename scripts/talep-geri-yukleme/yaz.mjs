@@ -11,9 +11,9 @@
 // Ardından SQL ile: zaman damgaları, eski TAS kodu, aşama, sahip, Süreç Takip
 // notu + durum geçmişi (event_log). Görseller R2'ye, `files` satırı açılır.
 // =====================================================================
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { CRM_REF, VERI, oku, sql, sbpToken, sirlar, sha256 } from './ortak.mjs'
+import { CRM_REF, VERI, oku, sql, sbpToken, sirlar, envDosyasi } from './ortak.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const LIMIT = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1] ?? Infinity)
@@ -37,7 +37,7 @@ for (let i = 0; i < refs.length; i += 200) {
 }
 const kullanilanKodlar = new Set((await q(`select code from operations`)).map((r) => r.code))
 console.log(`  zaten CRM'de: ${varolan.size} · yeni girecek: ${liste.length - varolan.size}`)
-console.log(`  görseli yerelde hazır: ${liste.filter((r) => r.image && existsSync(`${VERI}/uploads/${r.image}`)).length} / ${liste.filter((r) => r.image).length}`)
+console.log(`  görsel (sunucudan doğrudan R2'ye): ${liste.filter((r) => r.image).length}`)
 console.log(`  eski kod geri yazılacak: ${liste.filter((r) => r.eski_kod && !kullanilanKodlar.has(r.eski_kod)).length} (çakışan: ${liste.filter((r) => r.eski_kod && kullanilanKodlar.has(r.eski_kod) && !varolan.has(r.payload.client_reference)).length})`)
 console.log(`  durum yolu yazılacak: ${liste.filter((r) => r.surec_takip && (r.surec_takip.yol.durumlar.length || r.surec_takip.yol.asama)).length} · sahip: ${liste.filter((r) => r.surec_takip?.atanan_eposta).length}`)
 if (!APPLY) { console.log('\nKuru koşu bitti. Yazmak için --apply (ilk prova: --apply --limit=1).'); process.exit(0) }
@@ -163,29 +163,40 @@ if (yazilacak.length) {
 }
 if (hatalar.length) writeFileSync(`${VERI}/yaz-durum-hatalari-${Date.now()}.json`, JSON.stringify(hatalar, null, 1))
 
-// ---- 3) Görseller → R2 + files ----------------------------------------
-const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic', pdf: 'application/pdf' }
-let yuklenen = 0, atlanan = 0, dosyaYok = 0
-for (const r of yazilacak) {
-  if (!r.image) continue
-  const yerel = `${VERI}/uploads/${r.image}`
-  if (!existsSync(yerel)) { dosyaYok++; continue }
-  const bayt = readFileSync(yerel)
-  const sum = sha256(bayt)
-  const var_ = await q(`select 1 from files where entity_type='operation' and entity_id=${lit(String(r.op.id))} and checksum=${lit(sum)} and deleted_at is null limit 1`)
-  if (var_.length) { atlanan++; continue }
-  const ext = r.image.split('.').pop().toLowerCase()
-  const mime = MIME[ext] ?? 'application/octet-stream'
-  const yol = `intake/${r.op.id}/${randomUUID()}-${r.image.replace(/[^A-Za-z0-9._-]/g, '_')}`.slice(0, 200)
-  const put = await fetch(`${S.DOSYA_SERVIS_URL}/y?yol=${encodeURIComponent(yol)}`, {
-    method: 'PUT', headers: { 'content-type': mime, 'content-length': String(bayt.byteLength), 'x-servis-sirri': S.DOSYA_SERVIS_SIRRI }, body: bayt,
-  })
-  if (!put.ok) { console.error(`  ! görsel yüklenemedi ${r.image} → ${put.status}`); continue }
-  await q(`insert into files (bucket, storage_path, original_name, mime_type, size_bytes, checksum, category, entity_type, entity_id, created_at)
-           values ('r2', ${lit(yol)}, ${lit(r.image)}, ${lit(mime)}, ${bayt.byteLength}, ${lit(sum)}, ${lit(mime.startsWith('image/') ? 'image' : 'document')}, 'operation', ${lit(String(r.op.id))}, ${lit(r.ts)}::timestamptz)`)
-  yuklenen++
+// ---- 3) Görseller: sunucudan DOĞRUDAN R2'ye (tgy-aktar.php), sonra `files` satırı ----
+// Sunucu betiği: scripts/talep-geri-yukleme/sunucu/tgy-aktar.php → public_html/tgy-aktar.php
+// (token .secrets/tgy-aktar.env). Bilgisayara indirme yok. Idempotent: aynı sha256 varsa atlar.
+const TGY = envDosyasi('.secrets/tgy-aktar.env').TGY_TOKEN
+const SUNUCU = 'https://tekstilas.com/tgy-aktar.php'
+const gorselli = yazilacak.filter((r) => r.image)
+const mevcutSum = new Map()
+for (let i = 0; i < gorselli.length; i += 200) {
+  const rows = await q(`select entity_id, checksum from files where entity_type='operation' and deleted_at is null and entity_id in (${gorselli.slice(i, i + 200).map((r) => lit(String(r.op.id))).join(',')})`)
+  for (const x of rows) mevcutSum.set(`${x.entity_id}:${x.checksum}`, true)
 }
-console.log(`  görsel: yüklendi ${yuklenen} · zaten vardı ${atlanan} · yerelde yok ${dosyaYok}`)
+const ops = new Map(gorselli.map((r) => [r.op.id, r]))
+const opDosya = await q(`select entity_id from files where entity_type='operation' and deleted_at is null and original_name in (${gorselli.map((r) => lit(r.image)).join(',')})`)
+const zatenVar = new Set(opDosya.map((x) => Number(x.entity_id)))
+const bekleyen = gorselli.filter((r) => !zatenVar.has(r.op.id))
+let yuklenen = 0, hatali = 0
+for (let i = 0; i < bekleyen.length; i += 15) {
+  const grup = bekleyen.slice(i, i + 15).map((r) => ({ r, yol: `intake/${r.op.id}/${randomUUID()}-${r.image.replace(/[^A-Za-z0-9._-]/g, '_')}`.slice(0, 200) }))
+  const res = await fetch(SUNUCU, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: TGY, servis_url: S.DOSYA_SERVIS_URL, servis_sirri: S.DOSYA_SERVIS_SIRRI, dosyalar: grup.map((g) => ({ ad: g.r.image, yol: g.yol })) }) })
+  const j = await res.json().catch(() => null)
+  if (!res.ok || !j?.ok) { console.error(`  ! sunucu ${res.status}`); hatali += grup.length; continue }
+  const satirlar = []
+  for (const [k, s] of j.sonuc.entries()) {
+    const g = grup[k]
+    if (!s.ok) { hatali++; console.error(`  ! ${s.ad}: ${s.hata ?? s.http}`); continue }
+    if (mevcutSum.has(`${g.r.op.id}:${s.sha256}`)) continue
+    satirlar.push(`('r2', ${lit(g.yol)}, ${lit(s.ad)}, ${lit(s.mime)}, ${s.size}, ${lit(s.sha256)}, ${lit(s.mime.startsWith('image/') ? 'image' : 'document')}, 'operation', ${lit(String(g.r.op.id))}, ${lit(g.r.ts)}::timestamptz)`)
+  }
+  if (satirlar.length) await q(`insert into files (bucket, storage_path, original_name, mime_type, size_bytes, checksum, category, entity_type, entity_id, created_at) values ${satirlar.join(',\n')}`)
+  yuklenen += satirlar.length
+  console.log(`  görsel grup ${i / 15 + 1}: ${satirlar.length} yüklendi`)
+}
+console.log(`  görsel: yüklendi ${yuklenen} · zaten vardı ${zatenVar.size} · hatalı ${hatali}`)
 
 // ---- 4) Özet ----------------------------------------------------------
 const ozet = await q(`select date_trunc('month',requested_at)::date ay, s.key asama, ss.key durum, count(*) from operations o
