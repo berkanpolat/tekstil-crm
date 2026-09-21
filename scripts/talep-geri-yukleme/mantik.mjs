@@ -92,8 +92,8 @@ export function eskiKodBul(b, auditOps, sha1) {
  * Süreç Takip durumu → CRM'de izlenecek yol. CRM iki kademeli: DURUM (stage_statuses,
  * geçiş kuralları var) sürücü, AŞAMA ondan türer. Yeni talep st_teklif_bekliyor ile
  * doğar; buradan izinli geçişler sırayla uygulanır (uygulamanın kendi tetikleyicileri
- * numune/sipariş kayıtlarını açar). "Teklif reddedildi" uygulamada teklif reddedilince
- * op_set_stage(op,'teklif_reddedildi') ile aşama çekilerek yapılır — aynısı yapılır.
+ * numune/sipariş kayıtlarını açar). "Teklif reddedildi": aşama 11 pasif ve kapanış durumuna
+ * geçiş kuralı yok → asama:'teklif_reddedildi' işareti yaz.mjs'te İPTAL (sebep+not) olarak uygulanır.
  */
 export const DURUM_YOL = {
   'Teklif bekliyor':      { durumlar: [], asama: null },

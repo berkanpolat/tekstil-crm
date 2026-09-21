@@ -13,14 +13,16 @@
 // =====================================================================
 import { writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { CRM_REF, VERI, oku, sql, sbpToken, sirlar, envDosyasi } from './ortak.mjs'
+import { CRM_REF, VERI, oku, sql, sbpToken, envDosyasi } from './ortak.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const LIMIT = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1] ?? Infinity)
 const TOK = sbpToken()
-const S = await sirlar(CRM_REF, TOK)
-if (!S.INTAKE_SECRET || !S.DOSYA_SERVIS_URL || !S.DOSYA_SERVIS_SIRRI) throw new Error('Supabase secrets eksik (INTAKE_SECRET / DOSYA_SERVIS_*)')
-const EDGE = `https://${CRM_REF}.supabase.co/functions/v1/intake-request`
+// Management API 'secrets' uç noktası değerlerin SHA-256 ÖZETİNİ döndürür (gerçek değeri değil);
+// bu yüzden edge fn yerine aynı DB fonksiyonu (intake_process) SQL ile çağrılır ve
+// dosya servisi kimliği .env.deploy'dan okunur.
+const S = envDosyasi('.env.deploy')
+if (!S.DOSYA_SERVIS_URL || !S.DOSYA_SERVIS_SIRRI) throw new Error('.env.deploy: DOSYA_SERVIS_URL / DOSYA_SERVIS_SIRRI eksik')
 const q = (s) => sql(CRM_REF, s, TOK)
 const lit = (v) => (v == null ? 'null' : `'${String(v).replace(/'/g, "''")}'`)
 
@@ -42,26 +44,31 @@ console.log(`  eski kod geri yazılacak: ${liste.filter((r) => r.eski_kod && !ku
 console.log(`  durum yolu yazılacak: ${liste.filter((r) => r.surec_takip && (r.surec_takip.yol.durumlar.length || r.surec_takip.yol.asama)).length} · sahip: ${liste.filter((r) => r.surec_takip?.atanan_eposta).length}`)
 if (!APPLY) { console.log('\nKuru koşu bitti. Yazmak için --apply (ilk prova: --apply --limit=1).'); process.exit(0) }
 
-// ---- 1) Edge fn ile oluştur -------------------------------------------
+// ---- 1) intake_process ile oluştur (site ile aynı DB yolu; 25'lik gruplar) ----
 const BASLAMA = new Date().toISOString() // bildirim temizliği bu andan itibaren
 const gunluk = []
 const sonuc = { yeni: 0, tekrar: 0, hata: 0 }
-for (const r of liste) {
-  const ref = r.payload.client_reference
-  if (varolan.has(ref)) { r.op = varolan.get(ref); sonuc.tekrar++; continue }
-  const res = await fetch(EDGE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-intake-secret': S.INTAKE_SECRET },
-    body: JSON.stringify(r.payload),
-  })
-  const j = await res.json().catch(() => ({}))
-  gunluk.push({ ref, http: res.status, ...j })
-  if (!res.ok || !j.ok) { sonuc.hata++; console.error(`  ! ${ref} → HTTP ${res.status} ${j.error ?? ''}`); continue }
-  r.op = { id: j.operation_id, code: j.code }
-  j.idempotent ? sonuc.tekrar++ : sonuc.yeni++
+const bekleyenler = liste.filter((r) => { if (varolan.has(r.payload.client_reference)) { r.op = varolan.get(r.payload.client_reference); sonuc.tekrar++; return false } return true })
+async function isle(grup) {
+  const rows = await q(`select v.ref, public.intake_process(v.p::jsonb) r from (values ${grup.map((r) => `(${lit(r.payload.client_reference)}, ${lit(JSON.stringify(r.payload))})`).join(',\n')}) v(ref, p)`)
+  for (const x of rows) {
+    const r = grup.find((g) => g.payload.client_reference === x.ref)
+    gunluk.push({ ref: x.ref, ...x.r })
+    if (!x.r?.ok) { sonuc.hata++; console.error(`  ! ${x.ref} → ${x.r?.error}`); continue }
+    r.op = { id: x.r.operation_id, code: x.r.code }
+    x.r.idempotent ? sonuc.tekrar++ : sonuc.yeni++
+  }
+}
+for (let i = 0; i < bekleyenler.length; i += 25) {
+  const grup = bekleyenler.slice(i, i + 25)
+  try { await isle(grup) }
+  catch (e) { // grup patladıysa tek tek: hatalı satır bulunur, diğerleri girer
+    console.error(`  ! grup ${i / 25 + 1} hata, tek tek deneniyor: ${e.message.slice(0, 120)}`)
+    for (const r of grup) { try { await isle([r]) } catch (e2) { sonuc.hata++; gunluk.push({ ref: r.payload.client_reference, hata: e2.message }); console.error(`  ! ${r.payload.client_reference}: ${e2.message.slice(0, 160)}`) } }
+  }
 }
 writeFileSync(`${VERI}/yaz-gunluk-${Date.now()}.json`, JSON.stringify(gunluk, null, 1))
-console.log(`  edge fn: yeni ${sonuc.yeni} · tekrar ${sonuc.tekrar} · hata ${sonuc.hata}`)
+console.log(`  intake_process: yeni ${sonuc.yeni} · tekrar ${sonuc.tekrar} · hata ${sonuc.hata}`)
 
 // ---- 2) SQL düzeltmeleri (50'lik gruplar) --------------------------------
 const yazilacak = liste.filter((r) => r.op)
@@ -83,8 +90,13 @@ for (let i = 0; i < yazilacak.length; i += 50) {
       sla_deadline = v.ts + (o.sla_deadline - o.created_at),
       owner_id     = coalesce((select id from users where email = v.eposta), o.owner_id),
       description  = case when v.ek_not is null or coalesce(o.description,'') like '%' || v.ek_not || '%'
-                          then o.description else concat_ws(E'\\n\\n', o.description, v.ek_not) end
-    from v where o.id = v.op_id;`)
+                          then o.description else concat_ws(E'\\n\\n', o.description, v.ek_not) end,
+      title        = case when o.title ~ '^Talep — \\d\\d\\.\\d\\d\\.\\d{4}$'
+                          then 'Talep — ' || to_char(v.ts at time zone 'Europe/Istanbul', 'DD.MM.YYYY') else o.title end
+    from v where o.id = v.op_id;
+    with v(op_id, ts) as (values ${grup.map((r) => `(${r.op.id}::bigint, ${lit(r.ts)}::timestamptz)`).join(',')})
+    update open_files f set due_at = v.ts + (f.due_at - f.opened_at), opened_at = v.ts, created_at = v.ts
+    from v where f.operation_id = v.op_id and f.opened_at > v.ts;`)
 
   // 2b) eski TAS kodu — guard tetikleyicisi kod değişimini yasaklar; aynı işlemde geçici kapat
   const kodlar = grup.filter((r) => r.eski_kod && !kullanilanKodlar.has(r.eski_kod) && r.op.code !== r.eski_kod)
@@ -102,18 +114,26 @@ for (let i = 0; i < yazilacak.length; i += 50) {
   // 2c) durum yolu — uygulamanın izinli geçişleri sırayla; reddedilen → op_set_stage
   const yollu = grup.filter((r) => r.surec_takip && (r.surec_takip.yol.durumlar.length || r.surec_takip.yol.asama))
   if (yollu.length) {
-    const satirlar = yollu.map((r) => `(${r.op.id}::bigint, ${lit(JSON.stringify(r.surec_takip.yol.durumlar))}::jsonb, ${lit(r.surec_takip.yol.asama)})`)
+    const satirlar = yollu.map((r) => `(${r.op.id}::bigint, ${lit(JSON.stringify(r.surec_takip.yol.durumlar))}::jsonb, ${lit(r.surec_takip.yol.asama)}, ${lit(r.surec_takip.updated_at ?? r.ts)}::timestamptz)`)
     const h = await q(`
       create temp table if not exists tgy_hata (op_id bigint, hata text) on commit drop;
+      -- "Teklif reddedildi": 'teklif_reddedildi' aşaması PASİF ve kapanış durumuna geçiş kuralı yok;
+      -- uygulamanın desteklediği yol İPTAL (sebep + not) → açık dosya da kapanır, listelerde kapalı görünür.
+      create or replace function pg_temp.tgy_iptal(p_op bigint, p_at timestamptz) returns void language sql as $f$
+        update operations set cancelled_at = p_at,
+          cancellation_reason_id = (select id from cancellation_reasons where key = 'ticari_anlasma_saglanamadi'),
+          cancellation_note = 'Süreç Takip: Teklif reddedildi'
+        where id = p_op and cancelled_at is null
+      $f$;
       do $$
       declare v record; k text; mevcut text;
       begin
-        for v in select * from (values ${satirlar.join(',\n')}) t(op_id, durumlar, asama) loop
+        for v in select * from (values ${satirlar.join(',\n')}) t(op_id, durumlar, asama, kapanis) loop
           begin
             select ss.key into mevcut from operations o join stage_statuses ss on ss.id = o.status_id where o.id = v.op_id;
             -- yol zaten yürünmüşse (tekrar koşu) hiç dokunma
             if jsonb_array_length(v.durumlar) > 0 and mevcut = (v.durumlar ->> (jsonb_array_length(v.durumlar) - 1)) then
-              if v.asama is not null then perform op_set_stage(v.op_id, v.asama); end if;
+              if v.asama = 'teklif_reddedildi' then perform pg_temp.tgy_iptal(v.op_id, v.kapanis); end if;
               continue;
             end if;
             for k in select jsonb_array_elements_text(v.durumlar) loop
@@ -122,7 +142,7 @@ for (let i = 0; i < yazilacak.length; i += 50) {
               update operations set status_id = (select id from stage_statuses where key = k) where id = v.op_id;
               mevcut := k;
             end loop;
-            if v.asama is not null then perform op_set_stage(v.op_id, v.asama); end if;
+            if v.asama = 'teklif_reddedildi' then perform pg_temp.tgy_iptal(v.op_id, v.kapanis); end if;
           exception when others then
             insert into tgy_hata values (v.op_id, sqlerrm);
           end;
@@ -175,7 +195,7 @@ for (let i = 0; i < gorselli.length; i += 200) {
   for (const x of rows) mevcutSum.set(`${x.entity_id}:${x.checksum}`, true)
 }
 const ops = new Map(gorselli.map((r) => [r.op.id, r]))
-const opDosya = await q(`select entity_id from files where entity_type='operation' and deleted_at is null and original_name in (${gorselli.map((r) => lit(r.image)).join(',')})`)
+const opDosya = gorselli.length ? await q(`select entity_id from files where entity_type='operation' and deleted_at is null and original_name in (${gorselli.map((r) => lit(r.image)).join(',')})`) : []
 const zatenVar = new Set(opDosya.map((x) => Number(x.entity_id)))
 const bekleyen = gorselli.filter((r) => !zatenVar.has(r.op.id))
 let yuklenen = 0, hatali = 0

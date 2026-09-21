@@ -88,7 +88,7 @@ R.push(`| — sahibi atanacak | ${n((r) => r.surec_takip?.atanan_eposta)} |`)
 R.push('', '## Aylara göre', '', '| Ay | Talep | Durumlu | Yeni |', '|---|---|---|---|')
 for (const a of aylar) R.push(`| ${a} | ${n((r) => ay(r) === a)} | ${n((r) => ay(r) === a && r.surec_takip)} | ${n((r) => ay(r) === a && !r.surec_takip)} |`)
 R.push('', '## Girecek durumlar (Süreç Takip → CRM durumu)', '', '| Süreç Takip durumu | Adet | CRM\'de görünecek |', '|---|---|---|')
-const gorunum = (k) => { const y = DURUM_YOL[k]; if (!y) return 'Teklif · Teklif Bekliyor (Yeni)'; if (y.asama) return 'Teklif Reddedildi'; return y.durumlar.length ? y.durumlar.at(-1) : 'Teklif · Teklif Bekliyor' }
+const gorunum = (k) => { const y = DURUM_YOL[k]; if (!y) return 'Teklif · Teklif Bekliyor (Yeni)'; if (y.asama) return 'Teklif İletildi + İPTAL (Ticari Anlaşma Sağlanamadı)'; return y.durumlar.length ? y.durumlar.at(-1) : 'Teklif · Teklif Bekliyor' }
 for (const [k, v] of Object.entries(durumSay).sort((x, y) => y[1] - x[1])) R.push(`| ${k} | ${v} | ${gorunum(k)} |`)
 R.push('', '## Kapsam dışı kalanlar', '')
 R.push(`Süreç Takip'te 1 Ağu+ olup siteden gelmemiş (WhatsApp/e-posta kökenli): **${kalanC.length}** kayıt. Berkan "Affan elle giriyor" dedi; girilmedi.`)

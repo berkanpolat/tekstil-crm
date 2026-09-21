@@ -13,6 +13,26 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.39.0] — 2026-09-21
+
+### Talep geri yükleme: 1 Ağu 2026+ site talepleri CRM'e alındı
+
+16 Eyl 2026'daki toplu silme sonrası CRM'de talep kalmamıştı; site → CRM iletimi
+de 8 Eyl'den beri kesikti. `scripts/talep-geri-yukleme/` (topla · esle · yaz)
+dört kaynağı birleştirdi ve canlıya işledi (migration yok):
+
+- Kaynaklar: sunucu `leads.jsonl` (referans), `audit_log.old_values` (eski TAS
+  kodları), Süreç Takip DB (durum/sahip/not/geçmiş), Studio `landing_leads`.
+- Sonuç: **471 talep**, 421 müşteri, 278 eski kod korundu, 291 sahipli,
+  198 "Teklif reddedildi" → iptal (Ticari Anlaşma Sağlanamadı), 5 numune,
+  338 görsel sunucudan doğrudan R2'ye, 610 durum geçmişi olayı, 567 katalog kalemi.
+- 47 test/deneme kaydı ve 44 WhatsApp kökenli Süreç Takip kaydı kapsam dışı.
+- Yol: `intake_process` (sitenin DB yolu), `client_reference` ile idempotent;
+  `operations_guard_code` kod geri yazımı için işlem içinde geçici kapatıldı;
+  aktarımın ürettiği 287 bildirim silindi.
+- Not: Management API `secrets` uç noktası değerlerin SHA-256 özetini döndürür;
+  edge fn yerine DB fonksiyonu kullanıldı.
+
 ## [1.38.0] — 2026-09-12
 
 ### Katalog içe aktarma: görseller R2'ye taşındı (Görev 4)
