@@ -756,6 +756,89 @@ export type Database = {
           },
         ]
       }
+      cost_item_options: {
+        Row: {
+          cost_item_type_id: number
+          created_at: string
+          currency: string
+          id: number
+          is_active: boolean
+          label: string
+          sort_order: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          cost_item_type_id: number
+          created_at?: string
+          currency?: string
+          id?: never
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          cost_item_type_id?: number
+          created_at?: string
+          currency?: string
+          id?: never
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_item_options_cost_item_type_id_fkey"
+            columns: ["cost_item_type_id"]
+            isOneToOne: false
+            referencedRelation: "cost_item_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_item_types: {
+        Row: {
+          created_at: string
+          default_margin_percent: number | null
+          id: number
+          is_active: boolean
+          is_core: boolean
+          key: string
+          name: string
+          sort_order: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_margin_percent?: number | null
+          id?: never
+          is_active?: boolean
+          is_core?: boolean
+          key: string
+          name: string
+          sort_order?: number
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_margin_percent?: number | null
+          id?: never
+          is_active?: boolean
+          is_core?: boolean
+          key?: string
+          name?: string
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customer_statuses: {
         Row: {
           color: string | null
@@ -2024,6 +2107,33 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_channels: {
+        Row: {
+          created_at: string
+          id: number
+          is_active: boolean
+          key: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          key: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       message_template_variables: {
         Row: {
           default_value: string | null
@@ -2675,7 +2785,10 @@ export type Database = {
           id: number
           landing_source: string | null
           legacy_code: string | null
+          marketing: Json | null
+          marketing_channel_id: number | null
           merged_into: number | null
+          next_action_at: string | null
           owner_id: string | null
           possible_merge_with: number | null
           product_source: string | null
@@ -2685,6 +2798,8 @@ export type Database = {
           sla_deadline: string | null
           source: string
           stage_id: number | null
+          status_id: number
+          status_note: string | null
           target_price: number | null
           target_price_currency: string | null
           title: string | null
@@ -2714,7 +2829,10 @@ export type Database = {
           id?: never
           landing_source?: string | null
           legacy_code?: string | null
+          marketing?: Json | null
+          marketing_channel_id?: number | null
           merged_into?: number | null
+          next_action_at?: string | null
           owner_id?: string | null
           possible_merge_with?: number | null
           product_source?: string | null
@@ -2724,6 +2842,8 @@ export type Database = {
           sla_deadline?: string | null
           source?: string
           stage_id?: number | null
+          status_id: number
+          status_note?: string | null
           target_price?: number | null
           target_price_currency?: string | null
           title?: string | null
@@ -2753,7 +2873,10 @@ export type Database = {
           id?: never
           landing_source?: string | null
           legacy_code?: string | null
+          marketing?: Json | null
+          marketing_channel_id?: number | null
           merged_into?: number | null
+          next_action_at?: string | null
           owner_id?: string | null
           possible_merge_with?: number | null
           product_source?: string | null
@@ -2763,6 +2886,8 @@ export type Database = {
           sla_deadline?: string | null
           source?: string
           stage_id?: number | null
+          status_id?: number
+          status_note?: string | null
           target_price?: number | null
           target_price_currency?: string | null
           title?: string | null
@@ -2807,6 +2932,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "operations_marketing_channel_id_fkey"
+            columns: ["marketing_channel_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_channels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "operations_merged_into_fkey"
             columns: ["merged_into"]
             isOneToOne: false
@@ -2846,6 +2978,13 @@ export type Database = {
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "operation_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operations_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "stage_statuses"
             referencedColumns: ["id"]
           },
           {
@@ -3500,12 +3639,15 @@ export type Database = {
           amount: number | null
           calculation_type: string
           cost_id: number
+          cost_item_type_id: number | null
           currency: string
           fabric_name: string | null
           id: number
           item_type: string
+          margin_percent: number | null
           name: string
           quantity: number | null
+          selected_option_id: number | null
           sort_order: number
           unit_price: number | null
         }
@@ -3513,12 +3655,15 @@ export type Database = {
           amount?: number | null
           calculation_type?: string
           cost_id: number
+          cost_item_type_id?: number | null
           currency?: string
           fabric_name?: string | null
           id?: number
           item_type?: string
+          margin_percent?: number | null
           name: string
           quantity?: number | null
+          selected_option_id?: number | null
           sort_order?: number
           unit_price?: number | null
         }
@@ -3526,12 +3671,15 @@ export type Database = {
           amount?: number | null
           calculation_type?: string
           cost_id?: number
+          cost_item_type_id?: number | null
           currency?: string
           fabric_name?: string | null
           id?: number
           item_type?: string
+          margin_percent?: number | null
           name?: string
           quantity?: number | null
+          selected_option_id?: number | null
           sort_order?: number
           unit_price?: number | null
         }
@@ -3541,6 +3689,20 @@ export type Database = {
             columns: ["cost_id"]
             isOneToOne: false
             referencedRelation: "product_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_cost_items_cost_item_type_id_fkey"
+            columns: ["cost_item_type_id"]
+            isOneToOne: false
+            referencedRelation: "cost_item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_cost_items_selected_option_id_fkey"
+            columns: ["selected_option_id"]
+            isOneToOne: false
+            referencedRelation: "cost_item_options"
             referencedColumns: ["id"]
           },
         ]
@@ -3624,6 +3786,82 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      quote_item_costs: {
+        Row: {
+          amount: number | null
+          cost_item_type_id: number | null
+          created_at: string
+          currency: string
+          effective_margin_percent: number | null
+          id: number
+          margin_percent: number | null
+          quantity: number | null
+          quote_item_id: number
+          rate_snapshot: Json | null
+          selected_option_id: number | null
+          sort_order: number
+          source: string
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          cost_item_type_id?: number | null
+          created_at?: string
+          currency?: string
+          effective_margin_percent?: number | null
+          id?: never
+          margin_percent?: number | null
+          quantity?: number | null
+          quote_item_id: number
+          rate_snapshot?: Json | null
+          selected_option_id?: number | null
+          sort_order?: number
+          source?: string
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          cost_item_type_id?: number | null
+          created_at?: string
+          currency?: string
+          effective_margin_percent?: number | null
+          id?: never
+          margin_percent?: number | null
+          quantity?: number | null
+          quote_item_id?: number
+          rate_snapshot?: Json | null
+          selected_option_id?: number | null
+          sort_order?: number
+          source?: string
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_item_costs_cost_item_type_id_fkey"
+            columns: ["cost_item_type_id"]
+            isOneToOne: false
+            referencedRelation: "cost_item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_item_costs_quote_item_id_fkey"
+            columns: ["quote_item_id"]
+            isOneToOne: false
+            referencedRelation: "quote_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_item_costs_selected_option_id_fkey"
+            columns: ["selected_option_id"]
+            isOneToOne: false
+            referencedRelation: "cost_item_options"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quote_items: {
         Row: {
@@ -4143,6 +4381,7 @@ export type Database = {
           fee: number | null
           fee_currency: string
           id: number
+          label: string | null
           operation_id: number
           overdue_warned_at: string | null
           quote_id: number | null
@@ -4173,6 +4412,7 @@ export type Database = {
           fee?: number | null
           fee_currency?: string
           id?: never
+          label?: string | null
           operation_id: number
           overdue_warned_at?: string | null
           quote_id?: number | null
@@ -4203,6 +4443,7 @@ export type Database = {
           fee?: number | null
           fee_currency?: string
           id?: never
+          label?: string | null
           operation_id?: number
           overdue_warned_at?: string | null
           quote_id?: number | null
@@ -4327,6 +4568,59 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stage_statuses: {
+        Row: {
+          behavior: string | null
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          requires_reason: boolean
+          sort_order: number
+          stage_id: number
+          updated_at: string
+        }
+        Insert: {
+          behavior?: string | null
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          requires_reason?: boolean
+          sort_order?: number
+          stage_id: number
+          updated_at?: string
+        }
+        Update: {
+          behavior?: string | null
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          requires_reason?: boolean
+          sort_order?: number
+          stage_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_statuses_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "operation_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -5205,6 +5499,10 @@ export type Database = {
         Args: { p_currency: string; p_date: string; p_rate: number }
         Returns: undefined
       }
+      calisma_worklist: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       catalog_code_key: { Args: { input: string }; Returns: string }
       catalog_slugify: { Args: { input: string }; Returns: string }
       check_import_duplicates: {
@@ -5320,6 +5618,7 @@ export type Database = {
         }[]
       }
       evaluate_order_due: { Args: { p_order_id: number }; Returns: number }
+      expected_bulletin_date: { Args: never; Returns: string }
       file_record_exists: {
         Args: { p_bucket: string; p_path: string }
         Returns: boolean
@@ -5347,6 +5646,13 @@ export type Database = {
           title: string
         }[]
       }
+      find_entity_by_phone: {
+        Args: { p_phone: string }
+        Returns: {
+          entity_id: number
+          entity_type: string
+        }[]
+      }
       generate_operation_code: {
         Args: { p_entity_id?: string; p_entity_type: string }
         Returns: string
@@ -5365,6 +5671,7 @@ export type Database = {
       }
       goal_actual: { Args: { p_goal_id: number }; Returns: number }
       has_permission: { Args: { permission_key: string }; Returns: boolean }
+      in_stage_sync: { Args: never; Returns: boolean }
       intake_normalize_phone: { Args: { p_raw: string }; Returns: string }
       intake_process: { Args: { p: Json }; Returns: Json }
       is_active_user: { Args: never; Returns: boolean }
@@ -5553,6 +5860,11 @@ export type Database = {
       }
       order_advance_check: { Args: { p_order_id: number }; Returns: Json }
       order_paid_summary: { Args: { p_order_id: number }; Returns: Json }
+      order_paid_summary_internal: {
+        Args: { p_order_id: number }
+        Returns: Json
+      }
+      pazarlama_kanali_bul: { Args: { p: Json }; Returns: string }
       post_account_transaction: {
         Args: {
           p_amount: number
@@ -5568,6 +5880,24 @@ export type Database = {
           p_source_id?: number
           p_source_type: string
           p_usd_rate?: number
+        }
+        Returns: number
+      }
+      post_account_transaction_internal: {
+        Args: {
+          p_amount: number
+          p_created_by: string
+          p_currency: string
+          p_customer_id: number
+          p_description: string
+          p_direction: string
+          p_exchange_rate: number
+          p_occurred_at: string
+          p_operation_id: number
+          p_reverses_id: number
+          p_source_id: number
+          p_source_type: string
+          p_usd_rate: number
         }
         Returns: number
       }
@@ -5630,7 +5960,12 @@ export type Database = {
         Returns: number
       }
       set_exchange_rate: {
-        Args: { p_currency: string; p_rate: number; p_source?: string }
+        Args: {
+          p_currency: string
+          p_rate: number
+          p_rate_date?: string
+          p_source?: string
+        }
         Returns: undefined
       }
       set_role_permission: {
@@ -5644,6 +5979,7 @@ export type Database = {
         Args: { p_open_file_id: number; p_reason: string; p_until: string }
         Returns: Json
       }
+      storage_key_guvenli: { Args: { p_name: string }; Returns: boolean }
       suggest_catalog_products: {
         Args: { p_code: string; p_limit?: number }
         Returns: {
@@ -5651,6 +5987,15 @@ export type Database = {
           id: number
           name: string
         }[]
+      }
+      system_set_exchange_rate: {
+        Args: {
+          p_currency: string
+          p_rate: number
+          p_rate_date?: string
+          p_source?: string
+        }
+        Returns: string
       }
       task_blocking: {
         Args: { p_task_id: number }
@@ -5695,12 +6040,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5724,11 +6069,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5749,11 +6094,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5774,11 +6119,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -5791,11 +6136,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

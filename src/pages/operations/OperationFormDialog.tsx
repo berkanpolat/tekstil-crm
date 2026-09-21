@@ -21,7 +21,7 @@ import { useAssigneeOptions } from '@/hooks/useLeads'
 import { useCreateCustomer } from '@/hooks/useCustomers'
 import { useUploadFile } from '@/hooks/useFiles'
 import { useCategoryOptions, useTypeOptions, useCreateCategory } from '@/hooks/useProductCategories'
-import { useAllCustomerOptions, useCreateOperation, useChannelOptions, useProvinceOptions, type OperationInput } from '@/hooks/useOperations'
+import { useAllCustomerOptions, useCreateOperation, useChannelOptions, useMarketingChannelOptions, useProvinceOptions, type OperationInput } from '@/hooks/useOperations'
 import { useCatalogPickList, type CatalogPick } from '@/hooks/useCatalog'
 import { useAddCatalogItem } from '@/hooks/useOperationCatalog'
 
@@ -65,6 +65,8 @@ function OperationForm({ presetCustomer, onDone, onCreated }: {
   const { data: me } = useCurrentUser()
   const [customerId, setCustomerId] = useState<number | null>(presetCustomer?.id ?? null)
   const [channelId, setChannelId] = useState<string | null>(null)
+  const [marketingId, setMarketingId] = useState<string | null>(null)
+  const marketingChannels = useMarketingChannelOptions()
   const [provinceId, setProvinceId] = useState<string | null>(null)
   const [district, setDistrict] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
@@ -125,6 +127,7 @@ function OperationForm({ presetCustomer, onDone, onCreated }: {
     const payload: OperationInput = {
       customer_id: customerId,
       channel_id: Number(channelId),
+      marketing_channel_id: marketingId ? Number(marketingId) : null,
       province_id: provinceId ? Number(provinceId) : null,
       district: district.trim() || null,
       category_id: categoryId ? Number(categoryId) : null,
@@ -191,6 +194,14 @@ function OperationForm({ presetCustomer, onDone, onCreated }: {
         {(p) => (
           <SearchableSelect id={p.id} options={(channels.data ?? []).map((c) => ({ value: String(c.id), label: c.label }))}
             value={channelId} onChange={setChannelId} placeholder="WhatsApp, Web sitesi…" />
+        )}
+      </FormField>
+
+      {/* Pazarlama kanalı — rapordaki "kanal dağılımı" (Meta / Search / Data / Dış Arama…) */}
+      <FormField label="Pazarlama kanalı" hint="Müşteri bizi nereden buldu? Siteden gelen taleplerde otomatik dolar.">
+        {(p) => (
+          <SearchableSelect id={p.id} clearable options={(marketingChannels.data ?? []).map((c) => ({ value: String(c.id), label: c.label }))}
+            value={marketingId} onChange={setMarketingId} placeholder="Data, Dış Arama, Gelen Arama…" />
         )}
       </FormField>
 

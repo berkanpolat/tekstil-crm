@@ -49,7 +49,11 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
   const trend = useRequestTrend(period)
   useEffect(() => {
     if (!data) { setCsv(null); setPdf(null); return }
-    setCsv({ filename: `talep-raporu-${period.key}`, headers: ['Kanal', 'Talep'], rows: (data.by_channel ?? []).map((x) => [x.label, x.count]) })
+    setCsv({ filename: `talep-raporu-${period.key}`, headers: ['Kırılım', 'Değer', 'Talep'], rows: [
+      ...(data.by_marketing ?? []).map((x) => ['Pazarlama kanalı', x.label, x.count] as (string | number)[]),
+      ...(data.by_channel ?? []).map((x) => ['Kanal', x.label, x.count] as (string | number)[]),
+      ...(data.by_province ?? []).map((x) => ['İl', x.label, x.count] as (string | number)[]),
+    ] })
     setPdf({
       kpis: [
         { label: 'Toplam talep', value: String(data.total ?? 0), sub: `önceki dönem: ${data.prev_total ?? 0}` },
@@ -60,6 +64,9 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
       blocks: [
         ...((data.total ?? 0) > 0 ? [{ kind: 'sentence' as const, text: `${data.total} talebin ${data.sla_met_count ?? 0}'ine söz verilen sürede (24 saat) teklif çıkıldı (${pct(data.sla_rate)}); ${data.sla_missed_count ?? 0}'i geç kaldı, ${data.sla_pending_count ?? 0}'inde süre henüz dolmadı.` }] : []),
         { kind: 'hist', title: 'Saate göre talep dağılımı', data: data.by_hour ?? [], caption: 'Taleplerin günün hangi saatlerinde yoğunlaştığı (0–23, yerel saat).' },
+        { kind: 'bars', title: 'Pazarlama kanalına göre', rows: labeledRows(data.by_marketing) },
+        { kind: 'bars', title: 'Güne göre', rows: dowRows(data.by_dow) },
+        { kind: 'bars', title: 'Ürün kaynağına göre', rows: labeledRows(data.by_product_source) },
         { kind: 'bars', title: 'Kanala göre', rows: labeledRows(data.by_channel) },
         { kind: 'bars', title: 'Kategoriye göre', rows: labeledRows(data.by_category) },
         { kind: 'bars', title: 'İle göre', rows: labeledRows(data.by_province), empty: 'İl verisi yok.' },
@@ -98,6 +105,12 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
         <p className="text-text-muted text-xs">Taleplerin günün hangi saatlerinde yoğunlaştığını gösterir (0–23, yerel saat).</p>
       </ReportSection>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ReportSection title="Pazarlama kanalına göre">
+          <BarList rows={labeledRows(data?.by_marketing)} empty="Kanal verisi yok." />
+          <p className="text-text-muted text-xs">Siteden gelenlerde otomatik (reklam tıklaması, UTM, yönlendiren); elle açılan taleplerde formdan seçilir.</p>
+        </ReportSection>
+        <ReportSection title="Güne göre talep dağılımı"><BarList rows={dowRows(data?.by_dow)} /></ReportSection>
+        <ReportSection title="Ürün kaynağına göre"><BarList rows={labeledRows(data?.by_product_source)} /></ReportSection>
         <ReportSection title="Kanala göre"><BarList rows={labeledRows(data?.by_channel)} /></ReportSection>
         <ReportSection title="Kategoriye göre"><BarList rows={labeledRows(data?.by_category)} /></ReportSection>
         <ReportSection title="İle göre">
@@ -395,6 +408,10 @@ export function EkipRaporu({ period, setCsv, setPdf }: ReportProps) {
 
 // ── Yardımcılar ────────────────────────────────────────────────────────
 function numOrNull(v: string | null): number | null { const n = Number(v); return v && Number.isFinite(n) ? n : null }
+const GUNLER = ['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
+function dowRows(rows?: { dow: number; count: number }[]) {
+  return (rows ?? []).map((r) => ({ label: GUNLER[r.dow] ?? String(r.dow), count: r.count }))
+}
 function Sel({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: number; label: string }[] }) {
   return (
     <label className="flex items-center gap-1.5 text-sm">

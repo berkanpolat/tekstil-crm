@@ -322,6 +322,8 @@ try {
             'note'              => $crmNote,
             'selected_products' => (!empty($d['selected_products']) && is_array($d['selected_products'])) ? $d['selected_products'] : [],
             'image_base64'      => $image_base64,
+            // Pazarlama kaynağı (kaynak-takip.js): kanal, utm_*, gclid/fbclid/ttclid, referrer, vid — rapor için
+            'kaynak'            => $kaynak,
         ];
         $ch = curl_init($CRM_URL);
         curl_setopt_array($ch, [

@@ -1,3 +1,4 @@
+// @ts-nocheck — .mjs betik modülü, tip bildirimi yok (katalogIceAktarYardimci.test.ts ile aynı durum)
 import { describe, it, expect } from 'vitest'
 import { createHash } from 'node:crypto'
 import {

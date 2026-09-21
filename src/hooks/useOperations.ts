@@ -186,7 +186,7 @@ export function useOperation(id: number | null) {
         .from('operations')
         .select(
           'id, code, legacy_code, customer_id, title, description, stage_id, request_status_id, owner_id,' +
-            ' source, channel_id, province_id, district, product_source,' +
+            ' source, channel_id, marketing_channel_id, province_id, district, product_source,' +
             ' expected_delivery, sla_deadline, requested_at,' +
             ' category_id, type_id, cancelled_at,' +
             ' cancellation_reason_id, cancellation_note, created_at, updated_at,' +
@@ -234,6 +234,8 @@ export interface OperationInput {
   category_id?: number | null
   type_id?: number | null
   channel_id?: number | null
+  /** Pazarlama kanalı (Meta/Search/Data/Dış Arama…) — rapor kırılımı; siteden gelenlerde otomatik. */
+  marketing_channel_id?: number | null
   province_id?: number | null
   district?: string | null
   product_source?: string | null
@@ -305,6 +307,12 @@ export function useChannelOptions() {
   return useReferenceQuery({
     queryKey: ['request-channel-options'],
     queryFn: async () => (await supabase.from('request_channels').select('id, key, label, color').eq('is_active', true).order('sort_order')).data ?? [],
+  })
+}
+export function useMarketingChannelOptions() {
+  return useReferenceQuery({
+    queryKey: ['marketing-channel-options'],
+    queryFn: async () => (await supabase.from('marketing_channels').select('id, key, label').eq('is_active', true).order('sort_order')).data ?? [],
   })
 }
 export function useProvinceOptions() {

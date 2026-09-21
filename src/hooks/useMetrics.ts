@@ -83,7 +83,13 @@ export interface RequestsMetric extends ChangeBlock {
   sla_rate: number; sla_met_count: number; sla_missed_count: number; sla_pending_count: number
   avg_response_hours: number
   by_landing: Labeled[]; by_city: Labeled[]; by_channel: Labeled[]; by_category: Labeled[]; by_province: Labeled[]
+  /** Pazarlama kanalı (Meta/Search/Organik/Data…) — marketing_channels */
+  by_marketing: (Labeled & { key: string })[]
+  /** Katalogdan seçim / görsel-manuel ürün */
+  by_product_source: Labeled[]
   by_hour: { hour: number; count: number }[]
+  /** ISO gün: 1=Pazartesi … 7=Pazar */
+  by_dow: { dow: number; count: number }[]
 }
 export interface FunnelMetric { requests: number; quotes: number; samples: number; orders: number; conversion_rates: { step: string; rate: number }[] }
 /** Huninin her adımında İLERLEYEN / BEKLEYEN / DÜŞEN (red-iptal). Özdeşlik: reached = advanced + waiting + dead. */
