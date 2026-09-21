@@ -9,6 +9,7 @@ begin;
 \i supabase/migrations/20260919130000_h2_behavior_engine.sql
 \i supabase/migrations/20260920000000_h3_1_quotes_sync_reconcile.sql
 \i supabase/migrations/20260920010000_h3_1b_new_op_defaults.sql
+\i supabase/migrations/20260920020000_h3_2_status_change_event.sql
 set local app.debug_stage = '1';
 
 do $$
@@ -51,7 +52,13 @@ begin
     (select count(*) from public.orders where operation_id=v_op),
     (select shipped_at is not null from public.orders where operation_id=v_op order by id desc limit 1),
     (select actual_delivery is not null from public.orders where operation_id=v_op order by id desc limit 1);
-  raise notice 'GEÇTİ ✓  Sonsuz döngü/kapı hatası yok · çocuklar oluştu · stage stabil (final=Kapandı).';
+  -- T-A: her durum değişimi event_log'a 'operation.status_changed' yazmalı (zaman çizelgesi kaynağı)
+  declare v_ev int; begin
+    select count(*) into v_ev from public.event_log where entity_type='operation' and entity_id=v_op::text and event_type='operation.status_changed';
+    raise notice 'status_changed event sayısı: % (yürüyüşteki durum değişimi kadar)', v_ev;
+    if v_ev = 0 then raise exception 'FAIL: durum degisimi event_log kaydi olusmadi (zaman cizelgesi bos kalir)'; end if;
+  end;
+  raise notice 'GEÇTİ ✓  Sonsuz döngü/kapı hatası yok · çocuklar oluştu · stage stabil (final=Kapandı) · durum olayları loglandı.';
 end $$;
 
 -- ===== BLOK 2: teklif→quotes_sync→operations.status_id ZİNCİRİ (trigger→trigger) =====
@@ -71,6 +78,14 @@ begin
   raise notice 'A0) yeni talep DOĞDU → durum=%  stage=% (beklenen st_teklif_bekliyor/teklif)', v_st, v_stage;
   if v_st <> 'st_teklif_bekliyor' or v_stage <> 'teklif' then
     raise exception 'FAIL A0: yeni talep iki kademeli modelde doğmadı (durum=%, stage=%).', v_st, v_stage; end if;
+  -- T-A doğuş: operation.created payload'ı ilk aşama+durum etiketini taşımalı (çizelge yarım başlamasın)
+  declare v_slbl text; v_stlbl text; begin
+    select payload->>'stage_label', payload->>'status_label' into v_slbl, v_stlbl
+      from public.event_log where event_type='operation.created' and entity_id=v_op2::text;
+    raise notice 'A0b) doğuş olayı payload → stage_label=%  status_label=%', v_slbl, v_stlbl;
+    if v_slbl is null or v_stlbl is null then
+      raise exception 'FAIL A0b: doğuş olayı ilk aşama/durum etiketini taşımıyor (çizelge yarım başlar).'; end if;
+  end;
   -- (a) teklif dosyası eklenince (gerçek useUploadQuoteFile: quotes insert + quote_file_id) İletildi'ye çekilmeli
   insert into public.quotes(operation_id, quote_file_id) values (v_op2, v_file) returning id into v_q;   -- quotes_sync zinciri
   select ss.key, os.key, rs.key into v_st, v_stage, v_req

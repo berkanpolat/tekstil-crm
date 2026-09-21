@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { Plus, Trash2, Shirt, Copy, Loader2, Save, Truck, PackageCheck, Check, X, BadgeCheck, Lock, LockOpen } from 'lucide-react'
+import { Plus, Trash2, Shirt, Loader2, Save, BadgeCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
-import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { MoneyInput } from '@/components/shared/MoneyInput'
@@ -14,25 +12,20 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog'
-import {
-  useOperationSamples, useCreateSample, useReviseSample, useUpdateSample, useDeleteSample,
-  useSampleStatusOptions, type Sample,
+  useOperationSamples, useCreateSample, useUpdateSample, useDeleteSample, type Sample,
 } from '@/hooks/useSamples'
 import { useOperationQuotes, quoteLabel } from '@/hooks/useQuotes'
 import { useOperationDocuments } from '@/hooks/useDocuments'
 import { GenerateDocButton } from './GenerateDocButton'
 
-const APPROVAL_METHODS = [
-  { value: 'whatsapp', label: 'WhatsApp fotoğrafı' }, { value: 'eposta', label: 'E-posta' },
-  { value: 'fiziksel', label: 'Fiziksel teslim' }, { value: 'yuz_yuze', label: 'Yüz yüze' },
-  { value: 'diger', label: 'Diğer' },
-]
-const methodLabel = (m: string | null) => APPROVAL_METHODS.find((x) => x.value === m)?.label ?? m ?? '—'
-const toneClass = (c: string | null): string =>
-  c && (['success', 'warning', 'danger', 'info', 'neutral'] as string[]).includes(c)
-    ? STATUS_TONE_CLASS[c as StatusTone] : 'bg-neutral-badge text-neutral-badge-foreground'
+// H3: Durum artık TEK yerden — talep kartındaki Süreç şeridi — değişir. Bu kart yalnız
+// numune BİLGİSİNİ tutar (ad, ücret, termin, kargo, takip, açıklama). Durum butonları,
+// Durum seçici ve onay/red/revize modalları KALDIRILDI (tek giriş noktası ilkesi).
+
+const APPROVAL_METHODS: Record<string, string> = {
+  whatsapp: 'WhatsApp fotoğrafı', eposta: 'E-posta', fiziksel: 'Fiziksel teslim', yuz_yuze: 'Yüz yüze', diger: 'Diğer',
+}
+const methodLabel = (m: string | null) => (m ? APPROVAL_METHODS[m] ?? m : '—')
 const fmtDateTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
@@ -82,7 +75,9 @@ export function SamplesTab({ operationId }: { operationId: number }) {
                 <span className={cn('min-w-0 truncate text-sm font-medium', deleted && 'text-text-muted line-through')} title={s.label ?? undefined}>
                   N{s.version}{s.label ? ` · ${s.label}` : ''}{deleted && ' (silindi)'}
                 </span>
-                {!deleted && s.status_label && <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', toneClass(s.status_color))}>{s.status_label}</span>}
+                {/* Bulgu B: numunenin kendi (legacy) durum etiketi GÖSTERİLMEZ — tek gerçek operasyon
+                    durumu (Süreç şeridi). Burada tur bilgisi ayrışmayan gerçek bir veridir. */}
+                {!deleted && s.revision_round > 1 && <span className="text-text-muted shrink-0 text-[10px]">{s.revision_round}. tur</span>}
               </div>
               {!deleted && s.approved_at && <div className="text-success-foreground mt-1 flex items-center gap-1 text-[10px]"><BadgeCheck className="size-3" /> onaylı</div>}
             </button>
@@ -97,13 +92,11 @@ export function SamplesTab({ operationId }: { operationId: number }) {
   )
 }
 
+/** Numune BİLGİ kartı — durum kontrolü yok (o, Süreç şeridinde). Yalnız numune verisi. */
 function SampleEditor({ sample, operationId }: { sample: Sample; operationId: number }) {
-  const statuses = useSampleStatusOptions()
   const quotes = useOperationQuotes(operationId)
   const update = useUpdateSample()
   const del = useDeleteSample()
-  const revise = useReviseSample()
-  const [reviseOpen, setReviseOpen] = useState(false)
 
   const [label, setLabel] = useState(sample.label ?? '')
   const [description, setDescription] = useState(sample.description ?? '')
@@ -113,27 +106,6 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
   const [carrier, setCarrier] = useState(sample.carrier ?? '')
   const [tracking, setTracking] = useState(sample.tracking_number ?? '')
   const [targetDate, setTargetDate] = useState(sample.target_date ?? '')
-  const [approveOpen, setApproveOpen] = useState(false)
-  const [rejectOpen, setRejectOpen] = useState(false)
-
-  const stDef = statuses.data?.find((s) => s.id === sample.status_id)
-  const stKey = stDef?.key ?? sample.status_key
-  // 3c — Kilit semantiği: numune "final" olduğunda salt-okunur. Final = onaylandı VEYA
-  // kapalı bir durum (reddedildi/iptal). teslim_edildi kapalı sayılsa da akış bitmez
-  // (sonrasında onay/red gelir) → final DEĞİL; buton ve alanlar açık kalır.
-  const finalized = !!sample.approved_at || ((stDef?.is_closed ?? false) && stKey !== 'teslim_edildi')
-  const statusIdByKey = (key: string) => statuses.data?.find((s) => s.key === key)?.id ?? null
-  // Fail-loud: statü listesi yüklenmemişse (veya anahtar bulunamazsa) status_id SESSİZCE
-  // düşmesin — kullanıcıya hata göster, işlemi durdur. Aksi halde yalnız shipped_at yazılıp
-  // durum "Kargoda"ya geçmez ve akış tutarsız kalır.
-  const resolveStatus = (key: string): number | null => {
-    const id = statusIdByKey(key)
-    if (id == null) toast.error(`Numune durumları henüz yüklenmedi (“${key}” bulunamadı). Sayfayı yenileyip tekrar deneyin.`)
-    return id
-  }
-  // Final numune varsayılan olarak KİLİTLİ (salt-okunur). "Yeniden aç" ile düzenlenebilir.
-  const [unlocked, setUnlocked] = useState(false)
-  const locked = finalized && !unlocked
 
   async function saveHeader() {
     try {
@@ -144,72 +116,27 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
       toast.success('Numune kaydedildi.')
     } catch (err) { toast.error(await toUserMessage(err)) }
   }
-  async function markShipped() {
-    const sid = resolveStatus('kargoda')
-    if (sid == null) return
-    try {
-      await update.mutateAsync({ id: sample.id, operationId, shipped_at: new Date().toISOString(),
-        carrier: carrier.trim() || null, tracking_number: tracking.trim() || null, status_id: sid })
-      toast.success('Numune gönderildi olarak işaretlendi.')
-    } catch (err) { toast.error(await toUserMessage(err)) }
-  }
-  // 3a — Teslim alındı / geri döndü: received_at + durum "teslim_edildi". Kargodaki numune
-  // geri dönünce akışta karşılığı olmayan "geri dönüş alındı mı?" görevini kapatır.
-  async function markReceived() {
-    const sid = resolveStatus('teslim_edildi')
-    if (sid == null) return
-    try {
-      await update.mutateAsync({ id: sample.id, operationId, received_at: new Date().toISOString(), status_id: sid })
-      toast.success('Numune teslim alındı olarak işaretlendi.')
-    } catch (err) { toast.error(await toUserMessage(err)) }
-  }
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-foreground">Numune N{sample.version}{sample.label ? ` · ${sample.label}` : ''}</h3>
-          <span className={cn('rounded px-1.5 py-0.5 text-xs', sample.revision_round >= 3 ? 'bg-warning-badge text-warning-badge-foreground' : 'text-text-muted')}>
-            {sample.revision_round}. tur{sample.revision_round >= 3 && ' ⚠'}
-          </span>
-          {/* 3c — kilit durumu her zaman görünür */}
-          <span className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
-            locked ? 'bg-muted text-text-muted' : 'bg-success-badge text-success-badge-foreground')}>
-            {locked ? <><Lock className="size-3" /> Kilitli</> : <><LockOpen className="size-3" /> Düzenlenebilir</>}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {finalized && (unlocked
-            ? <Button size="sm" variant="outline" onClick={() => setUnlocked(false)}><Lock className="size-3.5" /> Kilitle</Button>
-            : <Button size="sm" variant="outline" onClick={() => setUnlocked(true)}><LockOpen className="size-3.5" /> Yeniden aç</Button>)}
-          <Button size="sm" variant="outline" onClick={() => void markShipped()} disabled={finalized}><Truck className="size-3.5" /> Gönderildi</Button>
-          {sample.shipped_at && !sample.received_at && (
-            <Button size="sm" variant="outline" onClick={() => void markReceived()} disabled={finalized}><PackageCheck className="size-3.5" /> Teslim alındı</Button>
-          )}
-          <Button size="sm" variant="outline" onClick={() => setApproveOpen(true)} disabled={finalized}><Check className="size-3.5" /> Onayla</Button>
-          <Button size="sm" variant="outline" onClick={() => setRejectOpen(true)} disabled={finalized}><X className="size-3.5" /> Reddet</Button>
-          <Button size="sm" variant="outline" onClick={() => setReviseOpen(true)} disabled={finalized || revise.isPending}><Copy className="size-3.5" /> Revize et</Button>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-semibold text-foreground">Numune N{sample.version}{sample.label ? ` · ${sample.label}` : ''}</h3>
+        <span className={cn('rounded px-1.5 py-0.5 text-xs', sample.revision_round >= 3 ? 'bg-warning-badge text-warning-badge-foreground' : 'text-text-muted')}>
+          {sample.revision_round}. tur{sample.revision_round >= 3 && ' ⚠'}
+        </span>
       </div>
-      {/* 3c — kilit kuralını kullanıcıya açıkla */}
-      <p className="text-text-muted -mt-3 text-xs">
-        {locked
-          ? 'Bu numune final (onaylı/kapalı) — salt-okunur. Düzenlemek için “Yeniden aç”.'
-          : 'Numune düzenlenebilir. Onaylanınca ya da reddedilince kilitlenir (teslim alındıktan sonra hâlâ düzenlenebilir).'}
-      </p>
+      <p className="text-text-muted -mt-3 text-xs">Durum talebin <strong>Süreç</strong> sekmesindeki durum şeridinden yürür (tek kaynak). Bu kart numune bilgisini tutar.</p>
+
       {sample.revision_round >= 3 && (
         <div className="border-warning/40 bg-warning/5 text-warning-foreground rounded-lg border px-3 py-2 text-sm">
           Bu numune {sample.revision_round}. turda — tekrarlayan revizyon. Süreci gözden geçirin.
         </div>
       )}
 
-      {/* Onay özeti (kim/ne zaman/yöntem) */}
+      {/* Onay / red özeti (salt-okunur bilgi) */}
       {sample.approved_at && (
         <div className="border-success/40 bg-success/5 rounded-lg border p-3 text-sm">
-          <div className="text-success-foreground flex items-center gap-1.5 font-medium">
-            <BadgeCheck className="size-4" /> Onaylandı
-            {locked && <span className="text-text-muted inline-flex items-center gap-1 text-xs font-normal"><Lock className="size-3" /> kilitli — düzenlemek için “Yeniden aç”</span>}
-          </div>
+          <div className="text-success-foreground flex items-center gap-1.5 font-medium"><BadgeCheck className="size-4" /> Onaylandı</div>
           <div className="text-text-secondary mt-1 grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2">
             <span>Tarih: {fmtDateTime(sample.approved_at)}</span>
             <span>Yöntem: {methodLabel(sample.approval_method)}</span>
@@ -223,52 +150,46 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
 
       <div className="max-w-sm space-y-1">
         <Label className="text-text-muted text-xs">Ad / Etiket</Label>
-        <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="ör. Kırmızı varyant" disabled={locked} maxLength={60} />
+        <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="ör. Kırmızı varyant" maxLength={60} />
         <p className="text-text-muted text-[11px]">Numuneleri ayırt etmek için kısa ad. Ayrıntı için “Açıklama” alanını kullanın.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="space-y-1">
-          <Label className="text-text-muted text-xs">Durum</Label>
-          <SearchableSelect disabled={locked} options={(statuses.data ?? []).map((s) => ({ value: String(s.id), label: s.label }))}
-            value={sample.status_id ? String(sample.status_id) : null}
-            onChange={async (v) => { if (v) { try { await update.mutateAsync({ id: sample.id, operationId, status_id: Number(v) }); toast.success('Durum güncellendi.') } catch (err) { toast.error(await toUserMessage(err)) } } }} />
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">İlgili teklif</Label>
-          <SearchableSelect clearable disabled={locked} options={(quotes.data ?? []).filter((q) => !q.deleted_at).map((q) => ({ value: String(q.id), label: `${quoteLabel(q)} · v${q.version}` }))}
+          <SearchableSelect clearable options={(quotes.data ?? []).filter((q) => !q.deleted_at).map((q) => ({ value: String(q.id), label: `${quoteLabel(q)} · v${q.version}` }))}
             value={quoteId} onChange={setQuoteId} placeholder="—" />
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Numune ücreti (₺)</Label>
-          <MoneyInput value={fee} onValueChange={setFee} placeholder="0,00" disabled={locked} />
+          <MoneyInput value={fee} onValueChange={setFee} placeholder="0,00" />
         </div>
         <label className="flex items-end gap-2 pb-2 text-sm">
-          <input type="checkbox" checked={deduct} onChange={(e) => setDeduct(e.target.checked)} className="size-4" disabled={locked} />
+          <input type="checkbox" checked={deduct} onChange={(e) => setDeduct(e.target.checked)} className="size-4" />
           <span className="text-text-secondary">Siparişten düşülecek</span>
         </label>
       </div>
 
       <div className="max-w-xs space-y-1">
         <Label className="text-text-muted text-xs">Numune termini</Label>
-        <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} disabled={locked} />
+        <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
         <p className="text-text-muted text-[11px]">Dolunca sesli uyarı verilir. Boş bırakılabilir.</p>
       </div>
 
       <div className="space-y-1">
         <Label className="text-xs">Açıklama</Label>
-        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Numune detayı, müşteri isteği…" disabled={locked} />
+        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Numune detayı, müşteri isteği…" />
       </div>
 
-      {/* Kargo */}
+      {/* Kargo bilgisi */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Kargo firması</Label>
-          <Input value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="ör. Aras" disabled={locked} />
+          <Input value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="ör. Aras" />
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Takip no</Label>
-          <Input value={tracking} onChange={(e) => setTracking(e.target.value)} disabled={locked} />
+          <Input value={tracking} onChange={(e) => setTracking(e.target.value)} />
         </div>
         <div className="space-y-1">
           <Label className="text-text-muted text-xs">Gönderim</Label>
@@ -285,97 +206,11 @@ function SampleEditor({ sample, operationId }: { sample: Sample; operationId: nu
           if (!confirm(`Numune N${sample.version} silinsin mi?`)) return
           try { await del.mutateAsync({ id: sample.id, operationId }); toast.success('Numune silindi.') }
           catch (err) { toast.error(await toUserMessage(err)) }
-        }} disabled={del.isPending || locked}><Trash2 className="size-4" /> Sil</Button>
-        <Button onClick={() => void saveHeader()} disabled={update.isPending || locked}>
+        }} disabled={del.isPending}><Trash2 className="size-4" /> Sil</Button>
+        <Button onClick={() => void saveHeader()} disabled={update.isPending}>
           {update.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Kaydet
         </Button>
       </div>
-
-      {approveOpen && <ApproveDialog onClose={() => setApproveOpen(false)} onApprove={async (method, note) => {
-        const sid = resolveStatus('onaylandi')
-        if (sid == null) return
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          await update.mutateAsync({ id: sample.id, operationId, approved_at: new Date().toISOString(),
-            approved_by: user?.id ?? null, approval_method: method, approval_note: note || null, status_id: sid })
-          toast.success('Numune onaylandı.'); setApproveOpen(false)
-        } catch (err) { toast.error(await toUserMessage(err)) }
-      }} />}
-      {rejectOpen && <RejectDialog onClose={() => setRejectOpen(false)} onReject={async (reason) => {
-        const sid = resolveStatus('reddedildi')
-        if (sid == null) return
-        try {
-          await update.mutateAsync({ id: sample.id, operationId, rejection_reason: reason || null, status_id: sid })
-          toast.success('Numune reddedildi.'); setRejectOpen(false)
-        } catch (err) { toast.error(await toUserMessage(err)) }
-      }} />}
-      {reviseOpen && <ReviseDialog onClose={() => setReviseOpen(false)} onRevise={async (reason) => {
-        try {
-          const round = await revise.mutateAsync({ sampleId: sample.id, operationId, reason })
-          toast.success(`Revizyon başlatıldı — ${round}. tur, durum "Numune Üretimde".`); setReviseOpen(false)
-        } catch (err) { toast.error(await toUserMessage(err)) }
-      }} />}
     </div>
-  )
-}
-
-function ReviseDialog({ onClose, onRevise }: { onClose: () => void; onRevise: (reason: string) => void }) {
-  const [reason, setReason] = useState('')
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Numune revizyonu</DialogTitle>
-          <DialogDescription>Aynı numune kaydında yeni tur başlar (sebep zorunlu); durum "Numune Üretimde"ye döner.</DialogDescription></DialogHeader>
-        <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="ör. Renk tonu tutmadı, dikiş revize edilecek" />
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Vazgeç</Button>
-          <Button disabled={!reason.trim()} onClick={() => reason.trim() && onRevise(reason.trim())}>Revizyonu başlat</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ApproveDialog({ onClose, onApprove }: { onClose: () => void; onApprove: (method: string, note: string) => void }) {
-  const [method, setMethod] = useState('whatsapp')
-  const [note, setNote] = useState('')
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Numune onayı</DialogTitle>
-          <DialogDescription>Onayın kim/ne zaman/nasıl alındığı kaydedilir. Onay tarihi ve kullanıcı otomatik işlenir.</DialogDescription></DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Onay yöntemi</Label>
-            <SearchableSelect options={APPROVAL_METHODS} value={method} onChange={(v) => setMethod(v ?? 'whatsapp')} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Açıklama</Label>
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="ör. Müşteri WhatsApp'tan fotoğrafı onayladı" />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Vazgeç</Button>
-          <Button onClick={() => onApprove(method, note)}><Check className="size-4" /> Onayla</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function RejectDialog({ onClose, onReject }: { onClose: () => void; onReject: (reason: string) => void }) {
-  const [reason, setReason] = useState('')
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Numune reddedildi</DialogTitle>
-          <DialogDescription>Red nedenini yazın — revizyona ışık tutar.</DialogDescription></DialogHeader>
-        <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="ör. Renk tonu tutmadı, dikiş kalitesi yetersiz" />
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Vazgeç</Button>
-          <Button variant="destructive" onClick={() => onReject(reason)}>Reddedildi işaretle</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

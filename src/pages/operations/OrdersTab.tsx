@@ -1,12 +1,10 @@
 import { useRef, useState } from 'react'
-import { Package, Upload, Download, ExternalLink, Trash2, Loader2, Save, Truck, CheckCircle2, PauseCircle, PlayCircle, AlertTriangle, FileText, Sparkles } from 'lucide-react'
+import { Package, Upload, Download, ExternalLink, Trash2, Loader2, Save, AlertTriangle, FileText, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
-import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DatePicker } from '@/components/shared/DatePicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,20 +15,17 @@ import {
 } from '@/components/ui/dialog'
 import { getSignedUrl, openInNewTab } from '@/hooks/useFiles'
 import {
-  useOperationOrders, useUploadOrderFile, useCreateOrderFromDoc, useUpdateOrderFromDoc, useUpdateOrder, useUpdateOrderExtracted, useDeleteOrder, useOrderStatusOptions, type Order,
+  useOperationOrders, useUploadOrderFile, useCreateOrderFromDoc, useUpdateOrderFromDoc, useUpdateOrder, useUpdateOrderExtracted, useDeleteOrder, type Order,
 } from '@/hooks/useOrders'
 import { useOperationSamples } from '@/hooks/useSamples'
 import { useOperationDocuments } from '@/hooks/useDocuments'
-import { useOrderAdvanceCheck, useAdvanceOverride, useFinancePerms, type AdvanceCheck } from '@/hooks/useFinance'
+import { useOrderAdvanceCheck, useFinancePerms } from '@/hooks/useFinance'
 import { features } from '@/lib/features'
 import { formatMoney } from '@/lib/money'
 import { PaymentDialog } from '@/pages/finance/PaymentDialog'
 import { GenerateDocButton } from './GenerateDocButton'
 import { OrderExtractionDialog } from './OrderExtractionDialog'
 
-const toneClass = (c: string | null): string =>
-  c && (['success', 'warning', 'danger', 'info', 'neutral'] as string[]).includes(c)
-    ? STATUS_TONE_CLASS[c as StatusTone] : 'bg-neutral-badge text-neutral-badge-foreground'
 const fmtDT = (iso: string) => new Date(iso).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 /** Sipariş = form dosyası yükleme + elle bilgi doğrulama (Merhaba.docx 5). AI çekme Faz 6. */
@@ -160,21 +155,14 @@ export function OrdersTab({ operationId, customerId }: { operationId: number; cu
 }
 
 function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate }: { order: Order; operationId: number; customerId: number; hasSiparisFormu: boolean; onValidate: () => void }) {
-  const statuses = useOrderStatusOptions()
   const update = useUpdateOrder()
   const updateFromDoc = useUpdateOrderFromDoc()
   const del = useDeleteOrder()
   const perms = useFinancePerms()
   const advance = useOrderAdvanceCheck(order.id)
-  const override = useAdvanceOverride()
   const [downloading, setDownloading] = useState(false)
-  const [holdOpen, setHoldOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [extractMode, setExtractMode] = useState<'belge' | 'ai' | null>(null)
-  const [gate, setGate] = useState<{ apply: (reason: string) => Promise<void> } | null>(null)
-  const closed = statuses.data?.find((s) => s.id === order.status_id)?.is_closed ?? false
-  const currentKey = statuses.data?.find((s) => s.id === order.status_id)?.key ?? null
-  const statusIdByKey = (key: string) => statuses.data?.find((s) => s.key === key)?.id ?? null
   const ex = order.extracted_data ?? {}
   const adv = advance.data
 
@@ -190,33 +178,9 @@ function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate 
     if (!order.file_path) return
     try { await openInNewTab('documents', order.file_path) } catch (err) { toast.error(await toUserMessage(err)) }
   }
-  async function applyStatus(id: number) { await update.mutateAsync({ id: order.id, operationId, status_id: id }); toast.success('Durum güncellendi.') }
-  async function applyResume() { await update.mutateAsync({ id: order.id, operationId, held_at: null, hold_reason: null, status_id: statusIdByKey('uretimde') ?? undefined }); toast.success('Bekletme kaldırıldı.') }
-
-  /** Üretime geçişte (yalnız 'uretimde'ye dönüşte) ön ödeme kapısı. Yeterliyse/yetkisi
-   *  yoksa doğrudan uygular; yetersizse gerekçe penceresi açar (engel yok). */
-  async function guardUretime(targetKey: string | null, direct: () => Promise<void>) {
-    const enteringProd = targetKey === 'uretimde' && currentKey !== 'uretimde'
-    // PAKET G (Karar A): Finans gizliyken görünmeyen ön-ödeme kuralı akışı bloklamasın — kapı ATLANIR.
-    // Sessiz olmasın: üretime geçerken kısa not düşülür. Flag açılınca kapı aynen geri gelir.
-    if (enteringProd && !features.finance) {
-      toast.message('Üretime geçildi — ön ödeme kontrolü devre dışı (Finans modülü gizli).')
-    } else if (enteringProd && adv && !adv.sufficient && adv.order_total_usd > 0) {
-      setGate({ apply: async (reason: string) => { await override.mutateAsync({ orderId: order.id, reason }); await direct() } })
-      return
-    }
-    await direct()
-  }
-  async function setStatus(id: number) {
-    const key = statuses.data?.find((s) => s.id === id)?.key ?? null
-    try { await guardUretime(key, () => applyStatus(id)) } catch (err) { toast.error(await toUserMessage(err)) }
-  }
-  async function resume() { try { await guardUretime('uretimde', applyResume) } catch (err) { toast.error(await toUserMessage(err)) } }
   async function saveDue(field: 'advance_due_date' | 'balance_due_date', value: string | null) {
     try { await update.mutateAsync({ id: order.id, operationId, [field]: value }); toast.success('Vade güncellendi.') } catch (err) { toast.error(await toUserMessage(err)) }
   }
-  async function ship() { try { await update.mutateAsync({ id: order.id, operationId, shipped_at: new Date().toISOString(), status_id: statusIdByKey('kargoda') ?? undefined }); toast.success('Kargoya verildi.') } catch (err) { toast.error(await toUserMessage(err)) } }
-  async function deliver() { try { await update.mutateAsync({ id: order.id, operationId, actual_delivery: new Date().toISOString().slice(0, 10), status_id: statusIdByKey('teslim_edildi') ?? undefined }); toast.success('Teslim edildi.') } catch (err) { toast.error(await toUserMessage(err)) } }
 
   return (
     <li className="border-border rounded-lg border p-3">
@@ -225,7 +189,8 @@ function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate 
           <div className="flex items-center gap-2">
             <FileText className="text-text-muted size-4 shrink-0" />
             <span className="truncate text-sm font-medium text-foreground">{order.file_name ?? 'Sipariş formu'}</span>
-            {order.status_label && <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', toneClass(order.status_color))}>{order.status_label}</span>}
+            {/* Bulgu B: siparişin kendi (legacy) durum etiketi GÖSTERİLMEZ — tek gerçek operasyon
+                durumu (Süreç şeridi). "Askıda" held_at'ten gelen ayrışmayan gerçek bir veridir. */}
             {order.held_at && <span className="bg-warning-badge text-warning-badge-foreground rounded px-1.5 py-0.5 text-[10px]">Askıda</span>}
           </div>
           <div className="text-text-muted mt-1 text-xs">{fmtDT(order.created_at)}</div>
@@ -240,6 +205,8 @@ function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate 
             <Trash2 className="size-4" /></Button>
         </div>
       </div>
+
+      <p className="text-text-muted mt-2 text-xs">Sipariş durumu talebin <strong>Süreç</strong> sekmesindeki durum şeridinden yürür. Bu kart sipariş bilgisini tutar.</p>
 
       {/* Çekilen bilgiler (elle) */}
       <div className="border-border mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-xs">
@@ -289,59 +256,11 @@ function OrderRow({ order, operationId, customerId, hasSiparisFormu, onValidate 
         </div>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <div className="w-40">
-          <SearchableSelect options={(statuses.data ?? []).map((s) => ({ value: String(s.id), label: s.label }))}
-            value={order.status_id ? String(order.status_id) : null} onChange={(v) => { if (v) void setStatus(Number(v)) }} className="h-8" />
-        </div>
-        {order.held_at
-          ? <Button size="sm" variant="outline" onClick={() => void resume()}><PlayCircle className="size-3.5" /> Askıdan al</Button>
-          : <Button size="sm" variant="outline" onClick={() => setHoldOpen(true)} disabled={closed}><PauseCircle className="size-3.5" /> Askıya al</Button>}
-        <Button size="sm" variant="outline" onClick={() => void ship()} disabled={closed}><Truck className="size-3.5" /> Sevk</Button>
-        <Button size="sm" variant="outline" onClick={() => void deliver()} disabled={closed}><CheckCircle2 className="size-3.5" /> Teslim</Button>
-      </div>
-
-      {holdOpen && <HoldDialog onClose={() => setHoldOpen(false)} onHold={async (reason) => {
-        try { await update.mutateAsync({ id: order.id, operationId, held_at: new Date().toISOString(), hold_reason: reason || null, status_id: statusIdByKey('bekletiliyor') ?? undefined }); toast.success('Bekletiliyor.'); setHoldOpen(false) }
-        catch (err) { toast.error(await toUserMessage(err)) }
-      }} />}
       {payOpen && <PaymentDialog customerId={customerId} operationId={operationId} orderId={order.id} defaultAdvance
         onClose={() => setPayOpen(false)} onSaved={() => void advance.refetch()} />}
       {extractMode && <OrderExtractionDialog order={{ id: order.id, file_path: order.file_path, file_name: order.file_name }} operationId={operationId} mode={extractMode}
         onClose={() => setExtractMode(null)} onDone={() => setExtractMode(null)} />}
-      {gate && adv && <AdvanceGateDialog check={adv} busy={override.isPending || update.isPending}
-        onClose={() => setGate(null)}
-        onConfirm={async (reason) => { try { await gate.apply(reason); setGate(null) } catch (err) { toast.error(await toUserMessage(err)) } }} />}
     </li>
-  )
-}
-
-/** P5.3 — Yetersiz ön ödemeyle üretime geçiş uyarısı. Gerekçe zorunlu, engel yok. */
-function AdvanceGateDialog({ check, busy, onClose, onConfirm }: { check: AdvanceCheck; busy: boolean; onClose: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState('')
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><AlertTriangle className="text-warning-foreground size-5" /> Ön ödeme yetersiz</DialogTitle>
-          <DialogDescription>
-            Bu sipariş için <strong>{formatMoney(check.required_usd, 'USD')}</strong> ön ödeme bekleniyor,
-            <strong> {formatMoney(check.advance_usd, 'USD')}</strong> alınmış (%{check.advance_percent}).
-            Üretime geçmek istediğinize emin misiniz? Gerekçe kayda geçer ve yöneticiye bildirilir.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1">
-          <Label className="text-xs">Gerekçe <span className="text-danger-foreground">*</span></Label>
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="ör. Müşteri güvenilir, ön ödeme haftaya gelecek" />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Vazgeç</Button>
-          <Button disabled={!reason.trim() || busy} onClick={() => reason.trim() && onConfirm(reason.trim())}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : null} Yine de üretime geç
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -410,18 +329,3 @@ function SoftGateDialog({ onClose, onConfirm }: { onClose: () => void; onConfirm
   )
 }
 
-function HoldDialog({ onClose, onHold }: { onClose: () => void; onHold: (reason: string) => void }) {
-  const [reason, setReason] = useState('')
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Siparişi askıya al</DialogTitle><DialogDescription>Neden askıya alındığını yazın.</DialogDescription></DialogHeader>
-        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="ör. Kumaş tedarik sorunu" />
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Vazgeç</Button>
-          <Button onClick={() => onHold(reason)}>Askıya al</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}

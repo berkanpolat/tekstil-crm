@@ -1,26 +1,24 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Upload, Download, ExternalLink, Trash2, Loader2, Check, X, Clock, Sparkles } from 'lucide-react'
+import { FileText, Upload, Download, ExternalLink, Trash2, Loader2, Check, Clock, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DatePicker } from '@/components/shared/DatePicker'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
-import { DatePicker } from '@/components/shared/DatePicker'
-import { QuoteAcceptDialog, QuoteRejectDialog } from '@/components/operations/QuoteResultDialogs'
 import { getSignedUrl, openInNewTab } from '@/hooks/useFiles'
 import { GenerateDocButton } from './GenerateDocButton'
 import { AutoQuoteButton } from './AutoQuoteButton'
 import { buildDraftQuotePrefill } from '@/hooks/useDocuments'
 import {
-  useOperationQuotes, useUploadQuoteFile, useSetQuoteResult, useDeleteQuote, useAdvanceStage,
+  useOperationQuotes, useUploadQuoteFile, useDeleteQuote, useUpdateQuote,
   useDraftQuote, useApproveDraftQuote, quoteLabel, type Quote, type DraftQuote,
 } from '@/hooks/useQuotes'
 import { formatMoney } from '@/lib/money'
@@ -39,13 +37,8 @@ export function QuotesTab({ operationId }: { operationId: number }) {
   const [reviewDraft, setReviewDraft] = useState(false)
   const [creatingDoc, setCreatingDoc] = useState(false)
   const upload = useUploadQuoteFile()
-  const setResult = useSetQuoteResult()
   const del = useDeleteQuote()
-  const advance = useAdvanceStage()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [acceptFor, setAcceptFor] = useState<Quote | null>(null)
-  const [rejectFor, setRejectFor] = useState<Quote | null>(null)
-  const [followFor, setFollowFor] = useState<Quote | null>(null)
   const [downloading, setDownloading] = useState<number | null>(null)
 
   const active = (quotes ?? []).filter((q) => !q.deleted_at)
@@ -123,8 +116,6 @@ export function QuotesTab({ operationId }: { operationId: number }) {
       ) : active.length === 0 ? null : (
         <ul className="space-y-2">
           {active.map((q) => {
-            // Sonuç kesinleşince (kabul/red/olumsuz/numuneye geçiş/iptal) tüm sonuç düğmeleri kapanır.
-            const closed = ['numune_asamasina_gecildi', 'olumsuz', 'reddedildi', 'kabul_edildi', 'iptal_edildi'].includes(q.status_key ?? '')
             return (
               <li key={q.id} className="border-border rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -154,79 +145,44 @@ export function QuotesTab({ operationId }: { operationId: number }) {
                     </Button>
                   </div>
                 </div>
-                {/* Sonuç takibi */}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-text-muted text-xs">Sonuç:</span>
-                  <Button size="sm" variant={q.status_key === 'numune_asamasina_gecildi' ? 'default' : 'outline'} disabled={closed} onClick={() => setAcceptFor(q)}>
-                    <Check className="size-3.5" /> Olumlu</Button>
-                  <Button size="sm" variant={q.status_key === 'olumlu_beklemede' ? 'default' : 'outline'} disabled={closed} onClick={() => setFollowFor(q)}>
-                    <Clock className="size-3.5" /> Olumlu — bekliyor</Button>
-                  <Button size="sm" variant={q.status_key === 'olumsuz' ? 'destructive' : 'outline'} disabled={closed} onClick={() => setRejectFor(q)}>
-                    <X className="size-3.5" /> Olumsuz</Button>
-                </div>
-                {q.status_key === 'olumlu_beklemede' && q.follow_up_at && (
-                  <div className={cn('mt-1.5 flex items-center gap-1.5 text-xs', new Date(q.follow_up_at) <= new Date() ? 'font-medium text-danger-foreground' : 'text-text-secondary')}>
-                    <Clock className="size-3.5" /> Tekrar bakılacak: {new Date(q.follow_up_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    {new Date(q.follow_up_at) <= new Date() && ' — zamanı geldi'}
-                    {q.follow_up_reason && <span className="text-text-muted">· {q.follow_up_reason}</span>}
-                  </div>
-                )}
+                {/* H3: teklif sonucu (Olumlu/Olumsuz) + aşama ilerletme artık Süreç şeridinden.
+                    Burada kalan: teklif seviyesi TAKİP tarihi (durum değil) — bilgi alanı. */}
+                {q.rejection_note && <div className="text-text-muted mt-1.5 text-xs">Red notu: {q.rejection_note}</div>}
+                <QuoteFollowUp quote={q} operationId={operationId} />
               </li>
             )
           })}
         </ul>
       )}
 
-      {acceptFor && <QuoteAcceptDialog onClose={() => setAcceptFor(null)} onAccept={async (choice) => {
-        const q = acceptFor; setAcceptFor(null)
-        try {
-          await setResult.mutateAsync({ id: q.id, operationId, statusKey: 'kabul_edildi' })
-          if (choice === 'mark') { toast.success('Teklif kabul edildi olarak işaretlendi.') }
-          else { await advance.mutateAsync({ operationId, stageKey: choice }); toast.success(`Teklif kabul edildi — aşama: ${choice === 'numune' ? 'Numune' : 'Sipariş'}.`) }
-        } catch (err) { toast.error(await toUserMessage(err)) }
-      }} />}
-      {rejectFor && <QuoteRejectDialog onClose={() => setRejectFor(null)} onReject={async (reasonId, note) => {
-        const q = rejectFor; setRejectFor(null)
-        try { await setResult.mutateAsync({ id: q.id, operationId, statusKey: 'reddedildi', rejectionReasonId: reasonId, rejectionNote: note || null }); toast.success('Teklif reddedildi olarak işaretlendi.') }
-        catch (err) { toast.error(await toUserMessage(err)) }
-      }} />}
-      {followFor && <FollowUpDialog onClose={() => setFollowFor(null)} onSave={async (reason, followUpAt) => {
-        const q = followFor; setFollowFor(null)
-        try { await setResult.mutateAsync({ id: q.id, operationId, statusKey: 'olumlu_beklemede', followUpReason: reason, followUpAt }); toast.success('Olumlu — beklemede olarak işaretlendi; tekrar bakma tarihi ayarlandı.') }
-        catch (err) { toast.error(await toUserMessage(err)) }
-      }} />}
     </div>
   )
 }
 
-/** H6 — "Olumlu — Beklemede": sebep + tekrar-bak tarihi ZORUNLU. Tarih geçince hatırlatılır. */
-function FollowUpDialog({ onClose, onSave }: { onClose: () => void; onSave: (reason: string, followUpAt: string) => void }) {
-  const [reason, setReason] = useState('')
-  const [date, setDate] = useState<string | null>(null)
-  const valid = reason.trim().length > 0 && !!date
+/** H3 — Teklif seviyesi TAKİP tarihi (durum değil). "Olumlu ama şu tarihte tekrar görüşelim".
+ *  Süreç durumundan bağımsız; Hızlı Çalışma bu tarihten beslenir. */
+function QuoteFollowUp({ quote, operationId }: { quote: Quote; operationId: number }) {
+  const update = useUpdateQuote()
+  const [date, setDate] = useState<string | null>(quote.follow_up_at ? quote.follow_up_at.slice(0, 10) : null)
+  const [reason, setReason] = useState(quote.follow_up_reason ?? '')
+  const overdue = !!date && new Date(date) <= new Date()
+
+  async function save(nextDate: string | null, nextReason: string) {
+    try {
+      await update.mutateAsync({ id: quote.id, operationId,
+        follow_up_at: nextDate ? new Date(nextDate + 'T09:00:00').toISOString() : null,
+        follow_up_reason: nextReason.trim() || null })
+    } catch (err) { toast.error(await toUserMessage(err)) }
+  }
+
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Olumlu — Beklemede</DialogTitle>
-          <DialogDescription>Müşteri olumlu ama karar bekliyor. Sebep ve tekrar değerlendirme tarihi zorunludur.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm">Sebep <span className="text-destructive">*</span></Label>
-            <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder="Örn. bütçe onayı bekleniyor" className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-sm">Ne zaman tekrar bakılacak? <span className="text-destructive">*</span></Label>
-            <DatePicker value={date} onChange={setDate} className="mt-1 w-full" />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Vazgeç</Button>
-          <Button disabled={!valid} onClick={() => valid && onSave(reason.trim(), new Date(date + 'T09:00:00').toISOString())}>Kaydet</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-text-muted inline-flex shrink-0 items-center gap-1"><Clock className="size-3.5" /> Takip tarihi</span>
+      <div className="w-36"><DatePicker value={date} onChange={(v) => { setDate(v); void save(v, reason) }} clearable /></div>
+      <Input value={reason} onChange={(e) => setReason(e.target.value)} onBlur={() => void save(date, reason)}
+        placeholder="Sebep (ör. bütçe onayı bekleniyor)" className="h-8 min-w-40 flex-1" />
+      {overdue && <span className="text-danger-foreground font-medium">zamanı geldi</span>}
+    </div>
   )
 }
 

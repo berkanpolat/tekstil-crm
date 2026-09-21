@@ -13,6 +13,39 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.59.0] — 2026-09-21
+
+### Paket H · H3.2–H3.4 — Tek "Süreç" paneli + tek "Talepler" listesi (süreç sadeleştirme)
+
+Ayrı Teklifler/Numuneler/Siparişler ekranları yerine, talep kartında tek **Süreç** paneli
+(aşama accordion + durum şeridi) ve tek **Talepler** listesi. Veri/RPC/tablo silinmedi; ayrı
+modüller yalnız özellik bayrağıyla gizlendi (`quotesPanel/samplesPanel/ordersPanel=false`).
+
+**Migration'lar (elle, canlıya uygulandı + doğrulandı):**
+- `20260920020000_h3_2_status_change_event.sql` — `operation.status_changed` olayı (durum
+  değişimi zaman çizelgesine tek kaynak) + `operation.created` payload'ına başlangıç aşama/durum.
+- `20260921000000_h3_3_status_colors.sql` — `stage_statuses.color` ton seti (bekleyen=neutral,
+  ilerleyen=info, olumlu=success, olumsuz/iptal=danger, revize=warning). Renk DB'de (H5'te düzenlenebilir).
+- `20260921010000_h3_4_child_events_and_transitions.sql` — çocuk timeline olayları
+  (`samples/orders_timeline_events`) + `revise_sample` logu `stage_sync`'te stand-down (çift kayıt
+  giderildi → durum değişimi tek satır); ulaşılamaz durumlara geçiş (`st_sip_hazir`, `st_ur_bekletiliyor`).
+
+**Önyüz:**
+- `StageStatusBadge` (aşama·durum, renk durum tonundan) — liste, kart, panel tek kaynak.
+- `OperationProcessPanel` — accordion (bulunulan aşama açık), durum şeridi (transition-farkındalıklı:
+  geçersiz durumlar pasif + neden/sonraki-adım tooltip'i), panel-içi gerekçe (modal yok), gömülü
+  belge/numune/sipariş, salt-okunur süreç geçmişi (kişi yoksa "Sistem").
+- Talepler listesi: satır rozeti + satır içi durum menüsü + aşama/durum filtresi.
+- **Bulgu 1:** Numune/Teklif/Sipariş kartlarından durum kontrolleri (butonlar/seçici/modallar) söküldü —
+  yalnız bilgi kaldı; tek giriş noktası Süreç şeridi.
+- **Bulgu B:** Numune/sipariş kartlarında kendi (legacy, ayrışabilen) durum etiketi kaldırıldı —
+  tek gerçek operasyon durumu. (Kök neden: `sample_statuses`/`stage_statuses` iki ayrı sözlük; motor
+  tek yön kısmi senkron.)
+- **Bulgu 5:** Teklif Süresi/açık-dosya bandı yalnız teklif aşamasında.
+- **Bulgu 7:** gerçek `NotFoundPage`; bayrakla kapalı `/teklifler` vb. artık "Sayfa bulunamadı".
+- Teklif kartında **takip tarihi** bilgi alanı (durum değil) geri eklendi (`quotes.follow_up_at/_reason`;
+  Hızlı Çalışma bundan beslenir).
+
 ## [1.58.0] — 2026-09-20
 
 ### Paket H · H3.1 + H3.1b — quotes_sync uzlaştırma + yeni talepler modelde doğsun

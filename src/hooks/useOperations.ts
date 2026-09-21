@@ -16,8 +16,11 @@ export interface OperationRow {
   stage_key: string | null
   stage_label: string | null
   stage_color: string | null
-  status_key: string | null
-  status_label: string | null
+  status_key: string | null    // legacy request_status
+  status_label: string | null  // legacy request_status
+  durum_key: string | null     // H3 iki kademeli DURUM (stage_statuses)
+  durum_label: string | null
+  durum_color: string | null   // H3.3 durum tonu (stage_statuses.color)
   channel_label: string | null
   channel_color: string | null
   province_name: string | null
@@ -38,6 +41,8 @@ export interface OperationFilters {
   search?: string
   stageId?: number | null
   statusId?: number | null
+  /** H3 iki kademeli DURUM filtresi (stage_statuses.id → operations.status_id). */
+  durumId?: number | null
   channelId?: number | null
   ownerId?: string | null
   customerId?: number | null
@@ -60,7 +65,7 @@ const SORT_COLUMN: Record<string, string> = {
 
 const LIST_SELECT =
   'id, code, legacy_code, title, customer_id, expected_delivery, sla_deadline, requested_at, created_at, possible_merge_with, merged_into, cancelled_at, cancellation_reason_id,' +
-  ' operation_stages(key, label, color), request_statuses(key, label),' +
+  ' operation_stages(key, label, color), request_statuses(key, label), durum:stage_statuses(key, label, color),' +
   ' request_channels(label, color), provinces(name),' +
   ' owner:users!operations_owner_id_fkey(full_name),' +
   ' category:product_categories!operations_category_id_fkey(label),' +
@@ -73,6 +78,7 @@ interface RawOp {
   possible_merge_with: number | null; cancelled_at: string | null; cancellation_reason_id: number | null
   operation_stages: { key: string; label: string; color: string | null } | null
   request_statuses: { key: string; label: string } | null
+  durum: { key: string; label: string; color: string | null } | null
   request_channels: { label: string; color: string | null } | null
   provinces: { name: string } | null
   category: { label: string } | null
@@ -116,6 +122,7 @@ export function useOperationList(filters: OperationFilters) {
       }
       if (filters.stageId != null) query = query.eq('stage_id', filters.stageId)
       if (filters.statusId != null) query = query.eq('request_status_id', filters.statusId)
+      if (filters.durumId != null) query = query.eq('status_id', filters.durumId)
       if (filters.channelId != null) query = query.eq('channel_id', filters.channelId)
       if (filters.ownerId === 'unassigned') query = query.is('owner_id', null)
       else if (filters.ownerId) query = query.eq('owner_id', filters.ownerId)
@@ -156,6 +163,7 @@ export function useOperationList(filters: OperationFilters) {
         stage_key: o.operation_stages?.key ?? null, stage_label: o.operation_stages?.label ?? null,
         stage_color: o.operation_stages?.color ?? null,
         status_key: o.request_statuses?.key ?? null, status_label: o.request_statuses?.label ?? null,
+        durum_key: o.durum?.key ?? null, durum_label: o.durum?.label ?? null, durum_color: o.durum?.color ?? null,
         channel_label: o.request_channels?.label ?? null, channel_color: o.request_channels?.color ?? null,
         province_name: o.provinces?.name ?? null,
         owner_name: o.owner?.full_name ?? null, photo_path: photoByOp.get(o.id) ?? null,
@@ -183,6 +191,9 @@ export interface OperationDetail {
   category_id: number | null; type_id: number | null; category_label: string | null; type_label: string | null
   cancelled_at: string | null; cancellation_reason_id: number | null; cancellation_note: string | null
   status_label: string | null; created_at: string; updated_at: string
+  // İki kademeli model (H3): DURUM sürücü + gerekçe. durum_* = stage_statuses.
+  status_id: number | null; status_note: string | null; durum_key: string | null; durum_label: string | null
+  durum_color: string | null
 }
 
 export function useOperation(id: number | null) {
@@ -197,7 +208,8 @@ export function useOperation(id: number | null) {
             ' source, channel_id, province_id, district, product_source,' +
             ' expected_delivery, sla_deadline, requested_at,' +
             ' category_id, type_id, cancelled_at,' +
-            ' cancellation_reason_id, cancellation_note, created_at, updated_at,' +
+            ' cancellation_reason_id, cancellation_note, created_at, updated_at, status_id, status_note,' +
+            ' durum:stage_statuses(key, label, color),' +
             ' operation_stages(key), request_statuses(key, label),' +
             ' request_channels(label), provinces(name),' +
             ' owner:users!operations_owner_id_fkey(full_name),' +
@@ -211,6 +223,7 @@ export function useOperation(id: number | null) {
       if (error) throw error
       if (!data) return null
       const o = data as unknown as OperationDetail & {
+        durum: { key: string; label: string; color: string | null } | null
         operation_stages: { key: string } | null; request_statuses: { key: string; label: string } | null
         request_channels: { label: string } | null; provinces: { name: string } | null
         owner: { full_name: string } | null
@@ -223,6 +236,9 @@ export function useOperation(id: number | null) {
         stage_key: o.operation_stages?.key ?? null,
         status_key: o.request_statuses?.key ?? null,
         status_label: o.request_statuses?.label ?? null,
+        durum_key: o.durum?.key ?? null,
+        durum_label: o.durum?.label ?? null,
+        durum_color: o.durum?.color ?? null,
         channel_label: o.request_channels?.label ?? null,
         province_name: o.provinces?.name ?? null,
         owner_name: o.owner?.full_name ?? null,
@@ -311,6 +327,51 @@ export function useCancelOperation() {
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ['operations'] })
       qc.invalidateQueries({ queryKey: ['operation', v.id] })
+    },
+  })
+}
+
+// ---------- H3: İki kademeli durum sürücüsü ----------
+/** Durumu değiştirir (status_id + gerekçe). Aşamayı + davranışı DB tetikleri türetir. */
+export function useSetOperationStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, statusId, note }: { id: number; statusId: number; note?: string | null }) => {
+      ensureRows(await supabase.from('operations').update({ status_id: statusId, status_note: note ?? null } as never).eq('id', id).select('id'))
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['operations'] })
+      qc.invalidateQueries({ queryKey: ['operation', v.id] })
+      qc.invalidateQueries({ queryKey: ['timeline', 'operation', v.id] })
+    },
+  })
+}
+
+export interface StageStatusOption { id: number; key: string; label: string; color: string | null; stage_id: number; is_system: boolean; behavior: string | null; requires_reason: boolean; sort_order: number }
+/** Tüm aktif durumlar (aşamaya göre gruplu; Süreç paneli seçicisi + StageStatusBadge için). */
+export function useOperationStatusOptions() {
+  return useReferenceQuery({
+    queryKey: ['stage-status-options'],
+    queryFn: async (): Promise<StageStatusOption[]> => {
+      const { data, error } = await supabase.from('stage_statuses')
+        .select('id, key, label, color, stage_id, is_system, behavior, requires_reason, sort_order')
+        .eq('is_active', true).order('sort_order')
+      if (error) throw error
+      return (data ?? []) as StageStatusOption[]
+    },
+  })
+}
+
+/** operation_status geçiş kuralları (şerit: geçerli hedefler aktif, ötekiler pasif).
+ *  Kural: bir from_key için kayıt VARSA yalnız o hedefler; hiç kayıt yoksa serbest. */
+export function useOperationStatusTransitions() {
+  return useReferenceQuery({
+    queryKey: ['operation-status-transitions'],
+    queryFn: async (): Promise<{ from_key: string; to_key: string }[]> => {
+      const { data, error } = await supabase.from('status_transitions')
+        .select('from_key, to_key').eq('entity_type', 'operation_status').eq('is_active', true)
+      if (error) throw error
+      return (data ?? []) as { from_key: string; to_key: string }[]
     },
   })
 }

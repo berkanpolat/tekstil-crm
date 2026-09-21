@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 import {
   RequireAuth,
   RequirePasswordChanged,
@@ -94,9 +95,10 @@ export default function App() {
             <Route path="/musteriler/:id" element={<CustomerCardPage />} />
             <Route path="/talepler" element={<OperationsListPage />} />
             <Route path="/talepler/:id" element={<OperationCardPage />} />
-            <Route path="/teklifler" element={<TekliflerListPage />} />
-            <Route path="/numuneler" element={<NumunelerListPage />} />
-            <Route path="/siparisler" element={<SiparislerListPage />} />
+            {/* PAKET H: yalnız bayrak açıkken kayıtlı; kapalıyken URL → NotFound (süreç tek Talepler'den yürür). */}
+            {features.quotesPanel && <Route path="/teklifler" element={<TekliflerListPage />} />}
+            {features.samplesPanel && <Route path="/numuneler" element={<NumunelerListPage />} />}
+            {features.ordersPanel && <Route path="/siparisler" element={<SiparislerListPage />} />}
             <Route path="/" element={<DashboardPage />} />
             <Route path="/calisma" element={<CalismaPage />} />
             <Route path="/belgeler" element={<BelgelerListPage />} />
@@ -134,7 +136,7 @@ export default function App() {
               </Route>
             </Route>
 
-            <Route path="*" element={<PlaceholderPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>
       </Route>

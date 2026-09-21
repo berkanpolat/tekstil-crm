@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, Shirt, HandHelping, GitMerge, Ban } from 'lucide-react'
+import { ClipboardList, Plus, Clock, AlertTriangle, UserRound, UserX, Shirt, HandHelping, GitMerge, Ban, ChevronDown } from 'lucide-react'
 import { useSignedUrl } from '@/hooks/useFiles'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { FilterBar } from '@/components/shared/FilterBar'
@@ -8,6 +8,11 @@ import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DataTable, type DataTableColumn, type SortState } from '@/components/shared/DataTable'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
+import { StageStatusBadge } from '@/components/shared/StageStatusBadge'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { STATUS_TONE_CLASS, type StatusTone } from '@/lib/statuses'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
@@ -15,7 +20,8 @@ import { useAssigneeOptions } from '@/hooks/useLeads'
 import { toast } from 'sonner'
 import { toUserMessage } from '@/lib/errors'
 import {
-  useOperationList, useOperationStageOptions, useRequestStatusOptions, useChannelOptions, useClaimOperation, useCancellationReasons, type OperationRow,
+  useOperationList, useOperationStageOptions, useOperationStatusOptions, useSetOperationStatus,
+  useChannelOptions, useClaimOperation, useCancellationReasons, type OperationRow, type StageStatusOption,
 } from '@/hooks/useOperations'
 import { OperationFormDialog } from './OperationFormDialog'
 import { MultiAutoQuoteBar } from './MultiAutoQuoteBar'
@@ -46,13 +52,63 @@ function Thumb({ path }: { path: string | null }) {
     : <div className="size-12 animate-pulse rounded-md bg-muted" />
 }
 
+/** Satır içi durum değişimi — rozet (aşama · durum) + açılır menü.
+ *  Gerekçe isteyen durumlar karttaki Süreç paneline yönlendirir (gerekçe orada alınır). */
+function RowStatusCell({ row }: { row: OperationRow }) {
+  const navigate = useNavigate()
+  const stages = useOperationStageOptions()
+  const statuses = useOperationStatusOptions()
+  const setStatus = useSetOperationStatus()
+  const [open, setOpen] = useState(false)
+
+  async function change(s: StageStatusOption) {
+    setOpen(false)
+    if (s.key === row.durum_key) return
+    if (s.requires_reason) { navigate(`/talepler/${row.id}`); return }
+    try { await setStatus.mutateAsync({ id: row.id, statusId: s.id }); toast.success(`Durum: ${s.label}`) }
+    catch (err) { toast.error(await toUserMessage(err)) }
+  }
+
+  const stageList = stages.data ?? []
+  const all = statuses.data ?? []
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="inline-flex items-center gap-1 hover:opacity-80" disabled={setStatus.isPending}>
+          <StageStatusBadge stageLabel={row.stage_label} stageColor={row.stage_color} statusLabel={row.durum_label} statusColor={row.durum_color} />
+          <ChevronDown className="text-text-muted size-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {stageList.filter((st) => st.key !== 'iptal').map((st, i) => {
+          const items = all.filter((s) => s.stage_id === st.id)
+          if (!items.length) return null
+          return (
+            <div key={st.id}>
+              {i > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel className="text-text-muted text-[10px] uppercase">{st.label}</DropdownMenuLabel>
+              {items.map((s) => (
+                <DropdownMenuItem key={s.id} disabled={setStatus.isPending}
+                  onSelect={(e) => { e.preventDefault(); void change(s) }}
+                  className={cn('flex items-center gap-2', s.key === row.durum_key && 'bg-muted font-medium')}>
+                  {s.label}{s.requires_reason && <span className="text-text-muted ml-auto text-[10px]">gerekçe →</span>}
+                </DropdownMenuItem>
+              ))}
+            </div>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /** Talepler = operasyonlar. Sunucu tarafı liste/arama/filtre/sayfalama. */
 export function OperationsListPage() {
   const navigate = useNavigate()
   const { data: me } = useCurrentUser()
   const [search, setSearch] = useState('')
   const [stageId, setStageId] = useState<string | null>(null)
-  const [statusId, setStatusId] = useState<string | null>(null)
+  const [durumId, setDurumId] = useState<string | null>(null)
   const [channelId, setChannelId] = useState<string | null>(null)
   // QA#7a — rozet/gösterge ?view= filtresi (mount'ta URL'den). 'me' = açık dosyalarım, 'unassigned' = sahipsiz.
   const [sp] = useSearchParams()
@@ -69,7 +125,7 @@ export function OperationsListPage() {
   const stages = useOperationStageOptions()
   const cancelReasons = useCancellationReasons()
   const invalidReasonIds = new Set((cancelReasons.data ?? []).filter((r) => r.is_invalid).map((r) => r.id))
-  const statuses = useRequestStatusOptions()
+  const durumlar = useOperationStatusOptions()
   const channels = useChannelOptions()
   const owners = useAssigneeOptions()
   const claim = useClaimOperation()
@@ -87,7 +143,7 @@ export function OperationsListPage() {
   const filters = {
     search: search || undefined,
     stageId: stageId ? Number(stageId) : null,
-    statusId: statusId ? Number(statusId) : null,
+    durumId: durumId ? Number(durumId) : null,
     channelId: channelId ? Number(channelId) : null,
     ownerId: ownerId === 'me' ? (me?.id ?? null) : ownerId, slaState, page, pageSize, sort,
   }
@@ -95,8 +151,8 @@ export function OperationsListPage() {
   // B4 — seçili talepler (çoklu birleştirme). Sadece görünen sayfadaki satırlardan çözülür.
   const selectedRows = (data?.rows ?? []).filter((r) => selected.has(String(r.id)))
     .map((r) => ({ id: r.id, customerId: r.customer_id, customerName: r.customer_name }))
-  const hasFilters = !!search || !!stageId || !!statusId || !!channelId || !!ownerId || !!slaState
-  const clearAll = () => { setSearch(''); setStageId(null); setStatusId(null); setChannelId(null); setOwnerId(null); setSlaState(null); resetPage() }
+  const hasFilters = !!search || !!stageId || !!durumId || !!channelId || !!ownerId || !!slaState
+  const clearAll = () => { setSearch(''); setStageId(null); setDurumId(null); setChannelId(null); setOwnerId(null); setSlaState(null); resetPage() }
 
   const columns: DataTableColumn<OperationRow>[] = [
     { key: 'photo', header: '', cell: (r) => <Thumb path={r.photo_path} /> },
@@ -125,8 +181,7 @@ export function OperationsListPage() {
       <span className="text-text-secondary text-sm">{[r.category_label, r.type_label].filter(Boolean).join(' · ') || '—'}</span>
     ) },
     { key: 'requested_at', header: 'Tarih', sortable: true, hideable: true, cell: (r) => <span className="text-text-secondary text-sm">{fmtDate(r.requested_at)}</span> },
-    { key: 'stage', header: 'Aşama', cell: (r) => r.stage_label
-      ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', toneClass(r.stage_color))}>{r.stage_label}</span> : '—' },
+    { key: 'stage', header: 'Aşama / Durum', cell: (r) => <RowStatusCell row={r} /> },
     { key: 'channel', header: 'Kanal', hideable: true, defaultHidden: true, cell: (r) => r.channel_label
       ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', toneClass(r.channel_color))}>{r.channel_label}</span> : '—' },
     { key: 'owner', header: 'Sorumlu', hideable: true, cell: (r) => r.owner_name
@@ -137,7 +192,7 @@ export function OperationsListPage() {
   ]
 
   const overdueRow = (r: OperationRow) =>
-    r.sla_deadline && new Date(r.sla_deadline).getTime() < Date.now() && r.status_key !== 'teklif_iletildi'
+    r.sla_deadline && new Date(r.sla_deadline).getTime() < Date.now() && r.durum_key === 'st_teklif_bekliyor'
       ? 'bg-danger/5 hover:bg-danger/10' : undefined
 
   return (
@@ -165,8 +220,10 @@ export function OperationsListPage() {
         searchPlaceholder="Kod, eski kod, proje veya müşteri ara…"
         showClear={hasFilters} onClear={clearAll}
       >
-        <SearchableSelect options={(stages.data ?? []).map((s) => ({ value: String(s.id), label: s.label }))} value={stageId} onChange={(v) => { setStageId(v); resetPage() }} placeholder="Aşama" clearable className="w-40" />
-        <SearchableSelect options={(statuses.data ?? []).map((s) => ({ value: String(s.id), label: s.label }))} value={statusId} onChange={(v) => { setStatusId(v); resetPage() }} placeholder="Durum" clearable className="w-40" />
+        <SearchableSelect options={(stages.data ?? []).filter((s) => s.key !== 'iptal').map((s) => ({ value: String(s.id), label: s.label }))} value={stageId} onChange={(v) => { setStageId(v); setDurumId(null); resetPage() }} placeholder="Aşama" clearable className="w-40" />
+        <SearchableSelect
+          options={(durumlar.data ?? []).filter((s) => !stageId || s.stage_id === Number(stageId)).map((s) => ({ value: String(s.id), label: s.label }))}
+          value={durumId} onChange={(v) => { setDurumId(v); resetPage() }} placeholder="Durum" clearable className="w-44" />
         <SearchableSelect options={(channels.data ?? []).map((c) => ({ value: String(c.id), label: c.label }))} value={channelId} onChange={(v) => { setChannelId(v); resetPage() }} placeholder="Kanal" clearable className="w-40" />
         <SearchableSelect options={[{ value: 'unassigned', label: 'Atanmamış' }, ...(owners.data ?? []).map((u) => ({ value: u.id, label: u.full_name }))]} value={ownerId} onChange={(v) => { setOwnerId(v); resetPage() }} placeholder="Sorumlu" clearable className="w-44" />
       </FilterBar>
@@ -188,7 +245,7 @@ export function OperationsListPage() {
                   <div className="truncate text-sm font-medium text-foreground">{r.customer_name ?? '—'}</div>
                   <div className="text-text-secondary truncate text-xs">{r.title}</div>
                 </div>
-                {r.stage_label && <span className={cn('shrink-0 rounded-md px-2 py-0.5 text-xs font-medium', toneClass(r.stage_color))}>{r.stage_label}</span>}
+                <span className="shrink-0"><StageStatusBadge stageLabel={r.stage_label} stageColor={r.stage_color} statusLabel={r.durum_label} statusColor={r.durum_color} /></span>
               </div>
               <div className="text-text-muted flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 <span className="font-mono">{r.code}</span>

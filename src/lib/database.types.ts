@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       account_transactions: {
@@ -2686,6 +2711,8 @@ export type Database = {
           sla_deadline: string | null
           source: string
           stage_id: number | null
+          status_id: number | null
+          status_note: string | null
           target_price: number | null
           target_price_currency: string | null
           title: string | null
@@ -2726,6 +2753,8 @@ export type Database = {
           sla_deadline?: string | null
           source?: string
           stage_id?: number | null
+          status_id?: number | null
+          status_note?: string | null
           target_price?: number | null
           target_price_currency?: string | null
           title?: string | null
@@ -2766,6 +2795,8 @@ export type Database = {
           sla_deadline?: string | null
           source?: string
           stage_id?: number | null
+          status_id?: number | null
+          status_note?: string | null
           target_price?: number | null
           target_price_currency?: string | null
           title?: string | null
@@ -2849,6 +2880,13 @@ export type Database = {
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "operation_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operations_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "stage_statuses"
             referencedColumns: ["id"]
           },
           {
@@ -4337,6 +4375,59 @@ export type Database = {
           },
         ]
       }
+      stage_statuses: {
+        Row: {
+          behavior: string | null
+          color: string | null
+          created_at: string
+          id: number
+          is_active: boolean
+          is_system: boolean
+          key: string
+          label: string
+          requires_reason: boolean
+          sort_order: number
+          stage_id: number
+          updated_at: string
+        }
+        Insert: {
+          behavior?: string | null
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key: string
+          label: string
+          requires_reason?: boolean
+          sort_order?: number
+          stage_id: number
+          updated_at?: string
+        }
+        Update: {
+          behavior?: string | null
+          color?: string | null
+          created_at?: string
+          id?: never
+          is_active?: boolean
+          is_system?: boolean
+          key?: string
+          label?: string
+          requires_reason?: boolean
+          sort_order?: number
+          stage_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_statuses_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "operation_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       status_transitions: {
         Row: {
           created_at: string
@@ -5383,6 +5474,7 @@ export type Database = {
       }
       goal_actual: { Args: { p_goal_id: number }; Returns: number }
       has_permission: { Args: { permission_key: string }; Returns: boolean }
+      in_stage_sync: { Args: never; Returns: boolean }
       intake_normalize_phone: { Args: { p_raw: string }; Returns: string }
       intake_process: { Args: { p: Json }; Returns: Json }
       is_active_user: { Args: never; Returns: boolean }
@@ -5860,6 +5952,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       audit_action: ["insert", "update", "delete", "restore"],

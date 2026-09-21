@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
-  ArrowLeft, Building2, Paperclip, Plus, Trash2, FileText, Shirt, ClipboardList,
-  Clock, AlertTriangle, ArrowRight, Package, Loader2, ListTodo, Lock,
+  ArrowLeft, Building2, Paperclip, Plus, Trash2, Workflow,
+  Clock, AlertTriangle, ArrowRight, Package, Loader2, ListTodo,
 } from 'lucide-react'
 import { useEntityFiles, useSignedUrl } from '@/hooks/useFiles'
 import { OpenFileBand } from './OpenFileBand'
@@ -15,9 +15,8 @@ import { EntityTimeline } from '@/components/timeline/EntityTimeline'
 import { OperationActivityFeed } from '@/components/operations/OperationActivityFeed'
 import { OperationProductItems } from '@/components/operations/OperationProductItems'
 import { OperationInvalidControl } from '@/components/operations/OperationInvalidControl'
-import { QuotesTab } from './QuotesTab'
-import { SamplesTab } from './SamplesTab'
-import { OrdersTab } from './OrdersTab'
+import { OperationProcessPanel } from './OperationProcessPanel'
+import { StageStatusBadge } from '@/components/shared/StageStatusBadge'
 import { OperationTasks } from '@/pages/tasks/OperationTasks'
 import { features } from '@/lib/features'
 import { TalepAnalizi } from '@/pages/ai/TalepAnalizi'
@@ -71,28 +70,12 @@ const NEXT_STEP: Record<string, string> = {
 const TABS = [
   { key: 'genel', label: 'Genel', icon: Building2 },
   { key: 'urunler', label: 'Ürünler', icon: Package },
-  { key: 'teklif', label: 'Teklif', icon: FileText },
-  { key: 'numune', label: 'Numune', icon: Shirt },
-  { key: 'siparis', label: 'Sipariş', icon: ClipboardList },
+  { key: 'surec', label: 'Süreç', icon: Workflow },
   { key: 'gorevler', label: 'Görevler', icon: ListTodo },
   { key: 'dosyalar', label: 'Dosyalar', icon: Paperclip },
   { key: 'gecmis', label: 'Geçmiş', icon: Clock },
 ] as const
 type TabKey = (typeof TABS)[number]['key']
-
-// Aşama ilerleme sırası (sekme kilitleri için). Aynı aşamanın iki anahtarı eşit sıralanır.
-const STAGE_RANK: Record<string, number> = {
-  teklif_bekliyor: 1, talep: 1, teklif_iletildi: 2, teklif: 2, numune: 3,
-  siparis: 4, uretim: 5, teslimat: 6, tamamlandi: 7, teklif_reddedildi: 8, iptal: 9,
-}
-/** Erişilmemiş aşama sekmeleri kilitli: numune teklif sonrası, sipariş numune sonrası.
- *  Kilit sebebi (tooltip) döner; null = açık. */
-function tabLockReason(tabKey: string, stageKey: string | null): string | null {
-  const rank = STAGE_RANK[stageKey ?? ''] ?? 1
-  if (tabKey === 'numune' && rank < 2) return 'Teklif iletilmeden numune açılamaz.'
-  if (tabKey === 'siparis' && rank < 3) return 'Numune aşamasına geçilmeden sipariş açılamaz.'
-  return null
-}
 
 /** Operasyon ekranı — 7 sekme (Merhaba.docx 9). */
 export function OperationCardPage() {
@@ -124,8 +107,8 @@ export function OperationCardPage() {
   const stage = (stages.data ?? []).find((s) => s.id === op.stage_id)
   const sla = slaStatus(op.sla_deadline, new Date(nowMs))
   const risks: string[] = []
-  if (sla.overdue && op.stage_key === 'teklif_bekliyor') risks.push('Teklif süresi doldu')
-  else if (sla.soon && op.stage_key === 'teklif_bekliyor') risks.push('Teklif süresi yaklaşıyor')
+  if (sla.overdue && op.durum_key === 'st_teklif_bekliyor') risks.push('Teklif süresi doldu')
+  else if (sla.soon && op.durum_key === 'st_teklif_bekliyor') risks.push('Teklif süresi yaklaşıyor')
 
   return (
     <div className="space-y-5">
@@ -140,7 +123,7 @@ export function OperationCardPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold text-foreground">{op.title}</h1>
           <span className="text-text-secondary bg-muted rounded px-1.5 py-0.5 font-mono text-xs">{op.code}</span>
-          {stage && <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', toneClass(stage.color))}>{stage.label}</span>}
+          {stage && <StageStatusBadge stageLabel={stage.label} stageColor={stage.color} statusLabel={op.durum_label} statusColor={op.durum_color} />}
           <div className="ml-auto flex items-center gap-2">
             {!op.owner_id && (
               <Button size="sm" variant="outline" onClick={() => void onClaim()} disabled={claim.isPending}>
@@ -178,30 +161,20 @@ export function OperationCardPage() {
         {stagePeek && <p className="text-text-secondary mt-1.5 text-xs">{STAGE_DESC[stagePeek] ?? ''}</p>}
       </div>
 
-      {/* B.7 — açık dosya bandı: kalan süre + Ertele/Git + erteleme geçmişi */}
-      <OpenFileBand operationId={op.id} onGoto={() => setTab('teklif')} />
+      {/* B.7 — açık dosya bandı: yalnız teklif aşamasında anlamlı (Bulgu 5: ilgisiz aşamada gizle) */}
+      {op.stage_key === 'teklif' && <OpenFileBand operationId={op.id} onGoto={() => setTab('surec')} />}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
         <div className="min-w-0">
           <div className="border-border flex flex-wrap gap-1 border-b">
             {/* PAKET G: Görevler sekmesi features.tasks kapalıyken gizli ("Sıradaki aksiyon" satırı kalır). */}
-            {TABS.filter((t) => t.key !== 'gorevler' || features.tasks).map((t) => {
-              const lock = tabLockReason(t.key, op.stage_key)
-              if (lock) return (
-                // Kilitli sekme: görünür ama tıklanamaz; üzerine gelince sebep yazar.
-                <span key={t.key} title={lock} aria-disabled
-                  className="inline-flex cursor-not-allowed items-center gap-1.5 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-text-muted/50">
-                  <Lock className="size-3.5" /> {t.label}
-                </span>
-              )
-              return (
-                <button key={t.key} type="button" onClick={() => setTab(t.key)}
-                  className={cn('inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-                    tab === t.key ? 'border-primary text-foreground' : 'text-text-secondary hover:text-foreground border-transparent')}>
-                  <t.icon className="size-4" /> {t.label}
-                </button>
-              )
-            })}
+            {TABS.filter((t) => t.key !== 'gorevler' || features.tasks).map((t) => (
+              <button key={t.key} type="button" onClick={() => setTab(t.key)}
+                className={cn('inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+                  tab === t.key ? 'border-primary text-foreground' : 'text-text-secondary hover:text-foreground border-transparent')}>
+                <t.icon className="size-4" /> {t.label}
+              </button>
+            ))}
           </div>
 
           <div className="pt-4">
@@ -212,9 +185,7 @@ export function OperationCardPage() {
                 <CatalogItems operationId={op.id} />
               </div>
             )}
-            {tab === 'teklif' && <QuotesTab operationId={op.id} />}
-            {tab === 'numune' && <SamplesTab operationId={op.id} />}
-            {tab === 'siparis' && <OrdersTab operationId={op.id} customerId={op.customer_id} />}
+            {tab === 'surec' && <OperationProcessPanel key={op.id} op={op} customerId={op.customer_id} />}
             {tab === 'gorevler' && features.tasks && <OperationTasks operationId={op.id} />}
             {tab === 'dosyalar' && <FilesPanel entityType="operation" entityId={op.id} />}
             {tab === 'gecmis' && (
@@ -479,7 +450,7 @@ function SummaryPanel({ op, nextStep }: { op: NonNullable<ReturnType<typeof useO
               </span>
             ) : <span className="text-text-muted text-xs">Açık görev yok</span>}
         </SummaryRow>
-        <SummaryRow label="Teklif Süresi">{teklifSuresi(op.sla_deadline)}</SummaryRow>
+        {op.stage_key === 'teklif' && <SummaryRow label="Teklif Süresi">{teklifSuresi(op.sla_deadline)}</SummaryRow>}
         <SummaryRow label="Son işlem">{lastEvent ? fmtDT(lastEvent.occurred_at) : '—'}</SummaryRow>
         <SummaryRow label="Son müşteri görüşmesi">
           {lastTalk ? <span className="block"><span className="text-xs">{fmtDT(lastTalk.occurred_at)}</span>{lastTalk.summary && <span className="text-text-secondary mt-0.5 block text-xs">{lastTalk.summary}</span>}</span> : '—'}

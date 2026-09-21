@@ -120,7 +120,16 @@ function render(ev: TimelineEvent): { title: string; description?: string; icon:
       return { title: `Dosya kaldırıldı: ${str(p.name) ?? ''}`, icon: Paperclip, tone: 'default' }
     // Operasyon zinciri (Faz 3)
     case 'operation.created':
-      return { title: 'Talep oluşturuldu', description: str(p.title) ?? undefined, icon: ClipboardList, tone: 'info' }
+      return {
+        title: 'Talep oluşturuldu',
+        description: [str(p.title), (p.stage_label && p.status_label) ? `Başlangıç: ${str(p.stage_label)} · ${str(p.status_label)}` : null].filter(Boolean).join(' — ') || undefined,
+        icon: ClipboardList, tone: 'info',
+      }
+    case 'operation.status_changed':
+      return {
+        title: `Durum: ${str(p.to_label) ?? str(p.to) ?? '—'}`,
+        description: str(p.note) ?? undefined, icon: ArrowLeftRight, tone: 'default',
+      }
     case 'operation.claimed':
       return { title: 'Talep üstlenildi', icon: UserRound, tone: 'default' }
     case 'sample.revised':
@@ -169,25 +178,24 @@ export function EntityTimeline({ entityType, entityId }: { entityType: TimelineE
   const items: TimelineItem[] = (data?.rows ?? []).map((ev, idx) => {
     const r = render(ev)
     const note = backdatedNote(ev.occurred_at, ev.created_at) // geçmişe kayıt uyarısı
-    const hasDetail = !!r.description || !!ev.actor_name || !!note
+    // Aktör: oturum yoksa (trigger/intake kaynaklı) actor_id NULL → "Sistem" yaz (boş "kim" gösterme).
+    const actorLabel = ev.actor_name ?? 'Sistem'
     return {
       id: ev.id,
       group: dateGroup(ev.occurred_at, now),
       defaultOpen: idx < 3, // son 3 olay açık gelir
       title: r.title,
-      description: hasDetail ? (
+      description: (
         <>
           {r.description}
-          {(ev.actor_name || note) && (
-            <span className="text-text-muted block text-xs">
-              {ev.actor_name && <>— {ev.actor_name}</>}
-              {note && (
-                <span className="bg-neutral-badge ml-1 rounded px-1 py-0.5 text-[10px]">{note}</span>
-              )}
-            </span>
-          )}
+          <span className="text-text-muted block text-xs">
+            — {actorLabel}
+            {note && (
+              <span className="bg-neutral-badge ml-1 rounded px-1 py-0.5 text-[10px]">{note}</span>
+            )}
+          </span>
         </>
-      ) : undefined,
+      ),
       timestamp: fmt(ev.occurred_at), // NE ZAMAN OLDU
       icon: r.icon,
       tone: r.tone,

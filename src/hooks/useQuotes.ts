@@ -216,6 +216,9 @@ export interface QuotePatch {
   responded_at?: string | null
   rejection_reason_id?: number | null
   rejection_note?: string | null
+  // H3: teklif seviyesi TAKİP tarihi (durum değil) — "olumlu ama şu tarihte tekrar görüşelim".
+  follow_up_at?: string | null
+  follow_up_reason?: string | null
 }
 
 export function useUpdateQuote() {
