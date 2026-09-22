@@ -13,6 +13,14 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.40.2] — 2026-09-22
+
+### Düzeltme: raporlarda "İle göre" boş görünüyordu
+
+Ön yüz `by_province` anahtarını okuyor, `metric_requests` ise `by_city` üretiyordu → Genel Rapor ve
+Talep raporunda il dağılımı hep boş, CSV'de il satırları eksikti. Anahtar `by_city` olarak birleştirildi.
+Panelde "Girilen aksiyon" kartının ölü bağlantısı (`rapor=etkilesim`) Ekip raporuna çevrildi.
+
 ## [1.40.1] — 2026-09-22
 
 ### Teklif formunda satır başına maliyet ve kâr oranı

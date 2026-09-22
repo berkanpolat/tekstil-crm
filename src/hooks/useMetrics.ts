@@ -84,7 +84,7 @@ export interface InteractionsMetric extends ChangeBlock { positive_rate: number 
 export interface RequestsMetric extends ChangeBlock {
   sla_rate: number; sla_met_count: number; sla_missed_count: number; sla_pending_count: number
   avg_response_hours: number
-  by_landing: Labeled[]; by_city: Labeled[]; by_channel: Labeled[]; by_category: Labeled[]; by_province: Labeled[]
+  by_landing: Labeled[]; by_city: Labeled[]; by_channel: Labeled[]; by_category: Labeled[]
   /** Pazarlama kanalı (Meta/Search/Organik/Data…) — marketing_channels */
   by_marketing: (Labeled & { key: string })[]
   /** Katalogdan seçim / görsel-manuel ürün */

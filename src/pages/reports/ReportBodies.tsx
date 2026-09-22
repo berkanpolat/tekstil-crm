@@ -52,7 +52,7 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
     setCsv({ filename: `talep-raporu-${period.key}`, headers: ['Kırılım', 'Değer', 'Talep'], rows: [
       ...(data.by_marketing ?? []).map((x) => ['Pazarlama kanalı', x.label, x.count] as (string | number)[]),
       ...(data.by_channel ?? []).map((x) => ['Kanal', x.label, x.count] as (string | number)[]),
-      ...(data.by_province ?? []).map((x) => ['İl', x.label, x.count] as (string | number)[]),
+      ...(data.by_city ?? []).map((x) => ['İl', x.label, x.count] as (string | number)[]),
     ] })
     setPdf({
       kpis: [
@@ -69,7 +69,7 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
         { kind: 'bars', title: 'Ürün kaynağına göre', rows: labeledRows(data.by_product_source) },
         { kind: 'bars', title: 'Kanala göre', rows: labeledRows(data.by_channel) },
         { kind: 'bars', title: 'Kategoriye göre', rows: labeledRows(data.by_category) },
-        { kind: 'bars', title: 'İle göre', rows: labeledRows(data.by_province), empty: 'İl verisi yok.' },
+        { kind: 'bars', title: 'İle göre', rows: labeledRows(data.by_city), empty: 'İl verisi yok.' },
         { kind: 'notice', variant: 'none', title: 'İlçe kırılımı toplanmıyor', text: 'Coğrafi dağılım yalnızca il bazındadır; ilçe bu metrik için toplanmıyor.' },
       ],
     })
@@ -114,7 +114,7 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
         <ReportSection title="Kanala göre"><BarList rows={labeledRows(data?.by_channel)} /></ReportSection>
         <ReportSection title="Kategoriye göre"><BarList rows={labeledRows(data?.by_category)} /></ReportSection>
         <ReportSection title="İle göre">
-          <BarList rows={labeledRows(data?.by_province)} empty="İl verisi yok." />
+          <BarList rows={labeledRows(data?.by_city)} empty="İl verisi yok." />
           <p className="text-text-muted text-xs">Yalnızca <strong>il</strong> kırılımı; <strong>ilçe</strong> bazında dağılım bu metrik için toplanmıyor.</p>
         </ReportSection>
         <ReportSection title="Açılış sayfasına göre"><BarList rows={labeledRows(data?.by_landing)} empty="Henüz veri yok — site entegrasyonu bağlanınca dolacak." /></ReportSection>

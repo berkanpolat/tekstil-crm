@@ -213,7 +213,7 @@ function MetricStrip({ period }: { period: Period }) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       <Kpi label="Gelen talep" value={num(req.data?.total)} sub={trendSub(req.data?.change_pct, cap)} onClick={() => nav('/talepler')} />
       <Kpi label="Verilen teklif" value={num(quo.data?.sent)} sub={trendSub(quo.data?.change_pct, cap)} onClick={() => nav('/teklifler')} />
-      <Kpi label="Girilen aksiyon" value={num(inter.data?.total)} sub={trendSub(inter.data?.change_pct, cap)} onClick={() => nav('/raporlar?rapor=etkilesim')} />
+      <Kpi label="Girilen aksiyon" value={num(inter.data?.total)} sub={trendSub(inter.data?.change_pct, cap)} onClick={() => nav('/raporlar?rapor=ekip')} />
       <Kpi label="Numunede" value={num(act.data?.samples)} sub="şu an açık" onClick={() => nav('/numuneler')} />
       <Kpi label="Siparişte" value={num(act.data?.orders)} sub="şu an açık" onClick={() => nav('/siparisler')} />
     </div>

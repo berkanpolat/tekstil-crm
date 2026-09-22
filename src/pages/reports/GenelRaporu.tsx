@@ -36,7 +36,7 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
         ['Özet', 'Reddedilen', g.reddedilen], ['Özet', 'Kabul', g.kabul], ['Özet', 'Numune', g.numune_sayisi], ['Özet', 'Sipariş', g.siparis_sayisi],
         ['Özet', '24 saat sözü %', r.sla_rate ?? ''],
         ...(r.by_marketing ?? []).map((x) => ['Pazarlama kanalı', x.label, x.count] as (string | number)[]),
-        ...(r.by_province ?? []).map((x) => ['İl', x.label, x.count] as (string | number)[]),
+        ...(r.by_city ?? []).map((x) => ['İl', x.label, x.count] as (string | number)[]),
         ...(r.by_product_source ?? []).map((x) => ['Ürün kaynağı', x.label, x.count] as (string | number)[]),
         ...(g.red_sebepleri ?? []).map((x) => ['Red sebebi', x.label, x.count] as (string | number)[]),
         ...(g.red_sebebi_il ?? []).map((x) => ['Red sebebi × il', `${x.sebep} — ${x.il}`, x.count] as (string | number)[]),
@@ -53,7 +53,7 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
       blocks: [
         { kind: 'funnel', title: 'Dönüşüm hunisi', steps: huni, caption: 'Talep → teklif verildi → kabul/numune → sipariş (bu dönemde açılan talepler).' },
         { kind: 'bars', title: 'Pazarlama kanalına göre', rows: rows(r.by_marketing) },
-        { kind: 'bars', title: 'İle göre', rows: rows(r.by_province) },
+        { kind: 'bars', title: 'İle göre', rows: rows(r.by_city) },
         { kind: 'bars', title: 'Ürün kaynağına göre (katalog / manuel)', rows: rows(r.by_product_source) },
         { kind: 'hist', title: 'Saate göre', data: r.by_hour ?? [], caption: 'Taleplerin günün hangi saatlerinde yoğunlaştığı (yerel saat).' },
         { kind: 'bars', title: 'Güne göre', rows: dow },
@@ -91,7 +91,7 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
           <BarList rows={rows(r.by_marketing)} empty="Kanal verisi yok." />
           <p className="text-text-muted text-xs">Siteden gelenlerde otomatik (reklam tıklaması, UTM, yönlendiren); elle açılan taleplerde formdan seçilir.</p>
         </ReportSection>
-        <ReportSection title="İle göre"><BarList rows={rows(r.by_province)} empty="İl verisi yok." /></ReportSection>
+        <ReportSection title="İle göre"><BarList rows={rows(r.by_city)} empty="İl verisi yok." /></ReportSection>
         <ReportSection title="Ürün kaynağına göre"><BarList rows={rows(r.by_product_source)} /></ReportSection>
         <ReportSection title="Güne göre"><BarList rows={dow} /></ReportSection>
       </div>
