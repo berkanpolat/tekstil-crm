@@ -51,7 +51,7 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
       kanallar: g.kanal_huni.map((k) => ({ label: k.label, talep: k.talep, teklif: k.teklif, siparis: k.siparis, reddedilen: k.reddedilen })),
       red_sebepleri: g.red_sebepleri,
     }))
-    setYorum(res.result ?? res.error ?? 'Yorum üretilemedi.')
+    setYorum(res.result ?? res.error ?? (res.available === false ? 'YZ servisi şu an kullanılamıyor: Anthropic API anahtarı geçersiz ya da limit dolu (Ayarlar → Yapay Zekâ).' : 'Yorum üretilemedi.'))
   }
 
   useEffect(() => {

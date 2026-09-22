@@ -13,6 +13,10 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.42.1] — 2026-09-22
+
+- Genel Rapor YZ yorumu: servis kapalıyken sebep gösterilir (API anahtarı geçersiz / limit). `ai.model` ayarı `claude-sonnet-5`.
+
 ## [1.42.0] — 2026-09-22
 
 ### Genel Rapor Faz 2–3: YZ yorumu, reklam harcaması → CPL/CPA
