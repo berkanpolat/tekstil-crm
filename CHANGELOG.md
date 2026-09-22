@@ -13,6 +13,16 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.40.1] — 2026-09-22
+
+### Teklif formunda satır başına maliyet ve kâr oranı
+
+Fiyat teklifi belgesinin "Üretim Seçenekleri" satırlarına **Birim Maliyet** ve **Kâr (%)**
+alanları eklendi; birim fiyat = maliyet × (1 + kâr/100) otomatik yazılır. Adet girilince kâr,
+Ayarlar → Fiyatlandırma kademesinden gelir (50→%40 · 51→%30 · 251→%20); elle değiştirilirse
+"kademe dışı" uyarısı görünür. Katalogdan "Teklif oluştur" ve siteden gelen taslak teklif
+bu alanları dolu getirir. Maliyet ve kâr iç bilgidir, belgeye/PDF'e basılmaz.
+
 ## [1.40.0] — 2026-09-21
 
 ### Genel istekler paketi: kanal verisi, kâr marjı, tek rapor, eşleştirme kuralı

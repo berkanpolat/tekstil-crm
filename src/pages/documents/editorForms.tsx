@@ -4,6 +4,8 @@
 // çoklu müşteri. Her form doğrudan render verisini düzenler.
 /* eslint-disable @typescript-eslint/no-explicit-any, react-refresh/only-export-components */
 import { useEffect, useId, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { useMarginTiers } from '@/hooks/useCatalog'
+import { marginForQuantity, type MarginTier } from '@/lib/pricing'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -274,8 +276,33 @@ function RowControls<TItem>({ list, i, set, min = 1 }: { list: TItem[]; i: numbe
 }
 
 // ── Fiyat Teklifi ─────────────────────────────────────────────────────────
+/** Adet için kademe marjı (Ayarlar → Fiyatlandırma). Adet yoksa null. */
+function kademeMarji(adet: unknown, tiers: MarginTier[]): number | null {
+  const q = parseInt(String(adet ?? '').replace(/\D/g, ''), 10)
+  if (!Number.isFinite(q) || q <= 0 || !tiers.length) return null
+  return marginForQuantity(q, tiers)
+}
+/**
+ * Seçenek satırı hesabı: maliyet × (1 + kâr/100) → birim fiyat.
+ * - adet değişti ve kâr elle girilmemişse kâr kademeden gelir;
+ * - maliyet ya da kâr değiştiğinde ikisi de doluysa birim fiyat yeniden yazılır.
+ */
+function satirHesapla(o: Data, tiers: MarginTier[], degisen: 'adet' | 'maliyet' | 'kar'): Data {
+  const n = (v: unknown) => { const x = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(x) ? x : null }
+  const next = { ...o }
+  if (degisen === 'adet' && (next.kar === '' || next.kar == null || next._karKademe)) {
+    const k = kademeMarji(next.adet, tiers)
+    if (k != null) { next.kar = String(k); next._karKademe = true }
+  }
+  if (degisen === 'kar') next._karKademe = false
+  const m = n(next.maliyet), k = n(next.kar)
+  if (m != null && k != null) next.birim = (m * (1 + k / 100)).toFixed(2)
+  return next
+}
+
 function FiyatTeklifiForm({ data, set }: { data: Data; set: Dispatch<SetStateAction<Data>> }) {
   const s = data.tkS || {}
+  const tiers: MarginTier[] = useMarginTiers().data ?? []
   const up = (patch: Data) => set(patchSection('tkS', patch))
   const opts: Data[] = s.opts || []
   const setOpts = (o: Data[]) => up({ opts: o })
@@ -333,8 +360,19 @@ function FiyatTeklifiForm({ data, set }: { data: Data; set: Dispatch<SetStateAct
               <Grid>
                 <T label="Detay" value={o.detay} onChange={(v) => setOpts(opts.map((x, j) => j === i ? { ...x, detay: v } : x))} />
                 <T label="Kumaş" value={o.kumas} onChange={(v) => setOpts(opts.map((x, j) => j === i ? { ...x, kumas: v } : x))} />
-                <NumField label="Adet" value={o.adet} decimals={false} onChange={(v) => setOpts(opts.map((x, j) => j === i ? { ...x, adet: v } : x))} />
+                <NumField label="Adet" value={o.adet} decimals={false} onChange={(v) => setOpts(opts.map((x, j) => j === i ? satirHesapla({ ...x, adet: v }, tiers, 'adet') : x))} />
                 <NumField label={`Birim Fiyat (${CUR_SYM[s.para] || '₺'})`} value={o.birim} onChange={(v) => setOpts(opts.map((x, j) => j === i ? { ...x, birim: v } : x))} />
+                {/* Maliyet + Kâr → birim fiyat otomatik (iç bilgi; belgeye basılmaz) */}
+                <NumField label={`Birim Maliyet (${CUR_SYM[s.para] || '₺'})`} value={o.maliyet} placeholder="iç bilgi"
+                  onChange={(v) => setOpts(opts.map((x, j) => j === i ? satirHesapla({ ...x, maliyet: v }, tiers, 'maliyet') : x))} />
+                <div>
+                  <NumField label="Kâr (%)" value={o.kar} placeholder={String(kademeMarji(o.adet, tiers) ?? '')}
+                    onChange={(v) => setOpts(opts.map((x, j) => j === i ? satirHesapla({ ...x, kar: v }, tiers, 'kar') : x))} />
+                  <p className="mt-1 text-[11px] text-text-muted">
+                    {kademeMarji(o.adet, tiers) != null ? <>Kademe: <b>%{kademeMarji(o.adet, tiers)}</b> ({o.adet || '—'} adet)</> : 'Kademe için adet girin'}
+                    {o.kar !== '' && o.kar != null && kademeMarji(o.adet, tiers) != null && Number(o.kar) !== kademeMarji(o.adet, tiers) && <> · <span className="text-warning-foreground">kademe dışı</span></>}
+                  </p>
+                </div>
               </Grid>
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 text-xs text-text-muted">
@@ -346,7 +384,7 @@ function FiyatTeklifiForm({ data, set }: { data: Data; set: Dispatch<SetStateAct
               </div>
             </div>
           ))}
-          <Button type="button" size="sm" variant="outline" onClick={() => setOpts([...opts, { detay: '', kumas: '', adet: '', birim: '', oner: false }])}>
+          <Button type="button" size="sm" variant="outline" onClick={() => setOpts([...opts, { detay: '', kumas: '', adet: '', birim: '', oner: false, maliyet: '', kar: '' }])}>
             <Plus className="size-3.5" /> Seçenek ekle
           </Button>
         </div>

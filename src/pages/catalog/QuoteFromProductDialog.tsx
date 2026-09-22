@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useExchangeRates, useMarginTiers, type CatalogProductDetail } from '@/hooks/useCatalog'
 
-interface PriceInfo { has_cost: boolean; unit_price_usd?: number; fabric_name?: string; margin_percent?: number | null }
+interface PriceInfo { has_cost: boolean; unit_price_usd?: number; fabric_name?: string; margin_percent?: number | null; unit_cost_usd?: number | null }
 const usd = (n: number) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /** P4B.8 + QA#5 — Katalogdan ÇOKLU KADEME teklif: 50/200/500 gibi birden çok adet seçilir,
@@ -65,6 +65,7 @@ export function QuoteFromProductDialog({ product, onClose }: { product: CatalogP
     const kumas = rows[0]?.info.fabric_name ?? product.composition ?? ''
     const opts = rows.map((r) => ({
       detay: product.name, kumas, adet: String(r.q), birim: String(r.info.unit_price_usd ?? ''), oner: false,
+      maliyet: r.info.unit_cost_usd != null ? String(r.info.unit_cost_usd) : '', kar: r.info.margin_percent != null ? String(r.info.margin_percent) : '',
     }))
     const prefill = {
       _fromCatalog: true,

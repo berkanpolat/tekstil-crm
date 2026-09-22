@@ -27,6 +27,10 @@ export interface DraftOptRow {
   /** Birim fiyat (USD, string). Maliyet eksikse '' — 0 DEĞİL. */
   birim: string
   oner: boolean
+  /** Birim maliyet (USD, string) — iç bilgi, belgeye basılmaz. Maliyet eksikse ''. */
+  maliyet?: string
+  /** Uygulanan kâr oranı (%) — iç bilgi, belgeye basılmaz. */
+  kar?: string
 }
 
 export interface BuildOptsInput {
@@ -58,10 +62,12 @@ export function buildDraftOpts(input: BuildOptsInput): BuildOptsResult {
     const costMissing = line.unitCostUsd == null || !Number.isFinite(line.unitCostUsd)
     if (costMissing) missing.add(line.urun)
     for (const qty of qtys) {
-      let birim = ''
+      let birim = ''; let maliyet = ''; let kar = ''
       if (!costMissing) {
         const p = priceForQuantity(line.unitCostUsd as number, qty, input.tiers, line.customMargin)
         birim = p.unitPrice.toFixed(2)
+        maliyet = (line.unitCostUsd as number).toFixed(2)
+        kar = String(p.marginPercent)
       }
       opts.push({
         detay: line.urun,
@@ -69,6 +75,8 @@ export function buildDraftOpts(input: BuildOptsInput): BuildOptsResult {
         adet: String(qty),
         birim,
         oner: !costMissing && qty === input.recommendedQty,
+        maliyet,
+        kar,
       })
     }
   }
