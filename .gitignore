@@ -76,3 +76,6 @@ sast/
 .tasima-durum.json
 
 .ice-aktarma-rapor.json
+
+# Worker yerel sırları (wrangler dev) — asla commit edilmez
+services/dosya-worker/.dev.vars
