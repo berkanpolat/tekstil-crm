@@ -2134,6 +2134,57 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_spend: {
+        Row: {
+          amount: number
+          channel_id: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: number
+          month: string
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          channel_id: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: never
+          month: string
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          channel_id?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: never
+          month?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_spend_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_spend_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_template_variables: {
         Row: {
           default_value: string | null

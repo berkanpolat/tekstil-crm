@@ -25,10 +25,11 @@ function Hucre({ n, oran, max, tone = 'bg-accent-primary' }: { n: number; oran: 
   )
 }
 
-export function ChannelFunnelTable({ rows, labelHeader = 'Kanal', minBase, showSpeed = true, onRowClick, compact = false, empty = 'Veri yok.' }: {
-  rows: HuniSatiri[]; labelHeader?: string; minBase: number; showSpeed?: boolean
+export function ChannelFunnelTable({ rows, labelHeader = 'Kanal', minBase, showSpeed = true, showCost = false, paraBirimi = 'TRY', onRowClick, compact = false, empty = 'Veri yok.' }: {
+  rows: HuniSatiri[]; labelHeader?: string; minBase: number; showSpeed?: boolean; showCost?: boolean; paraBirimi?: string
   onRowClick?: (row: HuniSatiri) => void; compact?: boolean; empty?: string
 }) {
+  const para = (v: number | null | undefined) => (v == null ? '—' : `${v.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ${paraBirimi}`)
   const [sort, setSort] = useState<{ key: HuniSiraAnahtari; dir: 'asc' | 'desc' }>({ key: 'talep', dir: 'desc' })
   const sorted = useMemo(() => siralaHuni(rows, sort.key, sort.dir), [rows, sort])
   const toplam = useMemo(() => toplamSatiri(rows), [rows])
@@ -61,7 +62,12 @@ export function ChannelFunnelTable({ rows, labelHeader = 'Kanal', minBase, showS
         {showSpeed && (<>
           <td className="py-2 pr-3 text-right tabular-nums">{fmtH(r.ilk_yanit_saat)}</td>
           <td className="py-2 pr-3 text-right tabular-nums">{zayif ? '—' : oranMetni(r.sla_met, r.sla_met + r.sla_missed, minBase)}</td>
-          <td className="py-2 text-right tabular-nums">{fmtH(r.teklif_yanit_saat)}</td>
+          <td className="py-2 pr-3 text-right tabular-nums">{fmtH(r.teklif_yanit_saat)}</td>
+        </>)}
+        {showCost && (<>
+          <td className="py-2 pr-3 text-right tabular-nums">{toplamMi ? para(rows.reduce((a, x) => a + (x.harcama ?? 0), 0)) : para(r.harcama)}</td>
+          <td className="py-2 pr-3 text-right tabular-nums">{toplamMi ? '—' : para(r.cpl)}</td>
+          <td className="py-2 text-right tabular-nums">{toplamMi ? '—' : para(r.cpa)}</td>
         </>)}
       </tr>
     )
@@ -78,7 +84,8 @@ export function ChannelFunnelTable({ rows, labelHeader = 'Kanal', minBase, showS
             {th('siparis', 'Sipariş (n · % talep)', 'left')}
             {th('reddedilen', 'Red (n · %)', 'left')}
             <th className="py-1.5 pr-3 text-right font-medium">Bekleyen</th>
-            {showSpeed && (<>{th('ilk_yanit_saat', 'İlk yanıt')}{th('sla_orani', '24s sözü')}<th className="py-1.5 text-right font-medium whitespace-nowrap">Teklif yanıt</th></>)}
+            {showSpeed && (<>{th('ilk_yanit_saat', 'İlk yanıt')}{th('sla_orani', '24s sözü')}<th className="py-1.5 pr-3 text-right font-medium whitespace-nowrap">Teklif yanıt</th></>)}
+            {showCost && (<><th className="py-1.5 pr-3 text-right font-medium">Harcama</th><th className="py-1.5 pr-3 text-right font-medium">CPL</th><th className="py-1.5 text-right font-medium">CPA</th></>)}
           </tr>
         </thead>
         <tbody>

@@ -25,6 +25,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { ReferenceListPage } from '@/pages/settings/ReferenceListPage'
 import { NotificationSettings } from '@/pages/settings/NotificationSettings'
 import { PricingSettings } from '@/pages/settings/PricingSettings'
+import { MarketingSpendSettings } from '@/pages/settings/MarketingSpendSettings'
 import { FinanceSettings } from '@/pages/settings/FinanceSettings'
 import { RolePermissionsPage } from '@/pages/settings/RolePermissionsPage'
 import { AiSettings } from '@/pages/settings/AiSettings'
@@ -131,6 +132,7 @@ export default function App() {
               <Route path="calisma-duzeni" element={<WorkingHoursSettings />} />
               <Route path="bildirimler" element={<NotificationSettings />} />
               <Route path="fiyatlandirma" element={<PricingSettings />} />
+              <Route path="pazarlama-harcama" element={<MarketingSpendSettings />} />
               <Route path="finans" element={<FinanceSettings />} />
               <Route path="yapay-zeka" element={<AiSettings />} />
               <Route path="sistem" element={<SystemSettings />} />

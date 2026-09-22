@@ -1,4 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Sparkles, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useAiAssist } from '@/hooks/useAi'
+import { useHasPermission } from '@/hooks/useCatalog'
+import { buildRaporYorumuPayload } from '@/lib/aiPayloads'
 import { useSearchParams } from 'react-router-dom'
 import {
   Kpi, ReportSection, ReportLoading, BarList, Heatmap, TrendChart, Funnel, DataTable, FilterSelect,
@@ -31,6 +36,23 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
   const one = useMemo(() => oneCikanKanallar(g?.kanal_huni ?? [], minBase), [g, minBase])
   const setMk = (v: string) => { const p = new URLSearchParams(sp); if (v) p.set('mk', v); else p.delete('mk'); setSp(p, { replace: true }) }
   const kanalAdi = mk ? opts.data?.marketing.find((m) => m.value === mk)?.label : null
+  const finans = useHasPermission('reports.finance').data ?? false
+  const ai = useAiAssist()
+  // Yorum dönem+kanal anahtarına bağlı: dönem değişince kendiliğinden düşer (effect'te setState yok)
+  const yorumKey = `${period.key}|${period.from}|${mk ?? ''}`
+  const [yorumRaw, setYorumRaw] = useState<{ k: string; t: string } | null>(null)
+  const yorum = yorumRaw && yorumRaw.k === yorumKey ? yorumRaw.t : null
+  const setYorum = (t: string | null) => setYorumRaw(t == null ? null : { k: yorumKey, t })
+  async function yorumla() {
+    if (!g || !r) return
+    const res = await ai.mutateAsync(buildRaporYorumuPayload({
+      donem: period.label, talep: g.talep, onceki_talep: g.onceki.talep, teklif_verilen: g.teklif_verilen, reddedilen: g.reddedilen, kabul: g.kabul,
+      numune: g.numune_sayisi, siparis: g.siparis_sayisi, ilk_yanit_saat: g.ilk_yanit_saat, sla_orani: r.sla_rate ?? null,
+      kanallar: g.kanal_huni.map((k) => ({ label: k.label, talep: k.talep, teklif: k.teklif, siparis: k.siparis, reddedilen: k.reddedilen })),
+      red_sebepleri: g.red_sebepleri,
+    }))
+    setYorum(res.result ?? res.error ?? 'Yorum üretilemedi.')
+  }
 
   useEffect(() => {
     if (!r || !g) { setCsv(null); setPdf(null); return }
@@ -57,6 +79,7 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
         { label: 'Numune / Sipariş', value: `${g.numune_sayisi} / ${g.siparis_sayisi}`, sub: `teklif→numune ${pct(g.teklif_numune_orani)} · numune→sipariş ${pct(g.numune_siparis_orani)}` },
       ],
       blocks: [
+        ...(yorum ? [{ kind: 'sentence' as const, text: `YZ yorumu: ${yorum}` }] : []),
         ...(one.enIyi ? [{ kind: 'sentence' as const, text: `En verimli kanal ${one.enIyi.label} (talep→sipariş ${pct(one.enIyi.siparis_orani)}, ${one.enIyi.talep} talep)${one.enKotu ? `; en yüksek red oranı ${one.enKotu.label} (${pct(one.enKotu.red_orani)})` : ''}.` }] : []),
         { kind: 'table', title: 'Kanal × Huni', headers: tabloBaslik, rows: tablo(g.kanal_huni) },
         { kind: 'trend', title: 'Talep eğilimi', points: g.egilim, caption: `${g.egilim_birim === 'hafta' ? 'Haftalık' : 'Günlük'}; kesikli çizgi önceki eşit uzunluktaki dönem.` },
@@ -70,7 +93,7 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
       ],
     })
     return () => { setCsv(null); setPdf(null) }
-  }, [r, g, period.key, mk, minBase, one, huni, setCsv, setPdf])
+  }, [r, g, period.key, mk, minBase, one, huni, yorum, setCsv, setPdf])
 
   if (req.isLoading || gen.isLoading) return <ReportLoading />
   if (!r || !g) return <ReportLoading />
@@ -88,6 +111,18 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
         <Kpi label="İlk yanıt" value={sa(g.ilk_yanit_saat)} sub={`24 saat sözü ${pct(r.sla_rate)}${r.sla_unknown_count ? ` · ${r.sla_unknown_count} bilinmiyor` : ''}`} />
         <Kpi label="Numune / Sipariş" value={`${g.numune_sayisi} / ${g.siparis_sayisi}`} sub={`teklif→numune ${pct(g.teklif_numune_orani)} · numune→sipariş ${pct(g.numune_siparis_orani)}`} />
       </div>
+      {finans && g.toplam_harcama != null && (
+        <div className="grid grid-cols-3 gap-3">
+          <Kpi label="Reklam harcaması" value={`${g.toplam_harcama.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ${g.harcama_para_birimi}`} sub="dönemle kesişen aylar gün oranında" />
+          <Kpi label="Talep başı maliyet (CPL)" value={g.cpl == null ? '—' : `${g.cpl.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ${g.harcama_para_birimi}`} sub="harcama ÷ talep" />
+          <Kpi label="Sipariş başı maliyet (CPA)" value={g.cpa == null ? '—' : `${g.cpa.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ${g.harcama_para_birimi}`} sub="harcama ÷ sipariş" />
+        </div>
+      )}
+      <div className="flex items-center gap-2 print:hidden">
+        <Button size="sm" variant="outline" onClick={() => void yorumla()} disabled={ai.isPending}>{ai.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} YZ yorumu</Button>
+        <span className="text-text-muted text-xs">Yalnız sayısal özet gönderilir; müşteri adı ya da tutar gitmez.</span>
+      </div>
+      {yorum && <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm leading-snug text-foreground">{yorum}</p>}
       {g.talep > 0 && (
         <p className="text-text-secondary text-sm leading-snug">
           <strong className="text-foreground">{g.talep} talebin</strong> {g.teklif_verilen}'ine teklif verildi ({oranMetni(g.teklif_verilen, g.talep, minBase)}), {g.reddedilen}'i reddedildi, {g.kabul}'ü numune ya da sonrasına geçti.
@@ -95,7 +130,7 @@ export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
         </p>
       )}
       <ReportSection title="Kanal × Huni">
-        <ChannelFunnelTable rows={g.kanal_huni} labelHeader="Pazarlama kanalı" minBase={minBase} onRowClick={mk ? undefined : (row) => { const o = opts.data?.marketing.find((m) => m.label === row.label); if (o) setMk(String(o.value)) }} />
+        <ChannelFunnelTable rows={g.kanal_huni} labelHeader="Pazarlama kanalı" minBase={minBase} showCost={finans} paraBirimi={g.harcama_para_birimi} onRowClick={mk ? undefined : (row) => { const o = opts.data?.marketing.find((m) => m.label === row.label); if (o) setMk(String(o.value)) }} />
       </ReportSection>
       <ReportSection title="Talep eğilimi"><TrendChart points={g.egilim} unit={g.egilim_birim} /></ReportSection>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

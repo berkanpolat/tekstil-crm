@@ -132,6 +132,8 @@ export interface HuniSatiri {
   bekleyen: number; gecersiz: number
   ilk_yanit_saat: number | null; sla_orani: number | null; sla_met: number; sla_missed: number
   teklif_yanit_saat: number | null
+  /** Faz 3 — reklam harcaması (yalnız reports.finance; aksi hâlde null) */
+  harcama?: number | null; cpl?: number | null; cpa?: number | null
 }
 export interface EgilimNoktasi { gun: string; count: number; onceki_count: number }
 /** Genel rapor (metric_genel v2): talep bazlı sayılar, önceki dönem, kanal/kampanya/il hunileri, eğilim. */
@@ -148,6 +150,7 @@ export interface GenelMetric {
   red_sebebi_kanal: { sebep: string; kanal: string; count: number }[]
   egilim: EgilimNoktasi[]; egilim_birim: 'gun' | 'hafta'
   min_rate_base: number
+  toplam_harcama?: number | null; cpl?: number | null; cpa?: number | null; harcama_para_birimi?: string
 }
 export const useGenelMetric = (period: Period, marketing?: number | null, on = true) =>
   useMetric<GenelMetric>('metric_genel', { ...p2(period), p_marketing: marketing ?? null }, on)

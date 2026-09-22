@@ -1,27 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import {
-  Users,
-  Building2,
-  Briefcase,
-  Info,
-  Shield,
-  Lock,
-  Clock,
-  Cog,
-  Bell,
-  Hammer,
-  MessageSquare,
-  CheckCircle2,
-  Radio,
-  Flag,
-  Tag,
-  Globe2,
-  Layers,
-  GitBranch,
-  Wallet,
-  Sparkles,
-  type LucideIcon,
-} from 'lucide-react'
+import { Users, Building2, Briefcase, Info, Shield, Lock, Clock, Cog, Bell, Hammer, MessageSquare, CheckCircle2, Radio, Flag, Tag, Globe2, Layers, GitBranch, Wallet, Sparkles, type LucideIcon, Megaphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Section {
@@ -79,6 +57,7 @@ const GROUPS: SectionGroup[] = [
       { to: '/ayarlar/calisma-duzeni', label: 'Çalışma Düzeni', icon: Clock },
       { to: '/ayarlar/bildirimler', label: 'Bildirimler', icon: Bell },
       { to: '/ayarlar/fiyatlandirma', label: 'Fiyatlandırma', icon: Tag },
+      { to: '/ayarlar/pazarlama-harcama', label: 'Pazarlama Harcaması', icon: Megaphone },
       { to: '/ayarlar/finans', label: 'Finans', icon: Wallet },
       { to: '/ayarlar/yapay-zeka', label: 'Yapay Zekâ', icon: Sparkles },
       { to: '/ayarlar/sistem', label: 'Sistem', icon: Cog },

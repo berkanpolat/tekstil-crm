@@ -75,3 +75,24 @@ export function buildOrderExtractionPayload(d: { orderId: number; pdfText: strin
   }
 }
 
+
+// ── Rapor yorumu (Genel Rapor) — İZİNLİ: yalnız sayısal özet; müşteri adı, para tutarı, kişi YOK ─────
+export interface RaporYorumuGirdi {
+  donem: string
+  talep: number; onceki_talep: number; teklif_verilen: number; reddedilen: number; kabul: number; numune: number; siparis: number
+  ilk_yanit_saat: number | null; sla_orani: number | null
+  kanallar: { label: string; talep: number; teklif: number; siparis: number; reddedilen: number }[]
+  red_sebepleri: { label: string; count: number }[]
+}
+export function buildRaporYorumuPayload(d: RaporYorumuGirdi): AiPayload {
+  const kanal = d.kanallar.slice(0, 6).map((k) => `${k.label}: talep ${k.talep}, teklif ${k.teklif}, sipariş ${k.siparis}, red ${k.reddedilen}`).join('; ')
+  const red = d.red_sebepleri.slice(0, 5).map((r) => `${r.label} ${r.count}`).join(', ')
+  const text = [
+    `Dönem: ${d.donem}`,
+    `Talep ${d.talep} (önceki eşit dönem ${d.onceki_talep}); teklif verilen ${d.teklif_verilen}; reddedilen ${d.reddedilen}; kabul/numune ${d.kabul}; numune ${d.numune}; sipariş ${d.siparis}`,
+    `İlk yanıt ${d.ilk_yanit_saat ?? '-'} saat; 24 saat sözü %${d.sla_orani ?? '-'}`,
+    kanal ? `Kanallar — ${kanal}` : '',
+    red ? `Red sebepleri — ${red}` : '',
+  ].filter(Boolean).join('\n')
+  return { feature: 'rapor_yorumu', entity_type: null, entity_id: null, fields_sent: ['sayisal_ozet'], record_counts: { kanal: d.kanallar.length }, input_chars: text.length, text }
+}

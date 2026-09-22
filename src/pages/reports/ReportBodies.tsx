@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { formatMoney } from '@/lib/money'
 import {
   Kpi, Insight, ReportSection, DataTable, ReportLoading, BarList, TrendLine,
-  Funnel, HourHistogram, Donut, SwatchLegend, LowDataNotice, type ReportProps, type FunnelStep,
+  Funnel, HourHistogram, Heatmap, Donut, SwatchLegend, LowDataNotice, type ReportProps, type FunnelStep,
 } from '@/components/reports/ReportKit'
 import {
   useRequestsMetric, useRequestTrend, useQuotesMetric, useEmployeesMetric,
@@ -107,8 +107,9 @@ export function TalepRaporu({ period, setCsv, setPdf }: ReportProps) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportSection title="Pazarlama kanalına göre">
           <BarList rows={labeledRows(data?.by_marketing)} empty="Kanal verisi yok." />
-          <p className="text-text-muted text-xs">Siteden gelenlerde otomatik (reklam tıklaması, UTM, yönlendiren); elle açılan taleplerde formdan seçilir.</p>
+          <p className="text-text-muted text-xs">Kanal başına dönüşüm (teklif→numune→sipariş) için <a className="text-accent-primary underline" href="/raporlar?rapor=genel">Genel Rapor</a>.</p>
         </ReportSection>
+        <ReportSection title="Gün × saat yoğunluğu"><Heatmap data={data?.by_dow_hour ?? []} /></ReportSection>
         <ReportSection title="Güne göre talep dağılımı"><BarList rows={dowRows(data?.by_dow)} /></ReportSection>
         <ReportSection title="Ürün kaynağına göre"><BarList rows={labeledRows(data?.by_product_source)} /></ReportSection>
         <ReportSection title="Kanala göre"><BarList rows={labeledRows(data?.by_channel)} /></ReportSection>

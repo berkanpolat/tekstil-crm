@@ -13,6 +13,18 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.42.0] — 2026-09-22
+
+### Genel Rapor Faz 2–3: YZ yorumu, reklam harcaması → CPL/CPA
+
+- **Reklam harcaması** (`20260922120000_pazarlama_harcama`): `marketing_spend` (kanal × ay, TRY/USD),
+  Ayarlar → **Pazarlama Harcaması** ızgarası (son 12 ay × reklam kanalları). Genel Rapor'da dönemle
+  kesişen aylar gün oranında paylaştırılır; KPI: harcama, CPL (talep başı), CPA (sipariş başı);
+  Kanal × Huni tablosunda Harcama / CPL / CPA sütunları. Yalnız `reports.finance` görür; yazma `settings.manage`.
+- **YZ yorumu:** Genel Rapor'da düğme; yalnız sayısal özet gider (`buildRaporYorumuPayload`), sonuç
+  sayfada ve PDF'te. `ai-assist` edge fonksiyonu yeniden dağıtıldı (v14, `rapor_yorumu` prompt'u).
+- Talep raporuna gün×saat ısı haritası ve Genel Rapor bağlantısı; panelde "Gelen talep" → Genel Rapor.
+
 ## [1.41.0] — 2026-09-22
 
 ### Genel Rapor v2 — kanal başına dönüşüm (pazarlama gözüyle, Faz 1)
