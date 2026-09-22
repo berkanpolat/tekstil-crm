@@ -1,108 +1,124 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
-  Kpi, ReportSection, ReportLoading, BarList, HourHistogram, Funnel, DataTable, type ReportProps, type FunnelStep,
+  Kpi, ReportSection, ReportLoading, BarList, Heatmap, TrendChart, Funnel, DataTable, FilterSelect,
+  type ReportProps, type FunnelStep,
 } from '@/components/reports/ReportKit'
-import { useRequestsMetric, useGenelMetric, type Labeled } from '@/hooks/useMetrics'
+import { ChannelFunnelTable } from '@/components/reports/ChannelFunnelTable'
+import { useRequestsMetric, useGenelMetric, useFilterOptions, type Labeled } from '@/hooks/useMetrics'
+import { deltaMetni, oranMetni, oneCikanKanallar, huniCsvSatirlari, HUNI_CSV_BASLIK } from '@/lib/reportFunnel'
 
-// ── GENEL RAPOR — tek sayfa (istek: Tuna, 21 Eyl 2026) ─────────────────────
-// Talep adedi · teklif verilen/verilmeyen · 24 saat sözü · il · pazarlama kanalı ·
-// katalog/manuel · gün-saat sıklığı · red sebepleri (+il) · kabul illeri ·
-// teklif→numune, numune→sipariş · huni · numune/sipariş sayısı.
-// Veri: metric_requests (talep tarafı) + metric_genel (durum/red/kabul tarafı).
-// "Yapılamaz" işareti henüz yok (madde 9 — Berkan'ın dalı bitince).
+// ── GENEL RAPOR v2 — pazarlama gözüyle tek sayfa (plan: 22 Eyl 2026) ─────
+// 1 filtre (pazarlama kanalı, URL `mk`) · 2 KPI şeridi (önceki dönemle) · 3 özet cümle
+// 4 Kanal × Huni · 5 eğilim (önceki dönem üstüne) · 6 ısı haritası | huni
+// 7 Kampanya × Huni (Faz 2) · 8 İl × Huni (Faz 2) · 9 kayıp analizi
+// Veri: metric_requests (talep tarafı, kanal filtreli) + metric_genel v2.
 
-const GUNLER = ['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
 const rows = (arr?: Labeled[]) => (arr ?? []).map((x) => ({ label: x.label, count: x.count }))
-const pct = (v?: number | null) => (v == null ? '—' : `%${v.toFixed(1)}`)
-const oran = (a: number, b: number) => (b > 0 ? `%${((100 * a) / b).toFixed(0)}` : '—')
+const pct = (v?: number | null) => (v == null ? '—' : `%${v.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}`)
+const sa = (v?: number | null) => (v == null ? '—' : `${v.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} sa`)
 
 export function GenelRaporu({ period, setCsv, setPdf }: ReportProps) {
-  const req = useRequestsMetric(period)
-  const gen = useGenelMetric(period)
+  const [sp, setSp] = useSearchParams()
+  const mk = sp.get('mk') ? Number(sp.get('mk')) : null
+  const opts = useFilterOptions()
+  const req = useRequestsMetric(period, { marketing: mk })
+  const gen = useGenelMetric(period, mk)
   const r = req.data
   const g = gen.data
-  const huni: FunnelStep[] = (g?.huni ?? []).map((h) => ({ label: h.label, value: h.value }))
-  const dow = (r?.by_dow ?? []).map((d) => ({ label: GUNLER[d.dow] ?? String(d.dow), count: d.count }))
-  const enYogunSaat = (r?.by_hour ?? []).reduce<{ hour: number; count: number } | null>((m, x) => (!m || x.count > m.count ? x : m), null)
-  const enYogunGun = dow.reduce<{ label: string; count: number } | null>((m, x) => (!m || x.count > m.count ? x : m), null)
+  const minBase = g?.min_rate_base ?? 5
+  const huni: FunnelStep[] = useMemo(() => (g?.huni ?? []).map((h) => ({ label: h.label, value: h.value })), [g])
+  const one = useMemo(() => oneCikanKanallar(g?.kanal_huni ?? [], minBase), [g, minBase])
+  const setMk = (v: string) => { const p = new URLSearchParams(sp); if (v) p.set('mk', v); else p.delete('mk'); setSp(p, { replace: true }) }
+  const kanalAdi = mk ? opts.data?.marketing.find((m) => m.value === mk)?.label : null
 
   useEffect(() => {
     if (!r || !g) { setCsv(null); setPdf(null); return }
-    setCsv({
-      filename: `genel-rapor-${period.key}`,
-      headers: ['Kırılım', 'Değer', 'Sayı'],
-      rows: [
-        ['Özet', 'Talep', g.talep], ['Özet', 'Teklif verilen', g.teklif_verilen], ['Özet', 'Teklif verilmeyen', g.teklif_verilmeyen],
-        ['Özet', 'Reddedilen', g.reddedilen], ['Özet', 'Kabul', g.kabul], ['Özet', 'Numune', g.numune_sayisi], ['Özet', 'Sipariş', g.siparis_sayisi],
-        ['Özet', '24 saat sözü %', r.sla_rate ?? ''],
-        ...(r.by_marketing ?? []).map((x) => ['Pazarlama kanalı', x.label, x.count] as (string | number)[]),
-        ...(r.by_city ?? []).map((x) => ['İl', x.label, x.count] as (string | number)[]),
-        ...(r.by_product_source ?? []).map((x) => ['Ürün kaynağı', x.label, x.count] as (string | number)[]),
-        ...(g.red_sebepleri ?? []).map((x) => ['Red sebebi', x.label, x.count] as (string | number)[]),
-        ...(g.red_sebebi_il ?? []).map((x) => ['Red sebebi × il', `${x.sebep} — ${x.il}`, x.count] as (string | number)[]),
-        ...(g.kabul_il ?? []).map((x) => ['Kabul ili', x.label, x.count] as (string | number)[]),
-      ],
-    })
+    const csvRows: (string | number)[][] = [
+      ['Özet', 'Talep', g.talep, g.onceki.talep, g.teklif_verilen, g.talep ? Math.round((1000 * g.teklif_verilen) / g.talep) / 10 : '', g.numune, g.siparis, g.talep ? Math.round((1000 * g.siparis) / g.talep) / 10 : '', g.reddedilen, g.talep ? Math.round((1000 * g.reddedilen) / g.talep) / 10 : '', g.ilk_yanit_saat ?? '', r.sla_rate ?? ''],
+      ...huniCsvSatirlari('Kanal', g.kanal_huni),
+      ...huniCsvSatirlari('Kampanya', g.kampanya_huni),
+      ...huniCsvSatirlari('İl', g.il_huni),
+      ...(r.by_product_source ?? []).map((x) => ['Ürün kaynağı', x.label, x.count] as (string | number)[]),
+      ...(g.red_sebepleri ?? []).map((x) => ['Red sebebi', x.label, x.count] as (string | number)[]),
+      ...(g.red_sebebi_kanal ?? []).map((x) => ['Red sebebi × kanal', `${x.sebep} — ${x.kanal}`, x.count] as (string | number)[]),
+      ...(g.red_sebebi_il ?? []).map((x) => ['Red sebebi × il', `${x.sebep} — ${x.il}`, x.count] as (string | number)[]),
+    ]
+    setCsv({ filename: `genel-rapor-${period.key}${mk ? '-kanal' + mk : ''}`, headers: HUNI_CSV_BASLIK, rows: csvRows })
+    const tablo = (rs: typeof g.kanal_huni) => rs.map((x) => [x.label, x.talep, `${x.teklif} (${oranMetni(x.teklif, x.talep, minBase)})`, `${x.numune} (${oranMetni(x.numune, x.teklif, minBase)})`, `${x.siparis} (${oranMetni(x.siparis, x.talep, minBase)})`, `${x.reddedilen} (${oranMetni(x.reddedilen, x.talep, minBase)})`, sa(x.ilk_yanit_saat), oranMetni(x.sla_met, x.sla_met + x.sla_missed, minBase)])
+    const tabloBaslik = ['Kırılım', 'Talep', 'Teklif', 'Numune', 'Sipariş', 'Red', 'İlk yanıt', '24s']
     setPdf({
       kpis: [
-        { label: 'Talep', value: String(g.talep), sub: `önceki dönem: ${r.prev_total ?? 0}` },
-        { label: 'Teklif verilen', value: String(g.teklif_verilen), sub: `${g.teklif_verilmeyen} verilmedi · ${g.reddedilen} reddedildi` },
-        { label: '24 saat sözü', value: pct(r.sla_rate), sub: `${r.sla_met_count ?? 0} tuttu · ${r.sla_missed_count ?? 0} kaçtı` },
+        { label: 'Talep', value: String(g.talep), sub: deltaMetni(g.talep, g.onceki.talep, minBase) },
+        { label: 'Teklif verilen', value: `${g.teklif_verilen} · ${oranMetni(g.teklif_verilen, g.talep, minBase)}`, sub: `${g.teklif_verilmeyen} verilmedi` },
+        { label: 'Sipariş', value: `${g.siparis} · ${oranMetni(g.siparis, g.talep, minBase)}`, sub: `talep→sipariş · önceki dönem ${pct(g.onceki.siparis_orani)}` },
+        { label: 'Red', value: `${g.reddedilen} · ${oranMetni(g.reddedilen, g.talep, minBase)}`, sub: 'reddedilen / iptal' },
+        { label: 'İlk yanıt', value: sa(g.ilk_yanit_saat), sub: `24 saat sözü ${pct(r.sla_rate)}` },
         { label: 'Numune / Sipariş', value: `${g.numune_sayisi} / ${g.siparis_sayisi}`, sub: `teklif→numune ${pct(g.teklif_numune_orani)} · numune→sipariş ${pct(g.numune_siparis_orani)}` },
       ],
       blocks: [
+        ...(one.enIyi ? [{ kind: 'sentence' as const, text: `En verimli kanal ${one.enIyi.label} (talep→sipariş ${pct(one.enIyi.siparis_orani)}, ${one.enIyi.talep} talep)${one.enKotu ? `; en yüksek red oranı ${one.enKotu.label} (${pct(one.enKotu.red_orani)})` : ''}.` }] : []),
+        { kind: 'table', title: 'Kanal × Huni', headers: tabloBaslik, rows: tablo(g.kanal_huni) },
+        { kind: 'trend', title: 'Talep eğilimi', points: g.egilim, caption: `${g.egilim_birim === 'hafta' ? 'Haftalık' : 'Günlük'}; kesikli çizgi önceki eşit uzunluktaki dönem.` },
+        { kind: 'heatmap', title: 'Gün × saat', data: r.by_dow_hour ?? [], caption: 'Koyu hücre = çok talep; çerçeveli hücre en yoğun saat (yerel saat).' },
         { kind: 'funnel', title: 'Dönüşüm hunisi', steps: huni, caption: 'Talep → teklif verildi → kabul/numune → sipariş (bu dönemde açılan talepler).' },
-        { kind: 'bars', title: 'Pazarlama kanalına göre', rows: rows(r.by_marketing) },
-        { kind: 'bars', title: 'İle göre', rows: rows(r.by_city) },
+        { kind: 'table', title: 'Kampanya × Huni', headers: tabloBaslik, rows: tablo(g.kampanya_huni.slice(0, 15)) },
+        { kind: 'table', title: 'İl × Huni', headers: tabloBaslik, rows: tablo(g.il_huni.slice(0, 20)) },
         { kind: 'bars', title: 'Ürün kaynağına göre (katalog / manuel)', rows: rows(r.by_product_source) },
-        { kind: 'hist', title: 'Saate göre', data: r.by_hour ?? [], caption: 'Taleplerin günün hangi saatlerinde yoğunlaştığı (yerel saat).' },
-        { kind: 'bars', title: 'Güne göre', rows: dow },
         { kind: 'bars', title: 'Red sebepleri', rows: rows(g.red_sebepleri) },
-        { kind: 'bars', title: 'Reddedilen taleplerin ili', rows: rows(g.red_il) },
-        { kind: 'bars', title: 'Kabul edilen taleplerin ili', rows: rows(g.kabul_il) },
+        { kind: 'table', title: 'Red sebebi × kanal', headers: ['Sebep', 'Kanal', 'Talep'], rows: g.red_sebebi_kanal.map((x) => [x.sebep, x.kanal, x.count]) },
       ],
     })
     return () => { setCsv(null); setPdf(null) }
-  }, [r, g, period.key, setCsv, setPdf]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [r, g, period.key, mk, minBase, one, huni, setCsv, setPdf])
 
   if (req.isLoading || gen.isLoading) return <ReportLoading />
   if (!r || !g) return <ReportLoading />
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Talep" value={String(g.talep)} sub={`önceki dönem: ${r.prev_total ?? 0}`} />
-        <Kpi label="Teklif verilen" value={String(g.teklif_verilen)} sub={`${g.teklif_verilmeyen} verilmedi · ${g.reddedilen} reddedildi`} />
-        <Kpi label="24 saat sözü" value={pct(r.sla_rate)}
-          tone={(r.sla_rate ?? 0) >= 80 ? 'text-success-foreground' : (r.sla_rate ?? 0) >= 50 ? 'text-warning-foreground' : 'text-danger-foreground'}
-          sub={`${r.sla_met_count ?? 0} tuttu · ${r.sla_missed_count ?? 0} kaçtı · ${r.sla_pending_count ?? 0} sürüyor`} />
-        <Kpi label="Numune / Sipariş" value={`${g.numune_sayisi} / ${g.siparis_sayisi}`}
-          sub={`teklif→numune ${pct(g.teklif_numune_orani)} · numune→sipariş ${pct(g.numune_siparis_orani)}`} />
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <FilterSelect label="Pazarlama kanalı" value={sp.get('mk') ?? ''} onChange={setMk} options={opts.data?.marketing ?? []} />
+        {kanalAdi && <span className="text-text-secondary text-xs">Yalnız <strong className="text-foreground">{kanalAdi}</strong> kanalı gösteriliyor — kampanya ve il tabloları bu kanalın içidir.</span>}
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <Kpi label="Talep" value={String(g.talep)} sub={deltaMetni(g.talep, g.onceki.talep, minBase)} />
+        <Kpi label="Teklif verilen" value={`${g.teklif_verilen} · ${oranMetni(g.teklif_verilen, g.talep, minBase)}`} sub={`${g.teklif_verilmeyen} verilmedi`} />
+        <Kpi label="Sipariş" value={`${g.siparis} · ${oranMetni(g.siparis, g.talep, minBase)}`} sub={`talep→sipariş · önceki ${pct(g.onceki.siparis_orani)}`} tone="text-success-foreground" />
+        <Kpi label="Red" value={`${g.reddedilen} · ${oranMetni(g.reddedilen, g.talep, minBase)}`} sub="reddedilen / iptal" tone={(g.talep && g.reddedilen / g.talep > 0.4) ? 'text-danger-foreground' : undefined} />
+        <Kpi label="İlk yanıt" value={sa(g.ilk_yanit_saat)} sub={`24 saat sözü ${pct(r.sla_rate)}${r.sla_unknown_count ? ` · ${r.sla_unknown_count} bilinmiyor` : ''}`} />
+        <Kpi label="Numune / Sipariş" value={`${g.numune_sayisi} / ${g.siparis_sayisi}`} sub={`teklif→numune ${pct(g.teklif_numune_orani)} · numune→sipariş ${pct(g.numune_siparis_orani)}`} />
       </div>
       {g.talep > 0 && (
         <p className="text-text-secondary text-sm leading-snug">
-          <strong className="text-foreground">{g.talep} talebin</strong> {g.teklif_verilen}'ine teklif verildi ({oran(g.teklif_verilen, g.talep)}),{' '}
-          {g.reddedilen}'i reddedildi, {g.kabul}'ü numune ya da sonrasına geçti.
-          {enYogunGun && enYogunSaat ? <> En yoğun gün <strong className="text-foreground">{enYogunGun.label}</strong>, en yoğun saat <strong className="text-foreground">{enYogunSaat.hour}:00</strong>.</> : null}
+          <strong className="text-foreground">{g.talep} talebin</strong> {g.teklif_verilen}'ine teklif verildi ({oranMetni(g.teklif_verilen, g.talep, minBase)}), {g.reddedilen}'i reddedildi, {g.kabul}'ü numune ya da sonrasına geçti.
+          {one.enIyi && <> En verimli kanal <strong className="text-foreground">{one.enIyi.label}</strong> (talep→sipariş {pct(one.enIyi.siparis_orani)}, {one.enIyi.talep} talep){one.enKotu && <>; en yüksek red oranı <strong className="text-foreground">{one.enKotu.label}</strong> ({pct(one.enKotu.red_orani)})</>}.</>}
         </p>
       )}
-      <ReportSection title="Dönüşüm hunisi"><Funnel steps={huni} /></ReportSection>
+      <ReportSection title="Kanal × Huni">
+        <ChannelFunnelTable rows={g.kanal_huni} labelHeader="Pazarlama kanalı" minBase={minBase} onRowClick={mk ? undefined : (row) => { const o = opts.data?.marketing.find((m) => m.label === row.label); if (o) setMk(String(o.value)) }} />
+      </ReportSection>
+      <ReportSection title="Talep eğilimi"><TrendChart points={g.egilim} unit={g.egilim_birim} /></ReportSection>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ReportSection title="Pazarlama kanalına göre">
-          <BarList rows={rows(r.by_marketing)} empty="Kanal verisi yok." />
-          <p className="text-text-muted text-xs">Siteden gelenlerde otomatik (reklam tıklaması, UTM, yönlendiren); elle açılan taleplerde formdan seçilir.</p>
+        <ReportSection title="Gün × saat yoğunluğu">
+          <Heatmap data={r.by_dow_hour ?? []} />
+          <p className="text-text-muted text-xs">Koyu hücre = çok talep; çerçeveli hücre en yoğun saat. Reklam saat planı için.</p>
         </ReportSection>
-        <ReportSection title="İle göre"><BarList rows={rows(r.by_city)} empty="İl verisi yok." /></ReportSection>
-        <ReportSection title="Ürün kaynağına göre"><BarList rows={rows(r.by_product_source)} /></ReportSection>
-        <ReportSection title="Güne göre"><BarList rows={dow} /></ReportSection>
+        <ReportSection title="Dönüşüm hunisi"><Funnel steps={huni} /></ReportSection>
       </div>
-      <ReportSection title="Saate göre talep dağılımı">
-        <HourHistogram data={r.by_hour ?? []} />
-        <p className="text-text-muted text-xs">0–23, yerel saat.</p>
+      <ReportSection title="Kampanya × Huni">
+        <ChannelFunnelTable rows={g.kampanya_huni.slice(0, 15)} labelHeader="Kampanya (utm_campaign)" minBase={minBase} compact showSpeed={false} empty="Kampanya verisi yok — reklam bağlantılarında utm_campaign kullanın." />
+        {g.kampanya_huni.length > 15 && <p className="text-text-muted text-xs">İlk 15 kampanya gösteriliyor; tamamı CSV'de.</p>}
+      </ReportSection>
+      <ReportSection title="İl × Huni">
+        <ChannelFunnelTable rows={g.il_huni.slice(0, 20)} labelHeader="İl" minBase={minBase} compact showSpeed={false} empty="İl verisi yok." />
       </ReportSection>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <ReportSection title="Ürün kaynağına göre"><BarList rows={rows(r.by_product_source)} /></ReportSection>
         <ReportSection title="Red sebepleri"><BarList rows={rows(g.red_sebepleri)} barClass="bg-danger-foreground" empty="Bu dönemde red yok." /></ReportSection>
-        <ReportSection title="Reddedilenlerin ili"><BarList rows={rows(g.red_il)} barClass="bg-danger-foreground" empty="Bu dönemde red yok." /></ReportSection>
-        <ReportSection title="Kabul edilenlerin ili"><BarList rows={rows(g.kabul_il)} barClass="bg-success-foreground" empty="Bu dönemde kabul yok." /></ReportSection>
+        <ReportSection title="Red sebebi × kanal">
+          <DataTable cols={[{ key: 'sebep', label: 'Sebep' }, { key: 'kanal', label: 'Kanal' }, { key: 'count', label: 'Talep', align: 'right' }]}
+            rows={(g.red_sebebi_kanal ?? []) as unknown as Record<string, unknown>[]} empty="Bu dönemde red yok." />
+        </ReportSection>
       </div>
       <ReportSection title="Red sebebi × il">
         <DataTable cols={[{ key: 'sebep', label: 'Sebep' }, { key: 'il', label: 'İl' }, { key: 'count', label: 'Talep', align: 'right' }]}

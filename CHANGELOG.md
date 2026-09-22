@@ -13,6 +13,25 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ---
 
+## [1.41.0] — 2026-09-22
+
+### Genel Rapor v2 — kanal başına dönüşüm (pazarlama gözüyle, Faz 1)
+
+Migration `20260922100000_genel_rapor_v2_kanal_huni` + `20260922110000_sla_bilinmeyen` (canlıda, defterde).
+
+- **Kanal × Huni tablosu:** her pazarlama kanalı için talep → teklif → numune → sipariş sayıları ve
+  oranları, red payı, bekleyen, ilk yanıt süresi, 24 saat sözü, teklif yanıt süresi; sıralanabilir,
+  Toplam satırı, düşük veri (talep < `reports.min_rate_base`=5) soluk ve oransız; satıra tıkla → o kanala in.
+- **Kampanya × Huni** (`utm_campaign`, ilk 15) ve **İl × Huni** (ilk 20) aynı tabloyla.
+- **Önceki dönem:** eşit uzunluktaki önceki pencereyle kıyas (KPI altı ▲/▼, eğilimde kesikli çizgi).
+- **Gün × saat ısı haritası** (7×24, en yoğun hücre çerçeveli) ve **eğilim** (gün / 35 gün üstü hafta).
+- Kanal filtresi (URL `mk`), metric_requests'e `p_marketing` + `by_dow_hour`; KPI şeridi 6 kart;
+  özet cümlede en verimli / en yüksek red oranlı kanal; red sebebi × kanal.
+- SLA: teklif verilmiş görünen ama CRM'de teklif kaydı olmayan talepler (21 Eyl geri yüklemesi)
+  24 saat sözünde "kaçırdı" sayılmaz → `sla_unknown_count`.
+- PDF'e `heatmap` ve `trend` blokları; CSV geniş tek tablo (kanal/kampanya/il satırları).
+- Yeni: `src/lib/reportFunnel.ts` (+20 birim testi), `ChannelFunnelTable`, `Heatmap`, `TrendChart`, `FilterSelect`.
+
 ## [1.40.2] — 2026-09-22
 
 ### Düzeltme: raporlarda "İle göre" boş görünüyordu

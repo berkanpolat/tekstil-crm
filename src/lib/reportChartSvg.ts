@@ -92,6 +92,58 @@ export function donutSvg(segments: DonutSegment[], opts: { size?: number; thickn
   )
 }
 
+/** Gün×saat ısı haritası — 7 satır (Pzt…Paz) × 24 sütun; opaklık = count/max; en yoğun hücre çerçeveli. */
+export function dowHourHeatmapSvg(data: { dow: number; hour: number; count: number }[], opts: { width?: number; cellH?: number } = {}): string {
+  const width = opts.width ?? 560, cellH = opts.cellH ?? 16
+  const labelW = 34, padT = 14, gap = 2
+  const cellW = (width - labelW - gap * 23) / 24
+  const map = new Map(data.map((d) => [`${d.dow}-${d.hour}`, d.count]))
+  const max = Math.max(1, ...data.map((d) => d.count))
+  const peak = data.reduce<{ dow: number; hour: number; count: number } | null>((m, d) => (!m || d.count > m.count ? d : m), null)
+  const GUN = ['', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
+  const height = padT + 7 * (cellH + gap)
+  let body = ''
+  for (let h = 0; h < 24; h += 3) body += `<text x="${labelW + h * (cellW + gap) + cellW / 2}" y="${padT - 4}" font-size="9" text-anchor="middle" fill="${SVGC.muted}">${h}</text>`
+  for (let d = 1; d <= 7; d++) {
+    const y = padT + (d - 1) * (cellH + gap)
+    body += `<text x="0" y="${y + cellH / 2}" font-size="10" dominant-baseline="central" fill="${SVGC.muted}">${GUN[d]}</text>`
+    for (let h = 0; h < 24; h++) {
+      const c = map.get(`${d}-${h}`) ?? 0
+      const x = labelW + h * (cellW + gap)
+      const op = c ? Math.max(0.18, c / max) : 1
+      const isPeak = peak && c > 0 && peak.dow === d && peak.hour === h
+      body += `<rect x="${x.toFixed(1)}" y="${y}" width="${cellW.toFixed(1)}" height="${cellH}" rx="2" fill="${c ? SVGC.accent : SVGC.track}" fill-opacity="${op.toFixed(2)}"${isPeak ? ` stroke="${SVGC.text}" stroke-width="1.5"` : ''}><title>${GUN[d]} ${h}:00 — ${c} talep</title></rect>`
+    }
+  }
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Gün ve saate göre talep">${body}</svg>`
+}
+
+export interface TrendPointV2 { gun: string; count: number; onceki_count?: number }
+/** Eğilim çizgisi — bu dönem (mor, dolgulu) + önceki dönem (gri kesikli). Sabit oran; PDF'te bozulmaz. */
+export function trendSvg(points: TrendPointV2[], opts: { width?: number; height?: number } = {}): string {
+  if (!points.length) return ''
+  const width = opts.width ?? 560, height = opts.height ?? 140
+  const padL = 4, padR = 4, padT = 8, padB = 18
+  const W = width - padL - padR, H = height - padT - padB
+  const max = Math.max(1, ...points.map((p) => Math.max(p.count, p.onceki_count ?? 0)))
+  const step = points.length > 1 ? W / (points.length - 1) : 0
+  const xy = (i: number, v: number) => [padL + i * step, padT + H - (v / max) * H] as const
+  const path = (sel: (p: TrendPointV2) => number | undefined) => points
+    .map((p, i) => { const v = sel(p); return v == null ? null : xy(i, v) })
+    .map((pt, i) => (pt ? `${i === 0 ? 'M' : 'L'}${pt[0].toFixed(1)},${pt[1].toFixed(1)}` : '')).join(' ').trim()
+  const cur = path((p) => p.count)
+  const prev = points.some((p) => p.onceki_count != null) ? path((p) => p.onceki_count) : ''
+  const area = `${cur} L${(padL + (points.length - 1) * step).toFixed(1)},${padT + H} L${padL},${padT + H} Z`
+  const first = points[0]!.gun.slice(5), last = points[points.length - 1]!.gun.slice(5)
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Talep eğilimi">` +
+    `<path d="${area}" fill="${SVGC.accent}" fill-opacity="0.10"/>` +
+    (prev ? `<path d="${prev}" fill="none" stroke="${SVGC.muted}" stroke-width="1.2" stroke-dasharray="4 3"/>` : '') +
+    `<path d="${cur}" fill="none" stroke="${SVGC.accent}" stroke-width="2" stroke-linejoin="round"/>` +
+    `<text x="${padL}" y="${height - 4}" font-size="9" fill="${SVGC.muted}">${escapeHtml(first)}</text>` +
+    `<text x="${width - padR}" y="${height - 4}" font-size="9" text-anchor="end" fill="${SVGC.muted}">${escapeHtml(last)}</text>` +
+    `</svg>`
+}
+
 // ── PDF gövde modeli (ekran raporu → yazdırılabilir yapı) ───────────────
 // Her rapor bu modeli setPdf ile bildirir; reportPdf.ts serileştirir.
 export interface ReportKpi { label: string; value: string; sub?: string }
@@ -103,4 +155,6 @@ export type ReportBlock =
   | { kind: 'bars'; title: string; rows: { label: string; count: number }[]; empty?: string }
   | { kind: 'table'; title: string; headers: string[]; rows: (string | number)[][] }
   | { kind: 'notice'; variant: 'low' | 'none'; title: string; text: string }
+  | { kind: 'heatmap'; title: string; data: { dow: number; hour: number; count: number }[]; caption?: string }
+  | { kind: 'trend'; title: string; points: TrendPointV2[]; caption?: string }
 export interface ReportPdfModel { kpis: ReportKpi[]; blocks: ReportBlock[] }

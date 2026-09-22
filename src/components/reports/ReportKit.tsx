@@ -5,8 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PERIODS, type Period, type PeriodKey } from '@/hooks/useMetrics'
 import {
   funnelSvg, hourHistogramSvg, donutSvg, CHART_PALETTE,
-  type FunnelStep, type DonutSegment, type ReportPdfModel,
-} from '@/lib/reportChartSvg'
+  type FunnelStep, type DonutSegment, type ReportPdfModel, dowHourHeatmapSvg, trendSvg, type TrendPointV2 } from '@/lib/reportChartSvg'
 // Grafik geometrisi + PDF modeli tek kaynak (reportChartSvg); buradan yeniden dışa verilir.
 export type { FunnelStep, DonutSegment, ReportKpi, ReportBlock, ReportPdfModel } from '@/lib/reportChartSvg'
 
@@ -211,6 +210,41 @@ export function TrendLine({ points, height = 96 }: { points: { day: string; coun
         <span>{points[points.length - 1]?.day.slice(5)}</span>
       </div>
     </div>
+  )
+}
+
+/** Gün×saat ısı haritası (saf SVG; PDF ile aynı çizim). */
+export function Heatmap({ data, width = 560 }: { data: { dow: number; hour: number; count: number }[]; width?: number }) {
+  if (!data.length) return <p className="text-text-secondary py-4 text-sm">Veri yok.</p>
+  return <div dangerouslySetInnerHTML={{ __html: dowHourHeatmapSvg(data, { width }) }} />
+}
+
+/** Eğilim (bu dönem + önceki dönem kesikli) — saf SVG; PDF ile aynı çizim. */
+export function TrendChart({ points, unit }: { points: TrendPointV2[]; unit?: 'gun' | 'hafta' }) {
+  if (!points.length) return <p className="text-text-secondary py-6 text-center text-sm">Henüz veri yok.</p>
+  const peak = Math.max(...points.map((p) => p.count)), last = points[points.length - 1]?.count ?? 0
+  return (
+    <div className="space-y-1">
+      <div dangerouslySetInnerHTML={{ __html: trendSvg(points) }} />
+      <div className="text-text-secondary flex justify-between text-xs tabular-nums">
+        <span>{unit === 'hafta' ? 'haftalık' : 'günlük'} · <span className="inline-block h-0.5 w-4 align-middle bg-accent-primary" /> bu dönem · <span className="inline-block h-0.5 w-4 border-t border-dashed border-text-muted align-middle" /> önceki eşit dönem</span>
+        <span>zirve {peak} · son {last}</span>
+      </div>
+    </div>
+  )
+}
+
+/** Kırılım filtresi (select). Boş değer = Tümü. */
+export function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: number; label: string }[] }) {
+  return (
+    <label className="flex items-center gap-1.5 text-sm">
+      <span className="text-text-secondary">{label}:</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}
+        className="rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground">
+        <option value="">Tümü</option>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </label>
   )
 }
 

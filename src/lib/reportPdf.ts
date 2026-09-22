@@ -7,8 +7,7 @@
 import { belgePdfUret } from './belgeMotoru'
 import {
   funnelSvg, hourHistogramSvg, donutSvg, escapeHtml, CHART_PALETTE,
-  type ReportPdfModel, type ReportBlock, type ReportKpi,
-} from './reportChartSvg'
+  type ReportPdfModel, type ReportBlock, type ReportKpi, dowHourHeatmapSvg, trendSvg } from './reportChartSvg'
 
 const CARD = 'border:1px solid #ececf1;border-radius:10px;background:#fff'
 
@@ -81,6 +80,10 @@ function blockHtml(b: ReportBlock): string {
       return section(b.title, tableHtml(b.headers, b.rows))
     case 'notice':
       return noticeHtml(b.variant, b.title, b.text)
+    case 'heatmap':
+      return section(b.title, dowHourHeatmapSvg(b.data) + (b.caption ? `<p style="font-size:11px;color:#6b7280;margin:8px 0 0">${escapeHtml(b.caption)}</p>` : ''))
+    case 'trend':
+      return section(b.title, trendSvg(b.points) + (b.caption ? `<p style="font-size:11px;color:#6b7280;margin:8px 0 0">${escapeHtml(b.caption)}</p>` : ''))
   }
 }
 

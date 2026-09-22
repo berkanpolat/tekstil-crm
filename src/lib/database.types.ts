@@ -5717,7 +5717,10 @@ export type Database = {
         Args: { p_from: string; p_scope_user?: string; p_to: string }
         Returns: Json
       }
-      metric_genel: { Args: { p_from: string; p_to: string }; Returns: Json }
+      metric_genel: {
+        Args: { p_from: string; p_marketing?: number; p_to: string }
+        Returns: Json
+      }
       metric_interactions: {
         Args: {
           p_channel?: number
@@ -5746,6 +5749,7 @@ export type Database = {
           p_category?: number
           p_channel?: number
           p_from: string
+          p_marketing?: number
           p_province?: number
           p_scope_user?: string
           p_to: string

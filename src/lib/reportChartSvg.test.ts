@@ -103,3 +103,21 @@ describe('buildReportBodyHtml', () => {
     expect(html).toContain('#fdf6e3') // low amber arka plan
   })
 })
+
+import { dowHourHeatmapSvg, trendSvg } from './reportChartSvg'
+describe('dowHourHeatmapSvg', () => {
+  const svg = dowHourHeatmapSvg([{ dow: 1, hour: 9, count: 4 }, { dow: 5, hour: 15, count: 9 }])
+  it('7×24 hücre çizer', () => { expect(count(svg, '<rect')).toBe(168) })
+  it('en yoğun hücre çerçeveli, diğerleri değil', () => { expect(count(svg, 'stroke-width="1.5"')).toBe(1) })
+  it('gün etiketleri var', () => { expect(svg).toContain('Pzt'); expect(svg).toContain('Paz') })
+  it('boş veri yine 168 hücre', () => { expect(count(dowHourHeatmapSvg([]), '<rect')).toBe(168) })
+})
+describe('trendSvg', () => {
+  it('boş seri → boş string', () => { expect(trendSvg([])).toBe('') })
+  it('yalnız bu dönem → 2 path (alan + çizgi)', () => { expect(count(trendSvg([{ gun: '2026-09-01', count: 3 }, { gun: '2026-09-02', count: 5 }]), '<path')).toBe(2) })
+  it('önceki dönem varsa 3 path, kesikli', () => {
+    const s = trendSvg([{ gun: '2026-09-01', count: 3, onceki_count: 1 }, { gun: '2026-09-02', count: 5, onceki_count: 2 }])
+    expect(count(s, '<path')).toBe(3); expect(s).toContain('stroke-dasharray')
+  })
+  it('tarih etiketleri kısaltılmış', () => { expect(trendSvg([{ gun: '2026-09-01', count: 1 }])).toContain('>09-01<') })
+})
